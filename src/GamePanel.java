@@ -116,8 +116,8 @@ public class GamePanel extends JPanel implements Runnable {
     // Μουσική μέρας/νύχτας
     public String currentDayMusic = "overworld_day";   // Μουσική μέρας
     public String currentNightMusic = "overworld_night"; // Μουσική νύχτας
-    public float targetMusicVolume = 0.7f;  // Στόχος έντασης (0-1)
-    public float currentMusicVolume = 0.7f; // Τρέχουσα ένταση
+    public float targetMusicVolume = 0.3f;  // Στόχος έντασης (0-1)
+    public float currentMusicVolume = 0.3f; // Τρέχουσα ένταση
     public boolean isCrossfading = false;   // Αν γίνεται crossfade
     public String nextMusic = "";           // Επόμενη μουσική για crossfade
     public final float CROSSFADE_SPEED = 0.01f;
@@ -187,6 +187,12 @@ public class GamePanel extends JPanel implements Runnable {
     public BufferedImage battleBackground;
     public ArrayList<BattleEnemy> battleEnemies = new ArrayList<>();
     public ArrayList<BattlePlayer> battlePlayers = new ArrayList<>();
+    public int groundY = 0; // Το ύψος του εδάφους
+    public int groundX = 0; // Η θέση Χ του εδάφους (για κλίση)
+    public double groundAngle = 0.17; // 10 μοίρες σε radians (10 * π/180)
+    public int groundWidth = screenWidth; // Πλάτος εδάφους
+    public int groundHeight = tileSize * 2; // Ύψος εδάφους
+    public BufferedImage groundImage; // Η εικόνα του εδάφους
 
     // ΠΟΖΕΣ
     BufferedImage playerDown1, playerDown2;
@@ -204,7 +210,7 @@ public class GamePanel extends JPanel implements Runnable {
     public String[] pauseOptions = {"FULLSCREEN", "MUSIC VOLUME", "SOUND VOLUME", "CONTROLS", "QUIT GAME"};
 
     // Για volume control
-    public int musicVolume = 70; // 0-100
+    public int musicVolume = 30; // 0-100
     public int soundVolume = 70; // 0-100
     public int volumeSettingMode = 0; // 0=κανένα, 1=music, 2=sound
     public int quitConfirmOption = 0; // 0=NO, 1=YES
@@ -2450,7 +2456,15 @@ public class GamePanel extends JPanel implements Runnable {
         battleFadeAlpha = 0;
         battleFadeIn = false;
 
-        //gameState = battleState;
+        try {
+            groundImage = ImageIO.read(new File("res/battle/ground_grass.png"));
+            if (groundImage == null) {
+                // Fallback: δημιούργησε gradient ground
+                groundImage = createGroundGradient();
+            }
+        } catch (Exception e) {
+            groundImage = createGroundGradient();
+        }
 
         
         // Δημιούργησε τυχαίο background για τη μάχη
@@ -2461,6 +2475,23 @@ public class GamePanel extends JPanel implements Runnable {
         
         // Άλλαξε μουσική
         sound.playMusic("battle");
+    }
+
+    public BufferedImage createGroundGradient() {
+        BufferedImage ground = new BufferedImage(groundWidth, groundHeight, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g2d = ground.createGraphics();
+        
+        // Gradient από σκούρο σε ανοιχτό πράσινο
+        GradientPaint gradient = new GradientPaint(
+            0, 0, new Color(34, 139, 34),    // Forest green
+            0, groundHeight, new Color(144, 238, 144) // Light green
+        );
+        
+        g2d.setPaint(gradient);
+        g2d.fillRect(0, 0, groundWidth, groundHeight);
+        g2d.dispose();
+        
+        return ground;
     }
 
     public void createBattleBackground() {
@@ -2512,36 +2543,35 @@ public class GamePanel extends JPanel implements Runnable {
         battleEnemies.clear();
         battlePlayers.clear();
         
+        // Υπολόγισε τη θέση του εδάφους (στο κάτω μέρος της οθόνης)
+        groundY = screenHeight - groundHeight - tileSize - 100;
+        groundX = 0;
+        
         // Δημιούργησε τους εχθρούς
         BattleEnemy be = new BattleEnemy();
         be.enemy = currentEnemy;
         be.hp = currentEnemy.hp;
         be.maxHp = currentEnemy.maxHp;
         
-        // ΦΟΡΤΩΣΕ ΤΗ ΣΩΣΤΗ ΕΙΚΟΝΑ (δεξιά κατεύθυνση)
+        // Φόρτωσε εικόνα εχθρού
         try {
             String enemyName = currentEnemy.getClass().getSimpleName().replace("Enemy_", "").toLowerCase();
             File rightImage = new File("res/enemy/" + enemyName + "_right_1.png");
             
             if (rightImage.exists()) {
                 be.image = ImageIO.read(rightImage);
-                System.out.println("Φορτώθηκε δεξιά εικόνα για " + enemyName);
             } else {
-                // Αν δεν υπάρχει δεξιά εικόνα, χρησιμοποίησε την κανονική
                 be.image = currentEnemy.currentImage;
-                System.out.println("Δεν βρέθηκε δεξιά εικόνα για " + enemyName + ", χρησιμοποιείται η κανονική");
             }
         } catch (Exception e) {
-            // Σε περίπτωση λάθους, χρησιμοποίησε την κανονική εικόνα
             be.image = currentEnemy.currentImage;
-            System.out.println("Σφάλμα στη φόρτωση εικόνας, χρησιμοποιείται η κανονική");
         }
         
         // Ο εχθρός ξεκινάει εκτός οθόνης ΑΡΙΣΤΕΡΑ
         be.x = -tileSize * 4;
-        be.y = screenHeight/2 - tileSize;
-        be.targetX = tileSize * 2;
-        be.targetY = screenHeight/2 - tileSize;
+        be.y = groundY - tileSize; // Πάνω στο έδαφος
+        be.targetX = tileSize * 3;
+        be.targetY = groundY - tileSize;
         
         battleEnemies.add(be);
         
@@ -2555,9 +2585,9 @@ public class GamePanel extends JPanel implements Runnable {
         
         // Ο παίκτης ξεκινάει εκτός οθόνης ΔΕΞΙΑ
         bp.x = screenWidth + tileSize * 2;
-        bp.y = screenHeight/2 - tileSize;
+        bp.y = groundY - tileSize;
         bp.targetX = screenWidth - tileSize * 5;
-        bp.targetY = screenHeight/2 - tileSize;
+        bp.targetY = groundY - tileSize;
         
         battlePlayers.add(bp);
     }
@@ -3052,15 +3082,94 @@ public class GamePanel extends JPanel implements Runnable {
             g2.drawImage(battleBackground, 0, 0, screenWidth, screenHeight, null);
         }
         
+        // ========== ΖΩΓΡΑΦΙΣΕ ΤΗΝ ΠΛΑΤΦΟΡΜΑ ΜΕ ΕΙΚΟΝΑ ==========
+        if (groundImage != null) {
+            // Υπολόγισε τις συντεταγμένες της πλατφόρμας
+            int groundScreenX = groundX; // Συνήθως 0
+            int groundScreenY = groundY; // Αυτό το έχεις υπολογίσει στο setupBattleEntities
+
+            int gw = groundWidth;   // Πλάτος (συνήθως screenWidth)
+            int gh = groundHeight;  // Ύψος (π.χ. tileSize * 2)
+
+            // Πόσο θα στενέψει η πάνω πλευρά για προοπτική (τώρα θα είναι αρνητικό για να βγαίνει έξω)
+            int topInset = -200; // ΑΡΝΗΤΙΚΗ ΤΙΜΗ για να βγουν οι πάνω γωνίες ΕΞΩ από την οθόνη
+
+            // ΕΠΙΜΗΚΥΝΣΗ: Τα κάτω σημεία βγαίνουν έξω από την οθόνη αριστερά και δεξιά
+            int leftExtension = 500;  // Πόσο θα βγει αριστερά
+            int rightExtension = 500; // Πόσο θα βγει δεξιά
+
+            // Ορίζουμε τις 4 γωνίες του τραπεζίου (σε screen coordinates)
+            int[] xPoints = {
+                groundScreenX + topInset,           // Πάνω αριστερά (βγαίνει αριστερά)
+                groundScreenX + gw - topInset,      // Πάνω δεξιά (βγαίνει δεξιά)
+                groundScreenX + gw + rightExtension, // Κάτω δεξιά (βγαίνει δεξιά)
+                groundScreenX - leftExtension        // Κάτω αριστερά (βγαίνει αριστερά)
+            };
+            int[] yPoints = {
+                groundScreenY,                        // Πάνω αριστερά
+                groundScreenY,                        // Πάνω δεξιά
+                groundScreenY + gh,                   // Κάτω δεξιά
+                groundScreenY + gh                     // Κάτω αριστερά
+            };
+
+            // Ζωγράφισε την εικόνα του εδάφους ΠΑΝΩ στο τραπέζιο
+            // Χρησιμοποιούμε clipping για να "κόψουμε" την εικόνα στο σχήμα του τραπεζίου
+            
+            // Αποθήκευσε το παλιό clip
+            java.awt.Shape oldClip = g2.getClip();
+            
+            // Δημιούργησε polygon στο σχήμα του τραπεζίου και όρισέ το ως νέο clip
+            java.awt.Polygon groundPolygon = new java.awt.Polygon(xPoints, yPoints, 4);
+            g2.setClip(groundPolygon);
+            
+            // Ζωγράφισε την εικόνα να καλύπτει όλη την περιοχή
+            // Η εικόνα θα "κοπεί" αυτόματα στο σχήμα του τραπεζίου
+            g2.drawImage(groundImage, 
+                groundScreenX - leftExtension - 100,  // Ξεκίνα πιο αριστερά (ακόμα πιο έξω)
+                groundScreenY - 50,                    // Ξεκίνα πιο πάνω
+                gw + leftExtension + rightExtension + 200, // Ακόμα πιο φαρδιά
+                gh + 100,                               // Πιο ψηλή
+                null);
+            
+            // Επαναφορά του παλιού clip
+            g2.setClip(oldClip);
+            
+            // Σκιά από κάτω (για να φαίνεται ότι "πατάει" στο έδαφος)
+            g2.setColor(new Color(0, 0, 0, 70));
+            int[] shadowX = {
+                groundScreenX - leftExtension + 20, 
+                groundScreenX + gw + rightExtension - 20, 
+                groundScreenX + gw + rightExtension, 
+                groundScreenX - leftExtension
+            };
+            int[] shadowY = {
+                groundScreenY + gh, 
+                groundScreenY + gh, 
+                groundScreenY + gh + 15, 
+                groundScreenY + gh + 15
+            };
+            g2.fillPolygon(shadowX, shadowY, 4);
+
+        } else {
+            // Fallback: απλό έδαφος
+            g2.setColor(new Color(34, 139, 34));
+            g2.fillRect(0, screenHeight - tileSize*3, screenWidth, tileSize*2);
+        }
+        
         // ========== ΖΩΓΡΑΦΙΣΕ ΕΧΘΡΟΥΣ ==========
         for (BattleEnemy be : battleEnemies) {
             int drawX = (int)be.x;
             int drawY = (int)be.y;
             
+            // Σκιά
+            g2.setColor(new Color(0, 0, 0, 100));
+            g2.fillOval(drawX + tileSize/2, drawY + tileSize*2 - 5, tileSize*2, tileSize/3);
+            
+            // Εχθρός
             int spriteSize = tileSize * 2;
             g2.drawImage(be.image, drawX, drawY, spriteSize, spriteSize, null);
             
-            // HP Bar εχθρού
+            // HP Bar
             int barWidth = spriteSize;
             int barHeight = 8;
             int barY = drawY - 15;
@@ -3083,6 +3192,10 @@ public class GamePanel extends JPanel implements Runnable {
         for (BattlePlayer bp : battlePlayers) {
             int drawX = (int)bp.x;
             int drawY = (int)bp.y;
+            
+            // Σκιά
+            g2.setColor(new Color(0, 0, 0, 100));
+            g2.fillOval(drawX + tileSize/2, drawY + tileSize*2 - 5, tileSize*2, tileSize/3);
             
             int spriteSize = tileSize * 2;
             g2.drawImage(bp.image, drawX, drawY, spriteSize, spriteSize, null);
@@ -3120,10 +3233,10 @@ public class GamePanel extends JPanel implements Runnable {
         // Μην εμφανίζεις το μενού κατά τη διάρκεια του transition
         if (!battleEntering) {
             // Μενού επιλογών
-            int menuX = screenWidth/2 - 200;
+            int menuX = 0;
             int menuY = screenHeight - tileSize * 3;
-            int menuWidth = 400;
-            int menuHeight = 80;
+            int menuWidth = screenWidth;
+            int menuHeight = tileSize * 3;
             
             drawPanel(g2, menuX, menuY, menuWidth, menuHeight, new Color(0, 0, 0, 220), Color.white);
             
