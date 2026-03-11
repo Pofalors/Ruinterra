@@ -72,6 +72,11 @@ public class Entity {
         
         while (exp >= expToNextLevel) {
             levelUp();
+            // Μήνυμα level up
+            if (gp != null) {
+                gp.startDialogue("Level Up! Έγινες level " + level + "!");
+                // Προσοχή: μην αλλάξεις το gameState εδώ γιατί είσαι σε μάχη
+            }
         }
     }
     

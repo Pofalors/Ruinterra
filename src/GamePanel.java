@@ -167,8 +167,6 @@ public class GamePanel extends JPanel implements Runnable {
     public ArrayList<ArrayList<Enemy>> enemies = new ArrayList<>();
     public final int battleState = 4;
     public Enemy currentEnemy;
-    public int battleOption = 0; // 0=Attack, 1=Magic, 2=Item, 3=Run
-    public String[] battleOptions = {"Attack", "Magic", "Item", "Run"};
     // Random Encounters
     public int encounterStepCounter = 0;
     public int encounterRate = 20; // Κάθε 20 βήματα
@@ -189,10 +187,23 @@ public class GamePanel extends JPanel implements Runnable {
     public ArrayList<BattlePlayer> battlePlayers = new ArrayList<>();
     public int groundY = 0; // Το ύψος του εδάφους
     public int groundX = 0; // Η θέση Χ του εδάφους (για κλίση)
-    public double groundAngle = 0.17; // 10 μοίρες σε radians (10 * π/180)
+    public double groundAngle = 0.17; // 10 μοίρες σε radians (10 * π/180)createGroundGradient
     public int groundWidth = screenWidth; // Πλάτος εδάφους
     public int groundHeight = tileSize * 2; // Ύψος εδάφους
-    public BufferedImage groundImage; // Η εικόνα του εδάφους
+    BufferedImage groundImage;
+    BufferedImage groundGrass; // Εικόνα για εξωτερικούς χώρους
+    BufferedImage groundDungeon; // Εικόνα για dungeon
+    // ========== ΝΕΟ ΣΥΣΤΗΜΑ ΜΑΧΗΣ ==========
+    public BattleParty battleParty = new BattleParty();
+    public int battleMenuOption = 0; // 0=Attack, 1=Class Skills, 2=Items, 3=Defend, 4=Flee
+    public String[] battleMenuOptions = {"Attack", "Class Skills", "Items", "Defend", "Flee"};
+    public int selectedTarget = 0;
+    public boolean selectingTarget = false;
+    public String battleMessage = "";
+    public int battleMessageTimer = 0;
+    public BufferedImage[] weaponIcons; // Για τα εικονίδια όπλων
+    public int pendingExp = 0;
+    public int pendingGold = 0;
 
     // ΠΟΖΕΣ
     BufferedImage playerDown1, playerDown2;
@@ -1322,6 +1333,11 @@ public class GamePanel extends JPanel implements Runnable {
                         } else {
                             bp.image = playerLeft2;
                         }
+                        
+                        // Ενημέρωσε και την εικόνα στο BattleEntity
+                        if (!battleParty.party.isEmpty()) {
+                            battleParty.party.get(0).image = bp.image;
+                        }
                     }
                     
                     // Όταν τελειώσει το transition
@@ -1333,153 +1349,241 @@ public class GamePanel extends JPanel implements Runnable {
                             bp.x = bp.targetX;
                             bp.image = playerLeft1; // Στατική εικόνα όταν σταματήσει
                         }
+                        
+                        // Ενημέρωσε τα BattleEntities
+                        if (!battleParty.party.isEmpty()) {
+                            battleParty.party.get(0).image = playerLeft1;
+                        }
                     }
                     
                     repaint();
                 } else {
-                        // Κανονική λογική μάχης
+                    // ========== ΚΑΝΟΝΙΚΗ ΛΟΓΙΚΗ ΜΑΧΗΣ ==========
+                    
+                    // Έλεγξε αν τελείωσε η μάχη
+                    if (battleParty.battleEnded) {
+                        if (battleParty.party.isEmpty()) {
+                            // Ηττα - επαναφορά
+                            player.worldX = spawnPoints[0][0];
+                            player.worldY = spawnPoints[0][1];
+                            player.hp = player.maxHp;
+                            player.mp = player.maxMp;
+                            gameState = playState;
+                            
+                            // Επιστροφή στη μουσική του χάρτη
+                            returnToMapMusic();
+                            
+                            // Επαναφορά του battleParty για επόμενη μάχη
+                            battleParty = new BattleParty();
+                        } else {
+                            // ΝΙΚΗ 
+                            battleParty.syncPlayerHealth();
+
+                            int totalExp = pendingExp;
+                            int totalGold = pendingGold;
+
+                            // Εμφάνισε το μήνυμα
+                            battleMessage = "Νίκη! +" + totalExp + " EXP, +" + totalGold + " Gold!";
+                            repaint();
+                            try { Thread.sleep(1500); } catch (Exception e) {}
+
+                            gameState = playState;
+                            returnToMapMusic();
+                            battleParty = new BattleParty();
+                            pendingExp = 0; // Reset
+                            pendingGold = 0; // Reset
+                        }
+                        continue;
+                    }
+                    
+                    // Αν είναι σειρά του εχθρού
+                    if (!battleParty.isPlayerTurn()) {
+                        BattleEntity currentEnemy = battleParty.getCurrentTurn();
+                        
+                        // Απλή AI: επιτίθεται στον πρώτο παίκτη
+                        if (currentEnemy != null && !battleParty.party.isEmpty()) {
+                            BattleEntity target = battleParty.party.get(0);
+                            
+                            // Υπολόγισε ζημιά
+                            int damage = currentEnemy.attack - target.defense;
+                            if (damage < 1) damage = 1;
+                            
+                            target.takeDamage(damage);
+                            
+                            // Ενημέρωσε και το αντίστοιχο BattlePlayer
+                            if (!battlePlayers.isEmpty()) {
+                                battlePlayers.get(0).hp = target.hp;
+                            }
+                            
+                            // Μικρή καθυστέρηση
+                            repaint();
+                            try { Thread.sleep(100); } catch (Exception e) {}
+                            
+                            // Έλεγξε αν πέθανε ο παίκτης
+                            battleParty.removeDeadEntities();
+                            
+                            // Αν τελείωσε η μάχη, σταμάτα
+                            if (battleParty.battleEnded) {
+                                continue;
+                            }
+                        }
+                        
+                        // ΠΡΟΧΩΡΑ ΣΤΗΝ ΕΠΟΜΕΝΗ ΣΕΙΡΑ
+                        battleParty.nextTurn();
+                        repaint();
+                        
+                        // ΣΗΜΑΝΤΙΚΟ: Μην επιτρέψεις να εκτελεστεί άλλος κώδικας πριν το repaint
+                        // Απλά συνέχισε στην επόμενη επανάληψη του loop
+                        continue;
+                    }
+                    // Αν είναι σειρά του παίκτη
+                    else if (battleParty.isPlayerTurn() && !selectingTarget) {
+                        // Πλοήγηση στο μενού
                         if (keyH.leftPressed) {
-                            battleOption--;
-                            if (battleOption < 0) battleOption = 3;
+                            battleMenuOption--;
+                            if (battleMenuOption < 0) battleMenuOption = battleMenuOptions.length - 1;
                             playSound("menu_select");
                             try { Thread.sleep(150); } catch (Exception e) {}
                             keyH.leftPressed = false;
                             repaint();
                         }
                         if (keyH.rightPressed) {
-                            battleOption++;
-                            if (battleOption > 3) battleOption = 0;
+                            battleMenuOption++;
+                            if (battleMenuOption >= battleMenuOptions.length) battleMenuOption = 0;
                             playSound("menu_select");
                             try { Thread.sleep(150); } catch (Exception e) {}
                             keyH.rightPressed = false;
                             repaint();
                         }
-                    
-                    if (keyH.enterPressed) {
-                        playSound("menu_select");
-
-                        if (battleOption == 0) { // Attack
-                            playSound("hitmonster");
-                            int damage = player.attack - currentEnemy.defense;
-                            if (damage < 1) damage = 1;
-                            currentEnemy.hp -= damage;
-
-                            // ΜΕΙΩΣΕ ΤΟ HP ΣΤΟ BATTLEENEMY
-                            for (BattleEnemy be : battleEnemies) {
-                                if (be.enemy == currentEnemy) {
-                                    be.hp -= damage;
+                        
+                        if (keyH.enterPressed) {
+                            playSound("menu_select");
+                            
+                            BattleEntity currentPlayer = battleParty.getCurrentTurn();
+                            
+                            switch(battleMenuOption) {
+                                case 0: // ATTACK
+                                    selectingTarget = true;
+                                    selectedTarget = 0;
+                                    battleMessage = "Επίλεξε στόχο!";
                                     break;
-                                }
-                            }
-                            
-                            currentDialogue = "Έκανες " + damage + " ζημιά!";
-                            repaint();
-                            try { Thread.sleep(1000); } catch (Exception e) {}
-                            
-                            if (currentEnemy.hp <= 0) {
-                                sound.stopMusic();
-                                playSound("levelup");
-                                currentEnemy.giveRewards(player);
-                                currentDialogue = "Νίκη! Πήρες " + currentEnemy.exp + " EXP!";
-                                repaint();
-                                try { Thread.sleep(1500); } catch (Exception e) {}
-                                gameState = playState;
-                                // ========== ΕΠΙΣΤΡΟΦΗ ΣΤΗ ΜΟΥΣΙΚΗ ΤΟΥ ΧΑΡΤΗ ==========
-                                if (currentMap == 0) { // Overworld
-                                    if (dayTime == 0 || dayTime == 3) { // Μέρα ή ξημέρωμα
-                                        sound.playMusic("overworld_day");
-                                    } else { // Νύχτα ή βράδυ
-                                        sound.playMusic("overworld_night");
-                                    }
-                                } else { // Dungeon
-                                    sound.playMusic("dungeon");
-                                }
-                                // Βεβαιώσου ότι η ένταση είναι σωστή
-                                currentMusicVolume = musicVolume / 100.0f;
-                                sound.setMusicVolume(currentMusicVolume);
-                                continue;
-                            }
-                            
-                            playSound("enemy_hit");
-                            currentDialogue = "Ο εχθρός επιτίθεται!";
-                            repaint();
-                            try { Thread.sleep(1000); } catch (Exception e) {}
-                            
-                            int enemyDamage = currentEnemy.attack - player.defense;
-                            if (enemyDamage < 1) enemyDamage = 1;
-                            player.hp -= enemyDamage;
-
-                            // ΕΝΗΜΕΡΩΣΕ ΤΟ HP ΣΤΟ BATTLEPLAYER
-                            for (BattlePlayer bp : battlePlayers) {
-                                if (bp.player == player) {
-                                    bp.hp = player.hp; // Συγχρόνισε το hp
-                                    System.out.println("Player HP updated: " + bp.hp + "/" + bp.maxHp);
+                                    
+                                case 1: // CLASS SKILLS
+                                    try { Thread.sleep(1000); } catch (Exception e) {}
                                     break;
-                                }
+                                    
+                                case 2: // ITEMS
+                                    try { Thread.sleep(1000); } catch (Exception e) {}
+                                    break;
+                                    
+                                case 3: // DEFEND
+                                    try { Thread.sleep(1000); } catch (Exception e) {}
+                                    
+                                    // Εδώ θα μπει λογική για defend (μείωση ζημιάς επόμενου γύρου)
+                                    
+                                    battleParty.nextTurn();
+                                    break;
+                                    
+                                case 4: // FLEE
+                                    if (Math.random() < 0.5) {
+                                        battleMessage = "Απέδρασες!";
+                                        repaint();
+                                        try { Thread.sleep(1000); } catch (Exception e) {}
+                                        gameState = playState;
+                                        returnToMapMusic();
+                                    } else {
+                                        battleMessage = "Απέτυχες να αποδράσεις!";
+                                        repaint();
+                                        try { Thread.sleep(1000); } catch (Exception e) {}
+                                        battleParty.nextTurn();
+                                    }
+                                    break;
                             }
-                            
-                            playSound("player_hit");
-                            currentDialogue = "Ο εχθρός σου προκάλεσε " + enemyDamage + " ζημιά!";
+                            keyH.enterPressed = false;
                             repaint();
-                            try { Thread.sleep(1000); } catch (Exception e) {}
-                            
-                            if (player.hp <= 0) {
-                                sound.stopMusic();
-                                playSound("death");
-                                currentDialogue = "Ηττήθηκες...";
-                                repaint();
-                                try { Thread.sleep(1500); } catch (Exception e) {}
-                                player.worldX = spawnPoints[0][0];
-                                player.worldY = spawnPoints[0][1];
-                                player.hp = player.maxHp;
-                                gameState = playState;
-
-                                // ========== ΕΠΙΣΤΡΟΦΗ ΣΤΗ ΜΟΥΣΙΚΗ ΤΟΥ ΧΑΡΤΗ ==========
-                                if (currentMap == 0) { // Overworld
-                                    if (dayTime == 0 || dayTime == 3) { // Μέρα ή ξημέρωμα
-                                        sound.playMusic("overworld_day");
-                                    } else { // Νύχτα ή βράδυ
-                                        sound.playMusic("overworld_night");
-                                    }
-                                } else { // Dungeon
-                                    sound.playMusic("dungeon");
-                                }
-                                // Βεβαιώσου ότι η ένταση είναι σωστή
-                                currentMusicVolume = musicVolume / 100.0f;
-                                sound.setMusicVolume(currentMusicVolume);
-                                continue;
-                            }
-                            
-                        } else if (battleOption == 3) { // Run
-                            if (Math.random() < 0.5) {
-                                playSound("run_away");
-                                currentDialogue = "Απέδρασες!";
-                                repaint();
-                                try { Thread.sleep(1000); } catch (Exception e) {}
-                                gameState = playState;
-
-                                // ========== ΕΠΙΣΤΡΟΦΗ ΣΤΗ ΜΟΥΣΙΚΗ ΤΟΥ ΧΑΡΤΗ ==========
-                                if (currentMap == 0) { // Overworld
-                                    if (dayTime == 0 || dayTime == 3) { // Μέρα ή ξημέρωμα
-                                        sound.playMusic("overworld_day");
-                                    } else { // Νύχτα ή βράδυ
-                                        sound.playMusic("overworld_night");
-                                    }
-                                } else { // Dungeon
-                                    sound.playMusic("dungeon");
-                                }
-                                currentMusicVolume = musicVolume / 100.0f;
-                                sound.setMusicVolume(currentMusicVolume);
-                            } else {
-                                playSound("enemy_hit");
-                                currentDialogue = "Απέτυχες να αποδράσεις!";
-                                repaint();
-                                try { Thread.sleep(1000); } catch (Exception e) {}
-                            }
                         }
-                        keyH.enterPressed = false;
                     }
-                }    
+                    // Αν είμαστε σε κατάσταση επιλογής στόχου
+                    else if (selectingTarget) {
+                        // Πλοήγηση στους εχθρούς
+                        if (keyH.leftPressed) {
+                            selectedTarget--;
+                            if (selectedTarget < 0) selectedTarget = 0;
+                            playSound("menu_select");
+                            try { Thread.sleep(150); } catch (Exception e) {}
+                            keyH.leftPressed = false;
+                            repaint();
+                        }
+                        if (keyH.rightPressed) {
+                            selectedTarget++;
+                            if (selectedTarget >= battleParty.enemies.size()) 
+                                selectedTarget = battleParty.enemies.size() - 1;
+                            playSound("menu_select");
+                            try { Thread.sleep(150); } catch (Exception e) {}
+                            keyH.rightPressed = false;
+                            repaint();
+                        }
+                        
+                        if (keyH.enterPressed) {
+                            if (selectedTarget >= 0 && selectedTarget < battleParty.enemies.size()) {
+                                BattleEntity target = battleParty.enemies.get(selectedTarget);
+                                BattleEntity currentPlayer = battleParty.getCurrentTurn();
+                                
+                                // Υπολόγισε ζημιά
+                                playSound("hitmonster");
+                                int damage = currentPlayer.attack - target.defense;
+                                if (damage < 1) damage = 1;
+                                
+                                target.takeDamage(damage);
+                                
+                                // Ενημέρωσε το αντίστοιχο BattleEnemy για το οπτικό
+                                if (selectedTarget < battleEnemies.size()) {
+                                    battleEnemies.get(selectedTarget).hp = target.hp;
+                                }
+
+                                boolean enemyDied = !target.isAlive();
+                                if (enemyDied && target.enemyRef != null) {
+                                    int[] rewards = target.enemyRef.giveRewards(player);
+                                    pendingExp += rewards[0];
+                                    pendingGold += rewards[1];
+                                    System.out.println("Enemy died! Pending rewards: EXP=" + pendingExp + ", Gold=" + pendingGold);
+                                }
+                                
+                                repaint();
+                                try { Thread.sleep(200); } catch (Exception e) {}
+                                
+                                // Έλεγξε αν πέθανε ο εχθρός
+                                battleParty.removeDeadEntities();
+                                
+                                // Αν τελείωσε η μάχη, σταμάτα
+                                if (battleParty.battleEnded) {
+                                    selectingTarget = false;
+                                    keyH.enterPressed = false;
+                                    continue;
+                                }
+                                
+                                // ΠΡΟΧΩΡΑ ΣΤΗΝ ΕΠΟΜΕΝΗ ΣΕΙΡΑ
+                                battleParty.nextTurn();
+                                selectingTarget = false;
+                                keyH.enterPressed = false;
+                                repaint();
+                                
+                                // ΣΗΜΑΝΤΙΚΟ: Συνέχισε στην επόμενη επανάληψη για να μην ξαναμπείς στο ίδιο state
+                                continue;
+                            }
+                            keyH.enterPressed = false;
+                            repaint();
+                        }
+                        
+                        // Ακύρωση με ESC
+                        if (keyH.escapePressed) {
+                            selectingTarget = false;
+                            battleMessage = "";
+                            keyH.escapePressed = false;
+                            repaint();
+                        }
+                    }
+                }
             }
             // ========== TITLE STATE ==========
             if (gameState == titleState) {
@@ -2373,6 +2477,29 @@ public class GamePanel extends JPanel implements Runnable {
         isCrossfading = true;
     }
 
+    public void returnToMapMusic() {
+        sound.stopMusic();
+        if (currentMap == 0) { // Overworld
+            if (dayTime == 0 || dayTime == 3) {
+                sound.playMusic("overworld_day");
+            } else {
+                sound.playMusic("overworld_night");
+            }
+        } else if (currentMap == 1) { // Dungeon
+            sound.playMusic("dungeon");
+        } else if (currentMap == 3) { // Town
+            if (dayTime == 0 || dayTime == 3) {
+                sound.playMusic("town_day");
+            } else {
+                sound.playMusic("town_night");
+            }
+        } else {
+            sound.playMusic("merchant_village");
+        }
+        currentMusicVolume = musicVolume / 100.0f;
+        sound.setMusicVolume(currentMusicVolume);
+    }
+
     public void toggleFullScreen() {
         try {
             if (isFullScreen) {
@@ -2413,7 +2540,7 @@ public class GamePanel extends JPanel implements Runnable {
         if (currentArea.equals("overworld")) {
             possibleEnemies = new String[]{"Slime", "Red Slime"};
         } else { // dungeon
-            possibleEnemies = new String[]{"Bat", "Orc", "Skeleton", "Bat"};
+            possibleEnemies = new String[]{"Bat", "Orc", "Skeleton"};
         }
         
         String enemyType = possibleEnemies[(int)(Math.random() * possibleEnemies.length)];
@@ -2437,7 +2564,7 @@ public class GamePanel extends JPanel implements Runnable {
             // ΞΕΚΙΝΑΕΙ ΜΑΧΗ
             battleStarting = true;
             startBattleWithTransition(newEnemy);
-            currentDialogue = "Εμφανίστηκε " + enemyType + "!";
+            battleMessage = "Εμφανίστηκε " + enemyType + "!";
 
             // ========== ΑΛΛΑΓΗ ΜΟΥΣΙΚΗΣ ==========
             sound.playMusic("battle");
@@ -2457,13 +2584,14 @@ public class GamePanel extends JPanel implements Runnable {
         battleFadeIn = false;
 
         try {
-            groundImage = ImageIO.read(new File("res/battle/ground_grass.png"));
-            if (groundImage == null) {
-                // Fallback: δημιούργησε gradient ground
-                groundImage = createGroundGradient();
-            }
-        } catch (Exception e) {
-            groundImage = createGroundGradient();
+            groundGrass = ImageIO.read(new File("res/battle/ground_grass.png"));
+            groundDungeon = ImageIO.read(new File("res/battle/ground_dungeon.png"));
+            System.out.println("Ground images loaded successfully!");
+        } catch (IOException e) {
+            e.printStackTrace();
+            // Fallback: δημιούργησε gradient images
+            groundGrass = createGroundGradient(new Color(34, 139, 34), new Color(144, 238, 144));
+            groundDungeon = createGroundGradient(new Color(70, 70, 70), new Color(120, 70, 70));
         }
 
         
@@ -2477,14 +2605,13 @@ public class GamePanel extends JPanel implements Runnable {
         sound.playMusic("battle");
     }
 
-    public BufferedImage createGroundGradient() {
+    public BufferedImage createGroundGradient(Color topColor, Color bottomColor) {
         BufferedImage ground = new BufferedImage(groundWidth, groundHeight, BufferedImage.TYPE_INT_RGB);
         Graphics2D g2d = ground.createGraphics();
         
-        // Gradient από σκούρο σε ανοιχτό πράσινο
         GradientPaint gradient = new GradientPaint(
-            0, 0, new Color(34, 139, 34),    // Forest green
-            0, groundHeight, new Color(144, 238, 144) // Light green
+            0, 0, topColor,
+            0, groundHeight, bottomColor
         );
         
         g2d.setPaint(gradient);
@@ -2501,7 +2628,7 @@ public class GamePanel extends JPanel implements Runnable {
         if (currentMap == 0) { // Overworld
             possibleBackgrounds = new String[]{"field1"};
         } else if (currentMap == 1) { // Dungeon
-            possibleBackgrounds = new String[]{"dungeon1", "dungeon2", "cave"};
+            possibleBackgrounds = new String[]{"dungeon1", "dungeon2"};
         } else {
             possibleBackgrounds = new String[]{"field1"};
         }
@@ -2542,12 +2669,25 @@ public class GamePanel extends JPanel implements Runnable {
     public void setupBattleEntities() {
         battleEnemies.clear();
         battlePlayers.clear();
+        battleParty.party.clear();
+        battleParty.enemies.clear();
+
+        // ========== ΕΠΙΛΕΞΕ ΤΗΝ ΚΑΤΑΛΛΗΛΗ ΕΙΚΟΝΑ ΕΔΑΦΟΥΣ ==========
+        if (currentMap == 0) {
+            groundImage = groundGrass;
+        } else if (currentMap == 1) {
+            groundImage = groundDungeon;
+        } else {
+            groundImage = groundGrass;
+        }
         
         // Υπολόγισε τη θέση του εδάφους (στο κάτω μέρος της οθόνης)
         groundY = screenHeight - groundHeight - tileSize - 100;
         groundX = 0;
         
-        // Δημιούργησε τους εχθρούς
+        // ========== ΔΗΜΙΟΥΡΓΙΑ BATTLE ENTITIES ==========
+        
+        // Δημιούργησε τους εχθρούς (προς το παρόν 1)
         BattleEnemy be = new BattleEnemy();
         be.enemy = currentEnemy;
         be.hp = currentEnemy.hp;
@@ -2569,13 +2709,17 @@ public class GamePanel extends JPanel implements Runnable {
         
         // Ο εχθρός ξεκινάει εκτός οθόνης ΑΡΙΣΤΕΡΑ
         be.x = -tileSize * 4;
-        be.y = groundY - tileSize; // Πάνω στο έδαφος
+        be.y = groundY - tileSize;
         be.targetX = tileSize * 3;
         be.targetY = groundY - tileSize;
         
         battleEnemies.add(be);
         
-        // Δημιούργησε τον παίκτη
+        // Δημιούργησε BattleEntity για τον εχθρό
+        BattleEntity enemyEntity = new BattleEntity(currentEnemy, be.image);
+        battleParty.enemies.add(enemyEntity);
+        
+        // Δημιούργησε τον παίκτη (προς το παρόν 1)
         BattlePlayer bp = new BattlePlayer();
         bp.player = player;
         bp.hp = player.hp;
@@ -2590,6 +2734,38 @@ public class GamePanel extends JPanel implements Runnable {
         bp.targetY = groundY - tileSize;
         
         battlePlayers.add(bp);
+        
+        // Δημιούργησε BattleEntity για τον παίκτη
+        BufferedImage playerImage = getWeaponImage();
+        BattleEntity playerEntity = new BattleEntity(player, playerImage);
+        battleParty.party.add(playerEntity);
+        
+        // Υπολόγισε τη σειρά σειράς
+        battleParty.calculateTurnOrder();
+        
+        // Αρχικοποίησε μεταβλητές μάχης
+        battleMenuOption = 0;
+        selectingTarget = false;
+        battleMessage = ""; // ΚΑΝΕΝΑ ΜΗΝΥΜΑ
+        
+        // Βεβαιώσου ότι το battleEnded είναι false
+        battleParty.battleEnded = false;
+    }
+
+    public BufferedImage getWeaponImage() {
+        // Έλεγξε αν ο παίκτης έχει όπλο εξοπλισμένο
+        Item weapon = inventory.getEquipSlot(3); // Slot 3 = sword
+        
+        if (weapon != null && weapon.image != null) {
+            return weapon.image;
+        }
+        
+        // Default εικόνα αν δεν έχει όπλο
+        try {
+            return ImageIO.read(new File("res/items/weapon_default.png"));
+        } catch (Exception e) {
+            return playerDown1; // Fallback
+        }
     }
 
     // Ελέγχει αν η επόμενη θέση του ήρωα έχει collision - ΒΕΛΤΙΩΜΕΝΗ ΕΚΔΟΣΗ
@@ -3232,45 +3408,200 @@ public class GamePanel extends JPanel implements Runnable {
         
         // Μην εμφανίζεις το μενού κατά τη διάρκεια του transition
         if (!battleEntering) {
-            // Μενού επιλογών
+            // Σειρά σειράς
+            drawBattleTurnOrder(g2);
+            
+            // Μενού επιλογών - ΟΡΙΣΜΟΣ ΜΕΤΑΒΛΗΤΩΝ
             int menuX = 0;
-            int menuY = screenHeight - tileSize * 3;
+            int menuY = screenHeight - tileSize * 3; // Μεγαλύτερο ύψος για 5 επιλογές
             int menuWidth = screenWidth;
             int menuHeight = tileSize * 3;
             
             drawPanel(g2, menuX, menuY, menuWidth, menuHeight, new Color(0, 0, 0, 220), Color.white);
             
+            // Τίτλος - ποιανού σειρά είναι
             g2.setFont(maruMonicaBold);
-            int optionSpacing = menuWidth / 4;
+            g2.setColor(Color.yellow);
+            BattleEntity current = battleParty.getCurrentTurn();
+            String turnText = (current != null && current.isPlayer) ? "YOUR TURN" : "ENEMY TURN";
+            int turnX = getXforCenteredText(turnText, g2);
+            g2.drawString(turnText, turnX, menuY + 25);
             
-            for (int i = 0; i < battleOptions.length; i++) {
-                int optionX = menuX + 30 + (i * optionSpacing);
+            // Μόνο αν είναι σειρά του παίκτη, δείξε το μενού
+            if (battleParty.isPlayerTurn() && !selectingTarget) {
+                g2.setFont(maruMonica); // Κανονικό font για όλες
+                int optionSpacing = menuWidth / battleMenuOptions.length;
                 
-                if (i == battleOption) {
-                    g2.setColor(Color.yellow);
-                    g2.drawString("▶ " + battleOptions[i], optionX - 15, menuY + 40);
-                } else {
-                    g2.setColor(Color.white);
-                    g2.drawString(battleOptions[i], optionX, menuY + 40);
+                for (int i = 0; i < battleMenuOptions.length; i++) {
+                    int optionX = 20 + (i * optionSpacing);
+                    int optionY = menuY + 70;
+                    
+                    if (i == battleMenuOption) {
+                        // Η επιλεγμένη επιλογή με bold και κίτρινο
+                        g2.setFont(maruMonicaBold);
+                        g2.setColor(Color.yellow);
+                        g2.drawString("▶", optionX - 15, optionY);
+                        
+                        // Αν είναι Attack, δείξε και εικονίδιο όπλου
+                        if (i == 0) {
+                            BufferedImage weaponImg = getWeaponImage();
+                            if (weaponImg != null) {
+                                g2.drawImage(weaponImg, optionX - 25, optionY - 25, 20, 20, null);
+                            }
+                        }
+                        
+                        g2.drawString(battleMenuOptions[i], optionX, optionY);
+                        
+                        // Μικρή περιγραφή (με μικρό font)
+                        g2.setFont(maruMonicaSmall);
+                        g2.setColor(Color.lightGray);
+                        String desc = getBattleOptionDescription(i);
+                        int descX = getXforCenteredText(desc, g2);
+                        g2.drawString(desc, descX, menuY + 100);
+                        
+                        // Επαναφορά στο κανονικό font για την επόμενη επανάληψη
+                        g2.setFont(maruMonica);
+                    } else {
+                        // Οι υπόλοιπες επιλογές με κανονικό μέγεθος
+                        g2.setColor(Color.white);
+                        g2.drawString(battleMenuOptions[i], optionX, optionY);
+                    }
+                }
+            } else if (selectingTarget) {
+                // Μενού επιλογής στόχου
+                g2.setFont(maruMonicaBold);
+                g2.setColor(Color.yellow);
+                g2.drawString("Select target:", menuX + 50, menuY + 70);
+                
+                int targetY = menuY + 110;
+                for (int i = 0; i < battleParty.enemies.size(); i++) {
+                    BattleEntity enemy = battleParty.enemies.get(i);
+                    int x = menuX + 100 + (i * 150);
+                    
+                    if (i == selectedTarget) {
+                        g2.setColor(Color.yellow);
+                        g2.drawString("▶ " + enemy.name, x, targetY);
+                    } else {
+                        g2.setColor(Color.white);
+                        g2.drawString(enemy.name, x + 15, targetY);
+                    }
+                    
+                    // HP bar
+                    int barWidth = 100;
+                    int barHeight = 8;
+                    int barX = x;
+                    int barY = targetY + 10;
+                    
+                    g2.setColor(Color.black);
+                    g2.fillRect(barX, barY, barWidth, barHeight);
+                    g2.setColor(Color.green);
+                    double hpPercentage = (double)enemy.hp / enemy.maxHp;
+                    int hpWidth = (int)(barWidth * hpPercentage);
+                    g2.fillRect(barX, barY, hpWidth, barHeight);
                 }
             }
             
             // Μήνυμα μάχης
             int msgX = screenWidth/2 - 250;
-            int msgY = menuY - 50;
+            int msgY = menuY - 60;
             int msgWidth = 500;
-            int msgHeight = 40;
+            int msgHeight = 50;
             
             drawPanel(g2, msgX, msgY, msgWidth, msgHeight, new Color(0, 0, 0, 180), Color.white);
             g2.setFont(maruMonica);
             g2.setColor(Color.white);
-            g2.drawString(currentDialogue, msgX + 20, msgY + 25);
+            
+            // Κεντράρισμα του μηνύματος
+            int msgTextX = getXforCenteredText(battleMessage, g2);
+            g2.drawString(battleMessage, msgTextX, msgY + 30);
+        }
+    }
+
+    public void drawBattleTurnOrder(Graphics2D g2) {
+        int startX = 20;
+        int startY = 40;
+        int slotWidth = 100;
+        int slotHeight = 30;
+        int spacing = 5;
+        
+        // Τίτλος
+        g2.setFont(new Font("Arial", Font.BOLD, 14));
+        g2.setColor(Color.yellow);
+        g2.drawString("Turn Order", startX, startY - 10);
+        
+        // Τρέχων γύρος
+        int currentIndex = battleParty.currentTurnIndex;
+        
+        for (int i = 0; i < battleParty.turnOrder.size(); i++) {
+            BattleEntity entity = battleParty.turnOrder.get(i);
+            int x = startX;
+            int y = startY + i * (slotHeight + spacing);
+            
+            // Αν είναι ο τρέχων γύρος, κίτρινο φόντο
+            if (i == currentIndex) {
+                g2.setColor(new Color(255, 255, 0, 100));
+                g2.fillRoundRect(x, y, slotWidth, slotHeight, 10, 10);
+                g2.setColor(Color.yellow);
+                g2.setStroke(new BasicStroke(2));
+                g2.drawRoundRect(x, y, slotWidth, slotHeight, 10, 10);
+            } else {
+                g2.setColor(new Color(0, 0, 0, 150));
+                g2.fillRoundRect(x, y, slotWidth, slotHeight, 10, 10);
+                g2.setColor(Color.white);
+                g2.setStroke(new BasicStroke(1));
+                g2.drawRoundRect(x, y, slotWidth, slotHeight, 10, 10);
+            }
+            
+            // Όνομα
+            g2.setFont(new Font("Arial", Font.BOLD, 12));
+            g2.setColor(entity.isPlayer ? Color.cyan : Color.red);
+            String name = entity.isPlayer ? "Hero" : entity.name;
+            if (name.length() > 8) name = name.substring(0, 8);
+            g2.drawString(name, x + 5, y + 15);
+            
+            // HP
+            g2.setFont(new Font("Arial", Font.PLAIN, 10));
+            g2.setColor(Color.white);
+            g2.drawString("HP: " + entity.hp + "/" + entity.maxHp, x + 5, y + 25);
         }
         
-        // ========== ΠΡΟΣΘΕΣΕ ΤΟ FADE EFFECT ==========
-        if (battleFadeOut || battleFadeIn) {
-            g2.setColor(new Color(0, 0, 0, battleFadeAlpha));
-            g2.fillRect(0, 0, screenWidth, screenHeight);
+        // Επόμενος γύρος (δεξιά)
+        int nextX = startX + slotWidth + 50;
+        int nextY = startY;
+        
+        g2.setFont(new Font("Arial", Font.BOLD, 14));
+        g2.setColor(Color.yellow);
+        g2.drawString("Next Round", nextX, nextY - 10);
+        
+        for (int i = 0; i < Math.min(4, battleParty.turnOrder.size()); i++) {
+            int index = (currentIndex + i + 1) % battleParty.turnOrder.size();
+            BattleEntity entity = battleParty.turnOrder.get(index);
+            
+            int x = nextX;
+            int y = nextY + i * (slotHeight + spacing);
+            
+            g2.setColor(new Color(0, 0, 0, 100));
+            g2.fillRoundRect(x, y, slotWidth, slotHeight, 10, 10);
+            g2.setColor(Color.gray);
+            g2.setStroke(new BasicStroke(1));
+            g2.drawRoundRect(x, y, slotWidth, slotHeight, 10, 10);
+            
+            g2.setFont(new Font("Arial", Font.BOLD, 12));
+            g2.setColor(entity.isPlayer ? Color.cyan.darker() : Color.red.darker());
+            String name = entity.isPlayer ? "Hero" : entity.name;
+            if (name.length() > 8) name = name.substring(0, 8);
+            g2.drawString(name, x + 5, y + 20);
+        }
+    }
+
+    public String getBattleOptionDescription(int option) {
+        switch(option) {
+            case 0: return "Attack with your equipped weapon";
+            case 1: return "Use class-specific skills";
+            case 2: return "Use an item from your inventory";
+            case 3: return "Defend and reduce damage";
+            case 4: return "Attempt to flee from battle";
+            default: return "";
         }
     }
     

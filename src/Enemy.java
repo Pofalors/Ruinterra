@@ -17,14 +17,24 @@ public class Enemy extends Entity {
         currentImage = (frame == 0) ? down1 : down2;
     }
 
-    // Μέθοδος για επιβράβευση όταν πεθαίνει
-    public void giveRewards(Entity player) {
-        player.addExp(exp);
-        // Τυχαίο gold
-        int goldReward = (int)(Math.random() * 20) + 5;
-        player.gold += goldReward;
-        System.out.println("Πήρες " + goldReward + " gold!");
+    // Μέθοδος για επιβράβευση όταν πεθαίνει - τώρα επιστρέφει array {exp, gold}
+    public int[] giveRewards(Entity player) {
+        // Τυχαίο EXP (10-50)
+        int expReward = (int)(Math.random() * 40) + 10;
+        // Τυχαίο gold (5-30)
+        int goldReward = (int)(Math.random() * 25) + 5;
         
-        // Τυχαίο item drop (θα το φτιάξουμε αργότερα)
+        // Δώσε τα rewards
+        player.addExp(expReward);
+        player.gold += goldReward;
+        
+        // Αποθήκευσε το μήνυμα για εμφάνιση
+        if (gp != null) {
+            gp.battleMessage = "Νίκη! +" + expReward + " EXP, +" + goldReward + " Gold!";
+        }
+        
+        System.out.println("Πήρες " + expReward + " EXP και " + goldReward + " gold!");
+        
+        return new int[] {expReward, goldReward};
     }
 }
