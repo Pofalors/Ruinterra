@@ -9,6 +9,10 @@ public class BattleEntity {
     public boolean isPlayer;
     public Entity playerRef; // Αν είναι παίκτης, αναφορά στο Entity
     public Enemy enemyRef;   // Αν είναι εχθρός, αναφορά στο Enemy
+    public int damageNumber = 0;           // Η ζημιά που έγινε
+    public int damageTimer = 0;             // Μετρητής για το animation
+    public final int DAMAGE_DURATION = 30;  // Πόσα frames θα φαίνεται (0.5 sec στα 60fps)
+    public boolean isTakingDamage = false;  // Αν δείχνουμε animation ζημιάς
     
     // Για εχθρούς
     public BattleEntity(Enemy enemy, BufferedImage img) {
@@ -47,6 +51,10 @@ public class BattleEntity {
     public void takeDamage(int damage) {
         hp -= damage;
         if (hp < 0) hp = 0;
+
+        this.damageNumber = damage;
+        this.damageTimer = DAMAGE_DURATION;
+        this.isTakingDamage = true;
     }
     
     public void heal(int amount) {

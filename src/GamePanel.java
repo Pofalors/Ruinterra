@@ -199,11 +199,14 @@ public class GamePanel extends JPanel implements Runnable {
     public String[] battleMenuOptions = {"Attack", "Class Skills", "Items", "Defend", "Flee"};
     public int selectedTarget = 0;
     public boolean selectingTarget = false;
-    public String battleMessage = "";
-    public int battleMessageTimer = 0;
     public BufferedImage[] weaponIcons; // Για τα εικονίδια όπλων
     public int pendingExp = 0;
     public int pendingGold = 0;
+    public String battleMessage = "";
+    public int battleMessageTimer = 0;
+    public String lastAction = "";        // ΝΕΟ: τελευταία ενέργεια που έγινε
+    public int actionMessageTimer = 0;    // ΝΕΟ: πόσο θα εμφανίζεται
+    public final int ACTION_MESSAGE_DURATION = 90; // ΝΕΟ: 1.5 sec στα 60fps
 
     // ΠΟΖΕΣ
     BufferedImage playerDown1, playerDown2;
@@ -1409,6 +1412,8 @@ public class GamePanel extends JPanel implements Runnable {
                             if (damage < 1) damage = 1;
                             
                             target.takeDamage(damage);
+
+                            showActionMessage(currentEnemy.name + " attacks " + target.name + " for " + damage + " damage!");
                             
                             // Ενημέρωσε και το αντίστοιχο BattlePlayer
                             if (!battlePlayers.isEmpty()) {
@@ -1535,6 +1540,8 @@ public class GamePanel extends JPanel implements Runnable {
                                 if (damage < 1) damage = 1;
                                 
                                 target.takeDamage(damage);
+
+                                showActionMessage(currentPlayer.name + " attacks " + target.name + " for " + damage + " damage!");
                                 
                                 // Ενημέρωσε το αντίστοιχο BattleEnemy για το οπτικό
                                 if (selectedTarget < battleEnemies.size()) {
@@ -2455,6 +2462,11 @@ public class GamePanel extends JPanel implements Runnable {
         playSound("dialogue_start");
     }
 
+    public void showActionMessage(String message) {
+        lastAction = message;
+        actionMessageTimer = ACTION_MESSAGE_DURATION;
+    }
+
     public void playSound(String soundName) {
         try {
             // Προσπάθησε πρώτα να παίξει ως sound effect
@@ -3332,8 +3344,9 @@ public class GamePanel extends JPanel implements Runnable {
             g2.fillRect(0, screenHeight - tileSize*3, screenWidth, tileSize*2);
         }
         
-        // ========== ΖΩΓΡΑΦΙΣΕ ΕΧΘΡΟΥΣ ==========
-        for (BattleEnemy be : battleEnemies) {
+        // ========== ΖΩΓΡΑΦΙΣΕ ΕΧΘΡΟΥΣ (ΧΩΡΙΣ HP BARS) ==========
+        for (int i = 0; i < battleEnemies.size(); i++) {
+            BattleEnemy be = battleEnemies.get(i);
             int drawX = (int)be.x;
             int drawY = (int)be.y;
             
@@ -3345,27 +3358,34 @@ public class GamePanel extends JPanel implements Runnable {
             int spriteSize = tileSize * 2;
             g2.drawImage(be.image, drawX, drawY, spriteSize, spriteSize, null);
             
-            // HP Bar
-            int barWidth = spriteSize;
-            int barHeight = 8;
-            int barY = drawY - 15;
-            
-            g2.setColor(Color.black);
-            g2.fillRect(drawX, barY, barWidth, barHeight);
-            g2.setColor(Color.green);
-            double hpPercentage = (double)be.hp / be.maxHp;
-            int hpWidth = (int)(barWidth * hpPercentage);
-            g2.fillRect(drawX, barY, hpWidth, barHeight);
-            
-            g2.setColor(Color.white);
-            g2.setFont(new Font("Arial", Font.BOLD, 8));
-            String hpText = be.hp + "/" + be.maxHp;
-            int textX = drawX + (barWidth/2) - 15;
-            g2.drawString(hpText, textX, barY - 2);
+            // ========== ANIMATION ΖΗΜΙΑΣ ΓΙΑ ΕΧΘΡΟ ==========
+            BattleEntity enemyEntity = (i < battleParty.enemies.size()) ? battleParty.enemies.get(i) : null;
+            if (enemyEntity != null && enemyEntity.isTakingDamage) {
+                // Μείωσε τον timer
+                enemyEntity.damageTimer--;
+                if (enemyEntity.damageTimer <= 0) {
+                    enemyEntity.isTakingDamage = false;
+                }
+                
+                // Ζωγράφισε τον αριθμό ζημιάς
+                g2.setFont(new Font("Arial", Font.BOLD, 24));
+                g2.setColor(Color.red);
+                
+                // Κάνε τον αριθμό να "πετάει" προς τα πάνω
+                int offsetY = - (enemyEntity.DAMAGE_DURATION - enemyEntity.damageTimer) / 2;
+                String damageText = "-" + enemyEntity.damageNumber;
+                int textWidth = g2.getFontMetrics().stringWidth(damageText);
+                int textX = drawX + spriteSize/2 - textWidth/2;
+                int textY = drawY - 20 - offsetY;
+                
+                g2.drawString(damageText, textX, textY);
+            }
+            // ========== ΤΕΛΟΣ ANIMATION ΖΗΜΙΑΣ ==========
         }
         
-        // ========== ΖΩΓΡΑΦΙΣΕ ΠΑΙΚΤΕΣ ==========
-        for (BattlePlayer bp : battlePlayers) {
+        // ========== ΖΩΓΡΑΦΙΣΕ ΠΑΙΚΤΕΣ (ΧΩΡΙΣ HP/MP BARS) ==========
+        for (int i = 0; i < battlePlayers.size(); i++) {
+            BattlePlayer bp = battlePlayers.get(i);
             int drawX = (int)bp.x;
             int drawY = (int)bp.y;
             
@@ -3376,44 +3396,63 @@ public class GamePanel extends JPanel implements Runnable {
             int spriteSize = tileSize * 2;
             g2.drawImage(bp.image, drawX, drawY, spriteSize, spriteSize, null);
             
-            // HP Bar
-            int barWidth = spriteSize;
-            
-            g2.setColor(Color.red);
-            g2.fillRect(drawX, drawY - 20, barWidth, 6);
-            g2.setColor(Color.green);
-            double hpPercentage = (double)bp.hp / bp.maxHp;
-            int hpWidth = (int)(barWidth * hpPercentage);
-            g2.fillRect(drawX, drawY - 20, hpWidth, 6);
-            
-            g2.setColor(Color.white);
-            g2.setFont(new Font("Arial", Font.BOLD, 8));
-            String hpText = bp.hp + "/" + bp.maxHp;
-            int textX = drawX + (barWidth/2) - 15;
-            g2.drawString(hpText, textX, drawY - 22);
-            
-            // MP Bar
-            g2.setColor(Color.blue);
-            g2.fillRect(drawX, drawY - 12, barWidth, 6);
-            g2.setColor(Color.cyan);
-            double mpPercentage = (double)bp.mp / bp.maxMp;
-            int mpWidth = (int)(barWidth * mpPercentage);
-            g2.fillRect(drawX, drawY - 12, mpWidth, 6);
-            
-            g2.setColor(Color.black);
-            g2.setFont(new Font("Arial", Font.BOLD, 7));
-            String mpText = bp.mp + "/" + bp.maxMp;
-            g2.drawString(mpText, textX + 5, drawY - 6);
+            // ========== ANIMATION ΖΗΜΙΑΣ ΓΙΑ ΠΑΙΚΤΗ ==========
+            BattleEntity playerEntity = (i < battleParty.party.size()) ? battleParty.party.get(i) : null;
+            if (playerEntity != null && playerEntity.isTakingDamage) {
+                // Μείωσε τον timer
+                playerEntity.damageTimer--;
+                if (playerEntity.damageTimer <= 0) {
+                    playerEntity.isTakingDamage = false;
+                }
+                
+                // Ζωγράφισε τον αριθμό ζημιάς
+                g2.setFont(new Font("Arial", Font.BOLD, 24));
+                g2.setColor(Color.red);
+                
+                int offsetY = - (playerEntity.DAMAGE_DURATION - playerEntity.damageTimer) / 2;
+                String damageText = "-" + playerEntity.damageNumber;
+                int textWidth = g2.getFontMetrics().stringWidth(damageText);
+                int textX = drawX + spriteSize/2 - textWidth/2;
+                int textY = drawY - 20 - offsetY;
+                
+                g2.drawString(damageText, textX, textY);
+            }
+            // ========== ΤΕΛΟΣ ANIMATION ΖΗΜΙΑΣ ==========
         }
         
         // Μην εμφανίζεις το μενού κατά τη διάρκεια του transition
         if (!battleEntering) {
+            // ========== STATUS PARTY (ΠΑΝΩ ΔΕΞΙΑ) ==========
+            drawPartyStatus(g2);
+            
+            // ========== ΜΗΝΥΜΑ ACTION (ΠΑΝΩ ΚΕΝΤΡΟ) ==========
+            if (actionMessageTimer > 0) {
+                actionMessageTimer--;
+                
+                int msgWidth = 250;
+                int msgHeight = 30;
+                int msgX = screenWidth/2 - msgWidth/2;
+                int msgY = 80;              // Κατέβασέ το από 60 σε 80 (ακόμα πιο κάτω)
+                
+                g2.setColor(new Color(0, 0, 0, 180));
+                g2.fillRoundRect(msgX, msgY, msgWidth, msgHeight, 10, 10);
+                g2.setColor(Color.white);
+                g2.setStroke(new BasicStroke(1));
+                g2.drawRoundRect(msgX, msgY, msgWidth, msgHeight, 10, 10);
+                
+                g2.setFont(maruMonicaSmall.deriveFont(12f)); // ΜΙΚΡΟΤΕΡΗ ΓΡΑΜΜΑΤΟΣΕΙΡΑ
+                g2.setColor(Color.white);
+                int textX = getXforCenteredText(lastAction, g2);
+                int textY = msgY + 20;
+                g2.drawString(lastAction, textX, textY);
+            }
+            
             // Σειρά σειράς
             drawBattleTurnOrder(g2);
             
-            // Μενού επιλογών - ΟΡΙΣΜΟΣ ΜΕΤΑΒΛΗΤΩΝ
+            // Μενού επιλογών
             int menuX = 0;
-            int menuY = screenHeight - tileSize * 3; // Μεγαλύτερο ύψος για 5 επιλογές
+            int menuY = screenHeight - tileSize * 3;
             int menuWidth = screenWidth;
             int menuHeight = tileSize * 3;
             
@@ -3446,7 +3485,7 @@ public class GamePanel extends JPanel implements Runnable {
                         if (i == 0) {
                             BufferedImage weaponImg = getWeaponImage();
                             if (weaponImg != null) {
-                                g2.drawImage(weaponImg, optionX - 25, optionY - 25, 20, 20, null);
+                                g2.drawImage(weaponImg, optionX + 65, optionY - 20, 20, 20, null);
                             }
                         }
                         
@@ -3500,97 +3539,192 @@ public class GamePanel extends JPanel implements Runnable {
                     g2.fillRect(barX, barY, hpWidth, barHeight);
                 }
             }
+        }
+    }
+
+    public void drawPartyStatus(Graphics2D g2) {
+        int startX = screenWidth - 200;  // Μίκρυνε από 250 σε 200
+        int startY = 20;
+        int slotHeight = 50;              // Μίκρυνε από 60 σε 50
+        int spacing = 8;                   // Μίκρυνε από 10 σε 8
+        
+        // Φόντο για όλο το party
+        g2.setColor(new Color(0, 0, 0, 180));
+        g2.fillRoundRect(startX - 8, startY - 8, 190,   // Μίκρυνε από 240 σε 190
+                        (battleParty.party.size() * (slotHeight + spacing)) + 8, 10, 10);
+        g2.setColor(Color.white);
+        g2.setStroke(new BasicStroke(1));  // Λεπτότερο περίγραμμα
+        g2.drawRoundRect(startX - 8, startY - 8, 190,
+                        (battleParty.party.size() * (slotHeight + spacing)) + 8, 10, 10);
+        
+        for (int i = 0; i < battleParty.party.size(); i++) {
+            BattleEntity entity = battleParty.party.get(i);
+            int y = startY + i * (slotHeight + spacing);
             
-            // Μήνυμα μάχης
-            int msgX = screenWidth/2 - 250;
-            int msgY = menuY - 60;
-            int msgWidth = 500;
-            int msgHeight = 50;
+            // Φόντο για κάθε χαρακτήρα
+            g2.setColor(new Color(30, 30, 30, 200));
+            g2.fillRoundRect(startX - 5, y - 5, 180, slotHeight, 8, 8);
             
-            drawPanel(g2, msgX, msgY, msgWidth, msgHeight, new Color(0, 0, 0, 180), Color.white);
-            g2.setFont(maruMonica);
+            // Όνομα χαρακτήρα ΜΕΣΑ στο παραθυράκι
+            g2.setFont(maruMonicaSmall);  // Μικρότερο font
+            g2.setColor(Color.yellow);
+            String name = (entity.playerRef != null) ? "Hero" : entity.name;
+            if (name.length() > 8) name = name.substring(0, 8); // Κόψε αν είναι πολύ μακρύ
+            g2.drawString(name, startX, y);
+            
+            // HP Bar - πιο κοντό
+            int barWidth = 150;  // Μίκρυνε από 200 σε 150
+            int barHeight = 10;   // Μίκρυνε από 15 σε 10
+            int hpBarY = y + 15;  // Προσάρμοσε την θέση
+            
+            // Background
+            g2.setColor(Color.darkGray);
+            g2.fillRect(startX, hpBarY, barWidth, barHeight);
+            
+            // HP fill
+            g2.setColor(Color.red);
+            double hpPercentage = (double)entity.hp / entity.maxHp;
+            int hpWidth = (int)(barWidth * hpPercentage);
+            g2.fillRect(startX, hpBarY, hpWidth, barHeight);
+            
+            // HP text (πολύ μικρό)
+            g2.setFont(new Font("Arial", Font.BOLD, 8));
             g2.setColor(Color.white);
+            String hpText = entity.hp + "/" + entity.maxHp;
+            int textX = startX + (barWidth/2) - 15;
+            g2.drawString(hpText, textX, hpBarY + 8);
             
-            // Κεντράρισμα του μηνύματος
-            int msgTextX = getXforCenteredText(battleMessage, g2);
-            g2.drawString(battleMessage, msgTextX, msgY + 30);
+            // MP Bar (μόνο για παίκτες) - ακόμα πιο κοντό
+            if (entity.isPlayer) {
+                int mpBarY = hpBarY + barHeight + 2;
+                
+                // Background
+                g2.setColor(Color.darkGray);
+                g2.fillRect(startX, mpBarY, barWidth, barHeight);
+                
+                // MP fill
+                g2.setColor(Color.blue);
+                double mpPercentage = (double)entity.mp / entity.maxMp;
+                int mpWidth = (int)(barWidth * mpPercentage);
+                g2.fillRect(startX, mpBarY, mpWidth, barHeight);
+                
+                // MP text
+                g2.setFont(new Font("Arial", Font.BOLD, 8));
+                g2.setColor(Color.white);
+                String mpText = entity.mp + "/" + entity.maxMp;
+                textX = startX + (barWidth/2) - 15;
+                g2.drawString(mpText, textX, mpBarY + 8);
+            }
         }
     }
 
     public void drawBattleTurnOrder(Graphics2D g2) {
-        int startX = 20;
-        int startY = 40;
-        int slotWidth = 100;
-        int slotHeight = 30;
-        int spacing = 5;
-        
-        // Τίτλος
-        g2.setFont(new Font("Arial", Font.BOLD, 14));
-        g2.setColor(Color.yellow);
-        g2.drawString("Turn Order", startX, startY - 10);
+        int startX = 20;  // Πάνω αριστερά
+        int startY = 10;
+        int slotWidth = 48;  // Λίγο μεγαλύτερο (ίδιο με tileSize)
+        int slotHeight = 48;
+        int spacing = 5;     // Μικρή απόσταση μεταξύ slots
         
         // Τρέχων γύρος
         int currentIndex = battleParty.currentTurnIndex;
         
         for (int i = 0; i < battleParty.turnOrder.size(); i++) {
             BattleEntity entity = battleParty.turnOrder.get(i);
-            int x = startX;
-            int y = startY + i * (slotHeight + spacing);
             
-            // Αν είναι ο τρέχων γύρος, κίτρινο φόντο
-            if (i == currentIndex) {
-                g2.setColor(new Color(255, 255, 0, 100));
-                g2.fillRoundRect(x, y, slotWidth, slotHeight, 10, 10);
-                g2.setColor(Color.yellow);
-                g2.setStroke(new BasicStroke(2));
-                g2.drawRoundRect(x, y, slotWidth, slotHeight, 10, 10);
+            // Υπολόγισε θέση οριζόντια
+            int x = startX + i * (slotWidth + spacing);
+            int y = startY;
+            
+            // Διάλεξε χρώμα πλαισίου ανάλογα με το ποιος είναι
+            if (entity.isPlayer) {
+                // Δικοί μας - Μπλε
+                if (i == currentIndex) {
+                    g2.setColor(new Color(0, 100, 255, 180)); // Μπλε με διαφάνεια
+                    g2.fillRoundRect(x, y, slotWidth, slotHeight, 10, 10);
+                    g2.setColor(new Color(0, 150, 255)); // Πιο φωτεινό μπλε για περίγραμμα
+                    g2.setStroke(new BasicStroke(3));
+                    g2.drawRoundRect(x, y, slotWidth, slotHeight, 10, 10);
+                } else {
+                    g2.setColor(new Color(0, 70, 150, 150)); // Σκούρο μπλε με διαφάνεια
+                    g2.fillRoundRect(x, y, slotWidth, slotHeight, 10, 10);
+                    g2.setColor(new Color(100, 150, 255)); // Ανοιχτό μπλε για περίγραμμα
+                    g2.setStroke(new BasicStroke(2));
+                    g2.drawRoundRect(x, y, slotWidth, slotHeight, 10, 10);
+                }
             } else {
-                g2.setColor(new Color(0, 0, 0, 150));
-                g2.fillRoundRect(x, y, slotWidth, slotHeight, 10, 10);
-                g2.setColor(Color.white);
-                g2.setStroke(new BasicStroke(1));
-                g2.drawRoundRect(x, y, slotWidth, slotHeight, 10, 10);
+                // Αντίπαλοι - Κόκκινο
+                if (i == currentIndex) {
+                    g2.setColor(new Color(255, 0, 0, 180)); // Κόκκινο με διαφάνεια
+                    g2.fillRoundRect(x, y, slotWidth, slotHeight, 10, 10);
+                    g2.setColor(new Color(255, 100, 100)); // Πιο φωτεινό κόκκινο για περίγραμμα
+                    g2.setStroke(new BasicStroke(3));
+                    g2.drawRoundRect(x, y, slotWidth, slotHeight, 10, 10);
+                } else {
+                    g2.setColor(new Color(150, 0, 0, 150)); // Σκούρο κόκκινο με διαφάνεια
+                    g2.fillRoundRect(x, y, slotWidth, slotHeight, 10, 10);
+                    g2.setColor(new Color(255, 100, 100)); // Ανοιχτό κόκκινο για περίγραμμα
+                    g2.setStroke(new BasicStroke(2));
+                    g2.drawRoundRect(x, y, slotWidth, slotHeight, 10, 10);
+                }
             }
             
-            // Όνομα
-            g2.setFont(new Font("Arial", Font.BOLD, 12));
-            g2.setColor(entity.isPlayer ? Color.cyan : Color.red);
-            String name = entity.isPlayer ? "Hero" : entity.name;
-            if (name.length() > 8) name = name.substring(0, 8);
-            g2.drawString(name, x + 5, y + 15);
+            // Εικόνα οντότητας
+            BufferedImage icon = null;
             
-            // HP
-            g2.setFont(new Font("Arial", Font.PLAIN, 10));
-            g2.setColor(Color.white);
-            g2.drawString("HP: " + entity.hp + "/" + entity.maxHp, x + 5, y + 25);
+            if (entity.isPlayer) {
+                // Για παίκτη, χρησιμοποίησε την εικόνα του ήρωα
+                icon = playerDown1;
+            } else {
+                // Για εχθρό, χρησιμοποίησε την εικόνα του εχθρού
+                if (entity.enemyRef != null && entity.enemyRef.currentImage != null) {
+                    icon = entity.enemyRef.currentImage;
+                }
+            }
+            
+            // Ζωγράφισε την εικόνα (ελαφρώς μικρότερη για να φαίνεται το πλαίσιο)
+            if (icon != null) {
+                g2.drawImage(icon, x + 4, y + 4, slotWidth - 8, slotHeight - 8, null);
+            }
         }
         
         // Επόμενος γύρος (δεξιά)
-        int nextX = startX + slotWidth + 50;
-        int nextY = startY;
+        int nextStartX = startX + (battleParty.turnOrder.size()) * (slotWidth + spacing) + 50;
         
-        g2.setFont(new Font("Arial", Font.BOLD, 14));
-        g2.setColor(Color.yellow);
-        g2.drawString("Next Round", nextX, nextY - 10);
+        // Λέξη "NEXT"
+        g2.setFont(maruMonicaBold.deriveFont(20f));
+        g2.setColor(Color.black);
+        g2.drawString("Next Round", nextStartX, startY + slotHeight/2);
         
-        for (int i = 0; i < Math.min(4, battleParty.turnOrder.size()); i++) {
+        // Επόμενες εικόνες (3 επόμενες)
+        int nextX = nextStartX + 95; // Μετά τη λέξη NEXT
+        for (int i = 0; i < Math.min(3, battleParty.turnOrder.size()); i++) {
             int index = (currentIndex + i + 1) % battleParty.turnOrder.size();
             BattleEntity entity = battleParty.turnOrder.get(index);
             
-            int x = nextX;
-            int y = nextY + i * (slotHeight + spacing);
+            int x = nextX + i * (slotWidth + spacing);
+            int y = startY;
             
-            g2.setColor(new Color(0, 0, 0, 100));
+            // Πιο σκούρα και με διαφάνεια για τους επόμενους
+            g2.setColor(new Color(0, 0, 0, 120));
             g2.fillRoundRect(x, y, slotWidth, slotHeight, 10, 10);
             g2.setColor(Color.gray);
             g2.setStroke(new BasicStroke(1));
             g2.drawRoundRect(x, y, slotWidth, slotHeight, 10, 10);
             
-            g2.setFont(new Font("Arial", Font.BOLD, 12));
-            g2.setColor(entity.isPlayer ? Color.cyan.darker() : Color.red.darker());
-            String name = entity.isPlayer ? "Hero" : entity.name;
-            if (name.length() > 8) name = name.substring(0, 8);
-            g2.drawString(name, x + 5, y + 20);
+            // Εικόνα για τον επόμενο γύρο
+            BufferedImage icon = null;
+            
+            if (entity.isPlayer) {
+                icon = playerDown1;
+            } else {
+                if (entity.enemyRef != null && entity.enemyRef.currentImage != null) {
+                    icon = entity.enemyRef.currentImage;
+                }
+            }
+            
+            if (icon != null) {
+                g2.drawImage(icon, x + 4, y + 4, slotWidth - 8, slotHeight - 8, null);
+            }
         }
     }
 
