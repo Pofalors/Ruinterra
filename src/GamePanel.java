@@ -166,6 +166,7 @@ public class GamePanel extends JPanel implements Runnable {
     // ========== ΜΑΧΗ ==========
     public ArrayList<ArrayList<Enemy>> enemies = new ArrayList<>();
     public final int battleState = 4;
+    public final int battleVictoryState = 12;
     public Enemy currentEnemy;
     // Random Encounters
     public int encounterStepCounter = 0;
@@ -207,6 +208,24 @@ public class GamePanel extends JPanel implements Runnable {
     public String lastAction = "";        // ΝΕΟ: τελευταία ενέργεια που έγινε
     public int actionMessageTimer = 0;    // ΝΕΟ: πόσο θα εμφανίζεται
     public final int ACTION_MESSAGE_DURATION = 90; // ΝΕΟ: 1.5 sec στα 60fps
+    public final int BATTLE_ANIMATION_SPEED = 8; // Πιο αργό animation (από 8)
+    public final int BATTLE_DEATH_DELAY = 90; // 1.5 δευτερόλεπτο για death animation (60fps)
+    public final int BATTLE_VICTORY_DELAY = 120; // 2 δευτερόλεπτα για rewards
+    public int battleTurnDelay = 0;
+    public final int BATTLE_TURN_DELAY_TIME = 120; // 1 δευτερόλεπτο delay
+    public boolean waitingForNextTurn = false;
+    public int battlePhase = 0; // 0=player turn start, 1=player attack, 2=player hurt, 3=enemy turn start, 4=enemy attack, 5=enemy hurt, 6=waiting
+    public int battlePhaseTimer = 0;
+    public final int BATTLE_PHASE_DELAY = 180; // 3 δευτερόλεπτα στα 60fps (180 = 3sec)
+    public BattleEntity currentAttacker = null;
+    public BattleEntity currentTarget = null;
+    public BattleEnemy currentBattleEnemy = null;
+    public int pendingDamage = 0;
+    // variables για victory
+    public int victoryTimer = 0;
+    public int victoryExp = 0;
+    public int victoryGold = 0;
+    public boolean victoryRewardsShown = false;
 
     // ΠΟΖΕΣ
     BufferedImage playerDown1, playerDown2;
@@ -1379,33 +1398,50 @@ public class GamePanel extends JPanel implements Runnable {
                             // Επαναφορά του battleParty για επόμενη μάχη
                             battleParty = new BattleParty();
                         } else {
-                            // ΝΙΚΗ 
+                            // ΝΙΚΗ - Πήγαινε κατευθείαν στο victory state (ΧΩΡΙΣ να αλλάξεις το battleFadeOut)
                             battleParty.syncPlayerHealth();
-
-                            int totalExp = pendingExp;
-                            int totalGold = pendingGold;
-
-                            // Εμφάνισε το μήνυμα
-                            battleMessage = "Νίκη! +" + totalExp + " EXP, +" + totalGold + " Gold!";
-                            repaint();
-                            try { Thread.sleep(1500); } catch (Exception e) {}
-
-                            gameState = playState;
-                            returnToMapMusic();
-                            battleParty = new BattleParty();
-                            pendingExp = 0; // Reset
-                            pendingGold = 0; // Reset
+                            victoryExp = pendingExp;
+                            victoryGold = pendingGold;
+                            victoryRewardsShown = false;
+                            gameState = battleVictoryState;
                         }
                         continue;
                     }
-                    
+
+                    if (waitingForNextTurn) {
+                        battleTurnDelay++;
+                        if (battleTurnDelay >= BATTLE_TURN_DELAY_TIME) {
+                            waitingForNextTurn = false;
+                            battleTurnDelay = 0;
+                            battleParty.nextTurn();
+                        }
+                        repaint();
+                    }                     
                     // Αν είναι σειρά του εχθρού
-                    if (!battleParty.isPlayerTurn()) {
+                    else if (!battleParty.isPlayerTurn()) {
                         BattleEntity currentEnemy = battleParty.getCurrentTurn();
+
+                        // Βρες το αντίστοιχο BattleEnemy για το animation
+                        BattleEnemy attackingEnemy = null;
+                        for (BattleEnemy be : battleEnemies) {
+                            if (be.enemy == currentEnemy.enemyRef) {
+                                attackingEnemy = be;
+                                break;
+                            }
+                        }
                         
                         // Απλή AI: επιτίθεται στον πρώτο παίκτη
                         if (currentEnemy != null && !battleParty.party.isEmpty()) {
                             BattleEntity target = battleParty.party.get(0);
+
+                            // Παίξε attack animation
+                            if (attackingEnemy != null) {
+                                attackingEnemy.playAnimation("attack");
+                                
+                                // Μικρή καθυστέρηση για να φανεί το attack animation
+                                try { Thread.sleep(300); } catch (Exception e) {}
+                            }
+
                             
                             // Υπολόγισε ζημιά
                             int damage = currentEnemy.attack - target.defense;
@@ -1434,7 +1470,8 @@ public class GamePanel extends JPanel implements Runnable {
                         }
                         
                         // ΠΡΟΧΩΡΑ ΣΤΗΝ ΕΠΟΜΕΝΗ ΣΕΙΡΑ
-                        battleParty.nextTurn();
+                        waitingForNextTurn = true;
+                        battleTurnDelay = 0;
                         repaint();
                         
                         // ΣΗΜΑΝΤΙΚΟ: Μην επιτρέψεις να εκτελεστεί άλλος κώδικας πριν το repaint
@@ -1537,6 +1574,9 @@ public class GamePanel extends JPanel implements Runnable {
 
                                 // Παίξε hurt animation
                                 be.playAnimation("hurt");
+                                // Μικρή καθυστέρηση για το hurt animation
+                                repaint();
+                                try { Thread.sleep(200); } catch (Exception e) {}
                                 
                                 // Υπολόγισε ζημιά
                                 playSound("hitmonster");
@@ -1549,6 +1589,14 @@ public class GamePanel extends JPanel implements Runnable {
                                 if (target.hp <= 0) {
                                     be.playAnimation("death");
                                     // Μην το αφαιρέσεις αμέσως, περίμενε να τελειώσει το animation
+                                    // Αποθήκευσε τα rewards αλλά μην τελειώσεις τη μάχη αμέσως
+                                    boolean enemyDied = !target.isAlive();
+                                    if (enemyDied && target.enemyRef != null) {
+                                        int[] rewards = target.enemyRef.giveRewards(player);
+                                        pendingExp += rewards[0];
+                                        pendingGold += rewards[1];
+                                        System.out.println("Enemy died! Pending rewards: EXP=" + pendingExp + ", Gold=" + pendingGold);
+                                    }
                                 }
 
                                 showActionMessage(currentPlayer.name + " attacks " + target.name + " for " + damage + " damage!");
@@ -1556,14 +1604,6 @@ public class GamePanel extends JPanel implements Runnable {
                                 // Ενημέρωσε το αντίστοιχο BattleEnemy για το οπτικό
                                 if (selectedTarget < battleEnemies.size()) {
                                     battleEnemies.get(selectedTarget).hp = target.hp;
-                                }
-
-                                boolean enemyDied = !target.isAlive();
-                                if (enemyDied && target.enemyRef != null) {
-                                    int[] rewards = target.enemyRef.giveRewards(player);
-                                    pendingExp += rewards[0];
-                                    pendingGold += rewards[1];
-                                    System.out.println("Enemy died! Pending rewards: EXP=" + pendingExp + ", Gold=" + pendingGold);
                                 }
                                 
                                 repaint();
@@ -1580,7 +1620,9 @@ public class GamePanel extends JPanel implements Runnable {
                                 }
                                 
                                 // ΠΡΟΧΩΡΑ ΣΤΗΝ ΕΠΟΜΕΝΗ ΣΕΙΡΑ
-                                battleParty.nextTurn();
+                                // Delay πριν την επόμενη σειρά
+                                waitingForNextTurn = true;
+                                battleTurnDelay = 0;
                                 selectingTarget = false;
                                 keyH.enterPressed = false;
                                 repaint();
@@ -1601,6 +1643,28 @@ public class GamePanel extends JPanel implements Runnable {
                         }
                     }
                 }
+            }
+            // ========== BATTLE VICTORY STATE ==========   
+            else if (gameState == battleVictoryState) {
+                victoryTimer++;
+                // Πρόσθεσε τα rewards μόνο μία φορά
+                if (!victoryRewardsShown) {
+                    battleMessage = "Νίκη! +" + victoryExp + " EXP, +" + victoryGold + " Gold!";
+                    player.addExp(victoryExp);
+                    player.gold += victoryGold;
+                    victoryRewardsShown = true;
+                    sound.stopMusic();
+                    playSound("levelup");
+                }
+                
+                // Αν πατήσει Enter, ξεκίνα fade out
+                if (keyH.enterPressed && !battleFadeOut) {
+                    battleFadeOut = true;
+                    battleFadeAlpha = 0;
+                    keyH.enterPressed = false;
+                }
+                
+                repaint();
             }
             // ========== TITLE STATE ==========
             if (gameState == titleState) {
@@ -2365,21 +2429,28 @@ public class GamePanel extends JPanel implements Runnable {
                 battleFadeAlpha += FADE_SPEED;
                 if (battleFadeAlpha >= 255) {
                     battleFadeAlpha = 255;
+                    
+                    // Αν είμαστε σε victory state, γύρνα στο playState
+                    if (gameState == battleVictoryState) {
+                        gameState = playState;
+                        returnToMapMusic();
+                        battleParty = new BattleParty();
+                        pendingExp = 0;
+                        pendingGold = 0;
+                        victoryRewardsShown = false;
+                    } else {
+                        // Αλλιώς ξεκίνα μάχη (για το κανονικό fade in)
+                        gameState = battleState;
+                        battleEntering = true;
+                        battleTransitionTimer = 0;
+                        battleWalkTimer = 0;
+                        battleWalkFrame = 0;
+                        battleStarting = false;
+                        
+                        setupBattleEntities();
+                        battleFadeIn = true;
+                    }
                     battleFadeOut = false;
-                    
-                    // Εδώ ξεκινάει η μάχη!
-                    gameState = battleState;
-                    battleEntering = true;
-                    battleTransitionTimer = 0;
-                    battleWalkTimer = 0;
-                    battleWalkFrame = 0;
-                    battleStarting = false;
-                    
-                    // Ρύθμισε τους εχθρούς και τους παίκτες
-                    setupBattleEntities();
-                    
-                    // Ξεκίνα fade in
-                    battleFadeIn = true;
                 }
             }
 
@@ -3049,6 +3120,9 @@ public class GamePanel extends JPanel implements Runnable {
             // ========== Battle Screen ==========
             if (gameState == battleState) {
                 drawBattleScreen(g2);
+            } else if (gameState == battleVictoryState) { // ΝΕΟ
+                drawBattleScreen(g2); // Ζωγράφισε πρώτα τη μάχη
+                // Το victory message θα ζωγραφιστεί μέσα στο drawBattleScreen
             }
 
             // Αν είμαστε σε κατάσταση διαλόγου, ζωγράφισε την οθόνη διαλόγου
@@ -3454,6 +3528,44 @@ public class GamePanel extends JPanel implements Runnable {
                 int textX = getXforCenteredText(lastAction, g2);
                 int textY = msgY + 20;
                 g2.drawString(lastAction, textX, textY);
+            }
+
+            // ========== ΜΗΝΥΜΑ ΝΙΚΗΣ ==========
+            if (gameState == battleVictoryState) {
+                // Σκούρο φόντο
+                g2.setColor(new Color(0, 0, 0, 150));
+                g2.fillRect(0, 0, screenWidth, screenHeight);
+                
+                // Μήνυμα νίκης
+                g2.setFont(maruMonicaLarge);
+                g2.setColor(Color.yellow);
+                String victory = "VICTORY!";
+                int x = getXforCenteredText(victory, g2);
+                g2.drawString(victory, x, screenHeight/2 - 50);
+                
+                // Rewards
+                g2.setFont(maruMonicaBold);
+                g2.setColor(Color.white);
+                String expText = "+" + victoryExp + " EXP";
+                String goldText = "+" + victoryGold + " Gold";
+                
+                x = getXforCenteredText(expText, g2);
+                g2.drawString(expText, x, screenHeight/2);
+                
+                x = getXforCenteredText(goldText, g2);
+                g2.drawString(goldText, x, screenHeight/2 + 40);
+
+                // Μήνυμα για Enter - ΑΝΑΒΟΣΒΗΝΕΙ (με χρήση victoryTimer)
+                victoryTimer++; // Πρόσθεσε αυτό - το victoryTimer υπάρχει ήδη
+                
+                if ((victoryTimer / 30) % 2 == 0) { // Αλλάζει κάθε 30 frames (0.5 sec)
+                    g2.setFont(maruMonicaSmall);
+                    g2.setColor(Color.lightGray);
+                    String cont = "Press ENTER to continue";
+                    x = getXforCenteredText(cont, g2);
+                    g2.drawString(cont, x, screenHeight/2 + 70);
+                }
+
             }
             
             // Σειρά σειράς

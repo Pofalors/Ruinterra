@@ -9,7 +9,8 @@ public class EnemyAnimation {
     private BufferedImage[] currentAnimation;
     public int currentFrame = 0;
     public int frameCounter = 0;
-    public final int FRAME_DELAY = 8; // Ταχύτητα animation
+    public final int FRAME_DELAY_IDLE = 15;    // Αργό για idle (15 frames)
+    public final int FRAME_DELAY_ACTION = 8;   // Γρήγορο για attack/hurt/death (5 frames)
     
     public boolean isPlaying = false;
     public boolean loop = true;
@@ -28,7 +29,16 @@ public class EnemyAnimation {
         if (!isPlaying) return;
         
         frameCounter++;
-        if (frameCounter >= FRAME_DELAY) {
+        
+        // Διάλεξε ταχύτητα ανάλογα με το animation
+        int currentDelay = FRAME_DELAY_IDLE; // default
+        
+        if (currentAnimName.equals("attack") ||  
+            currentAnimName.equals("death")) {
+            currentDelay = FRAME_DELAY_ACTION; // Πιο γρήγορο
+        }
+        
+        if (frameCounter >= currentDelay) {
             frameCounter = 0;
             currentFrame++;
             
