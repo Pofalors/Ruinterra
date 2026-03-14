@@ -19,6 +19,19 @@ public class Enemy_Skeleton extends Enemy {
             magicDefense = 4;
             speed_stat = 7;
             exp = 22;
+
+            // Φόρτωσε animations (64x64)
+            loadAnimations("skeleton", 64);
+            
+            // Fallback
+            try {
+                if (anim == null) {
+                    down1 = ImageIO.read(new File("res/enemy/skeleton.png"));
+                    currentImage = down1;
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
             
         } catch (Exception e) {
             e.printStackTrace();

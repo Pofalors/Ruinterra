@@ -19,6 +19,19 @@ public class Enemy_Goblin extends Enemy {
             magicDefense = 2;
             speed_stat = 5;
             exp = 15;
+
+            // Φόρτωσε animations (48x48)
+            loadAnimations("goblin", 48);
+            
+            // Fallback
+            try {
+                if (anim == null) {
+                    down1 = ImageIO.read(new File("res/enemy/goblin.png"));
+                    currentImage = down1;
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
             
         } catch (Exception e) {
             e.printStackTrace();

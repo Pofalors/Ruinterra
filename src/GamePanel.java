@@ -1531,8 +1531,12 @@ public class GamePanel extends JPanel implements Runnable {
                         
                         if (keyH.enterPressed) {
                             if (selectedTarget >= 0 && selectedTarget < battleParty.enemies.size()) {
+                                BattleEnemy be = battleEnemies.get(selectedTarget);
                                 BattleEntity target = battleParty.enemies.get(selectedTarget);
                                 BattleEntity currentPlayer = battleParty.getCurrentTurn();
+
+                                // Παίξε hurt animation
+                                be.playAnimation("hurt");
                                 
                                 // Υπολόγισε ζημιά
                                 playSound("hitmonster");
@@ -1540,6 +1544,12 @@ public class GamePanel extends JPanel implements Runnable {
                                 if (damage < 1) damage = 1;
                                 
                                 target.takeDamage(damage);
+
+                                // Αν πεθάνει
+                                if (target.hp <= 0) {
+                                    be.playAnimation("death");
+                                    // Μην το αφαιρέσεις αμέσως, περίμενε να τελειώσει το animation
+                                }
 
                                 showActionMessage(currentPlayer.name + " attacks " + target.name + " for " + damage + " damage!");
                                 
@@ -2380,6 +2390,13 @@ public class GamePanel extends JPanel implements Runnable {
                     battleFadeIn = false;
                 }
             }
+
+            if (gameState == battleState && !battleEntering) {
+                // Ενημέρωσε τα animations των εχθρών
+                for (BattleEnemy be : battleEnemies) {
+                    be.update();
+                }
+            }
             
             // 2. ΣΧΕΔΙΑΣΗ
             repaint();
@@ -2696,23 +2713,10 @@ public class GamePanel extends JPanel implements Runnable {
         // ========== ΔΗΜΙΟΥΡΓΙΑ BATTLE ENTITIES ==========
         
         // Δημιούργησε τους εχθρούς (προς το παρόν 1)
-        BattleEnemy be = new BattleEnemy();
-        be.enemy = currentEnemy;
-        be.hp = currentEnemy.hp;
-        be.maxHp = currentEnemy.maxHp;
-        
-        // Φόρτωσε εικόνα εχθρού
-        try {
-            String enemyName = currentEnemy.getClass().getSimpleName().replace("Enemy_", "").toLowerCase();
-            File rightImage = new File("res/enemy/" + enemyName + "_right_1.png");
-            
-            if (rightImage.exists()) {
-                be.image = ImageIO.read(rightImage);
-            } else {
-                be.image = currentEnemy.currentImage;
-            }
-        } catch (Exception e) {
-            be.image = currentEnemy.currentImage;
+        BattleEnemy be = new BattleEnemy(currentEnemy);
+        System.out.println("BattleEnemy created - anim is null? " + (be.anim == null));
+        if (be.anim != null) {
+            System.out.println("Anim loaded, idle frames: " + be.anim.idle.length);
         }
         
         // Ο εχθρός ξεκινάει εκτός οθόνης ΑΡΙΣΤΕΡΑ
@@ -2720,11 +2724,16 @@ public class GamePanel extends JPanel implements Runnable {
         be.y = groundY - tileSize;
         be.targetX = tileSize * 2;
         be.targetY = groundY - tileSize;
+
+        // Ξεκίνα με idle animation
+        be.playAnimation("idle");
+        System.out.println("Playing idle animation, current image: " + be.getCurrentImage());
         
         battleEnemies.add(be);
         
         // Δημιούργησε BattleEntity για τον εχθρό
-        BattleEntity enemyEntity = new BattleEntity(currentEnemy, be.image);
+        BufferedImage enemyImage = (be.anim != null) ? be.getCurrentImage() : currentEnemy.currentImage;
+        BattleEntity enemyEntity = new BattleEntity(currentEnemy, enemyImage);
         battleParty.enemies.add(enemyEntity);
         
         // Δημιούργησε τον παίκτη (προς το παρόν 1)
@@ -3346,8 +3355,6 @@ public class GamePanel extends JPanel implements Runnable {
     
         // ΒΑΣΙΚΟ ΜΕΓΕΘΟΣ (το αρχικό)
         int baseSize = tileSize * 2; // 96x96
-        
-        // ΝΕΟ ΜΕΓΕΘΟΣ (όσο θες)
         int spriteSize = tileSize * 4; // ή tileSize * 2, ή 128, ή 192
         
         int drawX = (int)be.x;
@@ -3358,7 +3365,7 @@ public class GamePanel extends JPanel implements Runnable {
         g2.fillOval(drawX + spriteSize/4, drawY + spriteSize - 10, spriteSize/2, spriteSize/4);
         
         // Εχθρός
-        g2.drawImage(be.image, drawX, drawY, spriteSize, spriteSize, null);
+        g2.drawImage(be.getCurrentImage(), drawX, drawY, spriteSize, spriteSize, null);
             
             // ========== ANIMATION ΖΗΜΙΑΣ ΓΙΑ ΕΧΘΡΟ ==========
             BattleEntity enemyEntity = (i < battleParty.enemies.size()) ? battleParty.enemies.get(i) : null;

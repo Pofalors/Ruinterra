@@ -19,6 +19,19 @@ public class Enemy_Mushroom extends Enemy {
             magicDefense = 2;
             speed_stat = 3;
             exp = 12;
+
+            // Φόρτωσε animations (48x48)
+            loadAnimations("mushroom", 48);
+            
+            // Fallback στην παλιά εικόνα αν αποτύχει
+            try {
+                if (anim == null) {
+                    down1 = ImageIO.read(new File("res/enemy/mushroom.png"));
+                    currentImage = down1;
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
             
         } catch (Exception e) {
             e.printStackTrace();
