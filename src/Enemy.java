@@ -1,5 +1,6 @@
 public class Enemy extends Entity {
     protected int hp, maxHp, attack, defense, exp; // protected για πρόσβαση από παιδιά
+    public int spriteSize = 48;
     
     public Enemy(GamePanel gp) {
         super(gp);

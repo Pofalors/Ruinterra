@@ -2550,9 +2550,9 @@ public class GamePanel extends JPanel implements Runnable {
         String[] possibleEnemies;
         
         if (currentArea.equals("overworld")) {
-            possibleEnemies = new String[]{"Slime", "Red Slime"};
+            possibleEnemies = new String[]{"Goblin", "Mushroom"};
         } else { // dungeon
-            possibleEnemies = new String[]{"Bat", "Orc", "Skeleton"};
+            possibleEnemies = new String[]{"Goblin", "Skeleton"};
         }
         
         String enemyType = possibleEnemies[(int)(Math.random() * possibleEnemies.length)];
@@ -2560,14 +2560,10 @@ public class GamePanel extends JPanel implements Runnable {
         Enemy newEnemy = null;
         
         // Δημιούργησε το κατάλληλο τέρας
-        if (enemyType.equals("Slime")) {
-            newEnemy = new Enemy_Slime(this);
-        } else if (enemyType.equals("Bat")) {
-            newEnemy = new Enemy_Bat(this);
-        } else if (enemyType.equals("Red Slime")) {
-            newEnemy = new Enemy_RedSlime(this);
-        } else if (enemyType.equals("Orc")) {
-            newEnemy = new Enemy_Orc(this);
+        if (enemyType.equals("Goblin")) {
+            newEnemy = new Enemy_Goblin(this);
+        } else if (enemyType.equals("Mushroom")) {
+            newEnemy = new Enemy_Mushroom(this);
         } else if (enemyType.equals("Skeleton")) {
             newEnemy = new Enemy_Skeleton(this);
         }
@@ -2722,7 +2718,7 @@ public class GamePanel extends JPanel implements Runnable {
         // Ο εχθρός ξεκινάει εκτός οθόνης ΑΡΙΣΤΕΡΑ
         be.x = -tileSize * 4;
         be.y = groundY - tileSize;
-        be.targetX = tileSize * 3;
+        be.targetX = tileSize * 2;
         be.targetY = groundY - tileSize;
         
         battleEnemies.add(be);
@@ -3347,16 +3343,22 @@ public class GamePanel extends JPanel implements Runnable {
         // ========== ΖΩΓΡΑΦΙΣΕ ΕΧΘΡΟΥΣ (ΧΩΡΙΣ HP BARS) ==========
         for (int i = 0; i < battleEnemies.size(); i++) {
             BattleEnemy be = battleEnemies.get(i);
-            int drawX = (int)be.x;
-            int drawY = (int)be.y;
-            
-            // Σκιά
-            g2.setColor(new Color(0, 0, 0, 100));
-            g2.fillOval(drawX + tileSize/2, drawY + tileSize*2 - 5, tileSize*2, tileSize/3);
-            
-            // Εχθρός
-            int spriteSize = tileSize * 2;
-            g2.drawImage(be.image, drawX, drawY, spriteSize, spriteSize, null);
+    
+        // ΒΑΣΙΚΟ ΜΕΓΕΘΟΣ (το αρχικό)
+        int baseSize = tileSize * 2; // 96x96
+        
+        // ΝΕΟ ΜΕΓΕΘΟΣ (όσο θες)
+        int spriteSize = tileSize * 4; // ή tileSize * 2, ή 128, ή 192
+        
+        int drawX = (int)be.x;
+        // Η θέση Υ πρέπει να προσαρμοστεί
+        // Όσο μεγαλώνει η εικόνα, τόσο πρέπει να ανεβαίνει
+        int drawY = (int)be.y - (spriteSize - baseSize);
+        g2.setColor(new Color(0, 0, 0, 100));
+        g2.fillOval(drawX + spriteSize/4, drawY + spriteSize - 10, spriteSize/2, spriteSize/4);
+        
+        // Εχθρός
+        g2.drawImage(be.image, drawX, drawY, spriteSize, spriteSize, null);
             
             // ========== ANIMATION ΖΗΜΙΑΣ ΓΙΑ ΕΧΘΡΟ ==========
             BattleEntity enemyEntity = (i < battleParty.enemies.size()) ? battleParty.enemies.get(i) : null;
