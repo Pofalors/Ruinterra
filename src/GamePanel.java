@@ -212,7 +212,7 @@ public class GamePanel extends JPanel implements Runnable {
     public final int BATTLE_DEATH_DELAY = 90; // 1.5 δευτερόλεπτο για death animation (60fps)
     public final int BATTLE_VICTORY_DELAY = 120; // 2 δευτερόλεπτα για rewards
     public int battleTurnDelay = 0;
-    public final int BATTLE_TURN_DELAY_TIME = 120; // 1 δευτερόλεπτο delay
+    public final int BATTLE_TURN_DELAY_TIME = 150; // 1 δευτερόλεπτο delay
     public boolean waitingForNextTurn = false;
     public int battlePhase = 0; // 0=player turn start, 1=player attack, 2=player hurt, 3=enemy turn start, 4=enemy attack, 5=enemy hurt, 6=waiting
     public int battlePhaseTimer = 0;
@@ -224,7 +224,7 @@ public class GamePanel extends JPanel implements Runnable {
     // DEATH ANIMATION
     public boolean deathAnimationPlaying = false;
     public int deathAnimationTimer = 0;
-    public final int DEATH_ANIMATION_DELAY = 120; // 2 δευτερόλεπτα στα 60fps
+    public final int DEATH_ANIMATION_DELAY = 90; // 2 δευτερόλεπτα στα 60fps
     public boolean waitingForDeathAnimation = false;
     // variables για victory
     public int victoryTimer = 0;
@@ -1402,32 +1402,7 @@ public class GamePanel extends JPanel implements Runnable {
                             
                             // Επαναφορά του battleParty για επόμενη μάχη
                             battleParty = new BattleParty();
-                        } else {
-                            // ΝΙΚΗ - αλλά έλεγξε πρώτα αν παίζει death animation
-                            if (deathAnimationPlaying) {
-                                // Περίμενε να τελειώσει
-                                deathAnimationTimer++;
-                                if (deathAnimationTimer >= DEATH_ANIMATION_DELAY) {
-                                    // Τελείωσε το death animation, πήγαινε στο victory
-                                    battleParty.removeDeadEntities();
-                                    battleParty.syncPlayerHealth();
-                                    victoryExp = pendingExp;
-                                    victoryGold = pendingGold;
-                                    victoryRewardsShown = false;
-                                    gameState = battleVictoryState;
-                                    deathAnimationPlaying = false;
-                                    deathAnimationTimer = 0;
-                                    waitingForDeathAnimation = false;
-                                }
-                            } else {
-                                // Κανένα death animation σε εξέλιξη, πήγαινε κατευθείαν στο victory
-                                battleParty.syncPlayerHealth();
-                                victoryExp = pendingExp;
-                                victoryGold = pendingGold;
-                                victoryRewardsShown = false;
-                                gameState = battleVictoryState;
-                            }
-                        }
+                        } 
                         continue;
                     }
 
@@ -1614,6 +1589,7 @@ public class GamePanel extends JPanel implements Runnable {
                                     deathAnimationPlaying = true;  // <-- ΠΡΟΣΘΕΣΕ ΑΥΤΟ
                                     deathAnimationTimer = 0;       // <-- ΚΑΙ ΑΥΤΟ
                                     waitingForDeathAnimation = true;
+                                    battleParty.turnOrder.remove(target);
                                     // Μην το αφαιρέσεις αμέσως, περίμενε να τελειώσει το animation
                                     // Αποθήκευσε τα rewards αλλά μην τελειώσεις τη μάχη αμέσως
                                     boolean enemyDied = !target.isAlive();
@@ -1639,11 +1615,6 @@ public class GamePanel extends JPanel implements Runnable {
                                 // ΑΦΑΙΡΕΣΕ ΤΟΝ ΕΧΘΡΟ ΜΟΝΟ ΑΝ ΔΕΝ ΠΑΙΖΕΙ ΑΝΙΜΑΤΙΟΝ ΘΑΝΑΤΟΥ
                                 if (!deathAnimationPlaying) {
                                     battleParty.removeDeadEntities();
-                                } else {
-                                    // Αν παίζει animation, μην τον αφαιρέσεις ακόμα. Το animation θα τον κρύψει.
-                                    // Αλλά πρέπει να σημαδέψουμε ότι είναι νεκρός για να μην επιτεθεί.
-                                    // Μπορείς να προσθέσεις ένα flag isDying στο BattleEnemy ή να τον αφαιρέσεις μετά.
-                                    // Η πιο απλή λύση: ΜΗΝ τον αφαιρέσεις καθόλου. Το removeDeadEntities() θα τον αφαιρέσει όταν τελειώσει το animation.
                                 }
                                 
                                 // Αν τελείωσε η μάχη, σταμάτα
@@ -2501,6 +2472,36 @@ public class GamePanel extends JPanel implements Runnable {
                 for (BattleEnemy be : battleEnemies) {
                     be.update();
                 }
+                
+                // ========== ΕΛΕΓΧΟΣ ΟΛΟΚΛΗΡΩΣΗΣ DEATH ANIMATION ==========
+                if (deathAnimationPlaying) {
+                    deathAnimationTimer++;
+                    if (deathAnimationTimer >= DEATH_ANIMATION_DELAY) {
+                        // Το animation τελείωσε – αφαίρεσε τους νεκρούς εχθρούς
+                        battleParty.removeDeadEntities();
+                        battleParty.turnOrder.removeIf(entity -> !entity.isAlive());
+                        
+                        // Αν ο τρέχων γύρος ήταν ο εχθρός που πέθανε, προχώρα στον επόμενο
+                        if (!battleParty.isPlayerTurn() && 
+                            (battleParty.getCurrentTurn() == null || !battleParty.getCurrentTurn().isAlive())) {
+                            battleParty.nextTurn();
+                        }
+                        battleParty.syncPlayerHealth();
+                        
+                        // Επαναφορά flags
+                        deathAnimationPlaying = false;
+                        deathAnimationTimer = 0;
+                        waitingForDeathAnimation = false;
+                        
+                        // Έλεγξε αν η μάχη τελείωσε (όλοι οι εχθροί νεκροί)
+                        if (battleParty.battleEnded) {
+                            victoryExp = pendingExp;
+                            victoryGold = pendingGold;
+                            victoryRewardsShown = false;
+                            gameState = battleVictoryState;
+                        }
+                    }
+                }
             }
             
             // 2. ΣΧΕΔΙΑΣΗ
@@ -2797,6 +2798,16 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     public void setupBattleEntities() {
+        waitingForNextTurn = false;
+        battleTurnDelay = 0;
+        battlePhase = 0;
+        battlePhaseTimer = 0;
+        deathAnimationPlaying = false;
+        waitingForDeathAnimation = false;
+        selectingTarget = false;
+        battleMenuOption = 0;
+        actionMessageTimer = 0;
+        lastAction = "";
         battleEnemies.clear();
         battlePlayers.clear();
         battleParty.party.clear();
@@ -2827,7 +2838,7 @@ public class GamePanel extends JPanel implements Runnable {
         // Ο εχθρός ξεκινάει εκτός οθόνης ΑΡΙΣΤΕΡΑ
         be.x = -tileSize * 4;
         be.y = groundY - tileSize;
-        be.targetX = tileSize * 2;
+        be.targetX = tileSize / 2 - 60;
         be.targetY = groundY - tileSize;
 
         // Ξεκίνα με idle animation
@@ -2864,6 +2875,18 @@ public class GamePanel extends JPanel implements Runnable {
         
         // Υπολόγισε τη σειρά σειράς
         battleParty.calculateTurnOrder();
+        // Εξασφάλισε ότι ο παίκτης είναι πρώτος στη σειρά σειράς
+        if (!battleParty.turnOrder.isEmpty() && !battleParty.turnOrder.get(0).isPlayer) {
+            for (int i = 1; i < battleParty.turnOrder.size(); i++) {
+                if (battleParty.turnOrder.get(i).isPlayer) {
+                    playerEntity = battleParty.turnOrder.remove(i);
+                    battleParty.turnOrder.add(0, playerEntity);
+                    break;
+                }
+            }
+        }
+        // Ενημέρωσε τον currentTurnIndex ώστε να δείχνει στο 0 (παίκτης)
+        battleParty.currentTurnIndex = 0;
         
         // Αρχικοποίησε μεταβλητές μάχης
         battleMenuOption = 0;
@@ -3460,23 +3483,26 @@ public class GamePanel extends JPanel implements Runnable {
         // ========== ΖΩΓΡΑΦΙΣΕ ΕΧΘΡΟΥΣ (ΧΩΡΙΣ HP BARS) ==========
         for (int i = 0; i < battleEnemies.size(); i++) {
             BattleEnemy be = battleEnemies.get(i);
+            BattleEntity enemyEntity = (i < battleParty.enemies.size()) ? battleParty.enemies.get(i) : null;
+            if (enemyEntity != null && !enemyEntity.isAlive() && gameState == battleVictoryState) {
+                continue;
+            }
     
             // ΒΑΣΙΚΟ ΜΕΓΕΘΟΣ (το αρχικό)
             int baseSize = tileSize * 2; // 96x96
-            int spriteSize = tileSize * 4; // ή tileSize * 2, ή 128, ή 192
+            int spriteSize = tileSize * 10; // ή tileSize * 2, ή 128, ή 192
             
             int drawX = (int)be.x;
             // Η θέση Υ πρέπει να προσαρμοστεί
             // Όσο μεγαλώνει η εικόνα, τόσο πρέπει να ανεβαίνει
             int drawY = (int)be.y - (spriteSize - baseSize);
             g2.setColor(new Color(0, 0, 0, 100));
-            g2.fillOval(drawX + spriteSize/4, drawY + spriteSize - 10, spriteSize/2, spriteSize/4);
+            g2.fillOval(drawX + spriteSize/3, drawY + spriteSize - 10, spriteSize/4, spriteSize/8);
             
             // Εχθρός
             g2.drawImage(be.getCurrentImage(), drawX, drawY, spriteSize, spriteSize, null);
             
             // ========== ANIMATION ΖΗΜΙΑΣ ΓΙΑ ΕΧΘΡΟ ==========
-            BattleEntity enemyEntity = (i < battleParty.enemies.size()) ? battleParty.enemies.get(i) : null;
             if (enemyEntity != null && enemyEntity.isTakingDamage) {
                 // Μείωσε τον timer
                 enemyEntity.damageTimer--;

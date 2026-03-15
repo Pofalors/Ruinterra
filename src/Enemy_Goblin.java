@@ -21,7 +21,7 @@ public class Enemy_Goblin extends Enemy {
             exp = 15;
 
             // Φόρτωσε animations (48x48)
-            loadAnimations("goblin", 48);
+            loadAnimations("goblin", 128);
             
             // Fallback
             try {

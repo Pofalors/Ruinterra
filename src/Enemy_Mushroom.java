@@ -21,7 +21,7 @@ public class Enemy_Mushroom extends Enemy {
             exp = 12;
 
             // Φόρτωσε animations (48x48)
-            loadAnimations("mushroom", 48);
+            loadAnimations("mushroom", 128);
             
             // Fallback στην παλιά εικόνα αν αποτύχει
             try {

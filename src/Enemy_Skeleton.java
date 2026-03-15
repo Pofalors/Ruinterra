@@ -21,7 +21,7 @@ public class Enemy_Skeleton extends Enemy {
             exp = 22;
 
             // Φόρτωσε animations (64x64)
-            loadAnimations("skeleton", 64);
+            loadAnimations("skeleton", 128);
             
             // Fallback
             try {
