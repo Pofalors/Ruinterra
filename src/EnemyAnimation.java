@@ -47,8 +47,10 @@ public class EnemyAnimation {
                     currentFrame = 0;
                 } else {
                     isPlaying = false;
-                    // Μετά από attack/hurt, γύρνα στο idle
-                    if (currentAnimName.equals("attack") || currentAnimName.equals("hurt")) {
+                    // Μείνε στο τελευταίο frame για το death
+                    if (currentAnimName.equals("death")) {
+                        currentFrame = currentAnimation.length - 1;
+                    } else if (currentAnimName.equals("attack") || currentAnimName.equals("hurt")) {
                         setAnimation("idle", true);
                     }
                 }
@@ -59,6 +61,10 @@ public class EnemyAnimation {
     public BufferedImage getCurrentImage() {
         if (currentAnimation != null && currentFrame < currentAnimation.length) {
             return currentAnimation[currentFrame];
+        }
+        // Αν το death animation τελείωσε, δείξε το τελευταίο frame
+        if (currentAnimName.equals("death") && !isPlaying && death.length > 0) {
+            return death[death.length - 1];
         }
         return idle[0];
     }
@@ -81,6 +87,7 @@ public class EnemyAnimation {
                 break;
             case "death":
                 currentAnimation = death;
+                loop = false;
                 break;
             default:
                 currentAnimation = idle;
