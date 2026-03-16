@@ -221,6 +221,7 @@ public class GamePanel extends JPanel implements Runnable {
     public BattleEntity currentTarget = null;
     public BattleEnemy currentBattleEnemy = null;
     public int pendingDamage = 0;
+    public PlayerAnimation playerBattleAnim;
     // DEATH ANIMATION
     public boolean deathAnimationPlaying = false;
     public int deathAnimationTimer = 0;
@@ -341,6 +342,34 @@ public class GamePanel extends JPanel implements Runnable {
         } catch (IOException e) {
             e.printStackTrace();
             System.out.println("Using text fallback for logo");
+        }
+
+        // ========== ΦΟΡΤΩΣΗ BATTLE ANIMATIONS ΓΙΑ ΤΟΝ ΠΑΙΚΤΗ ΜΕ SPRITESHEET ==========
+        try {
+            // Φόρτωσε idle (3 frames)
+            SpriteSheet idleSheet = new SpriteSheet("res/player/battle/idle.png", 64, 64);
+            BufferedImage[] idleFrames = idleSheet.getAllFrames(); // 3 frames
+            
+            // Φόρτωσε hurt (2 frames)
+            SpriteSheet hurtSheet = new SpriteSheet("res/player/battle/hurt.png", 64, 64);
+            BufferedImage[] hurtFrames = hurtSheet.getAllFrames(); // 2 frames
+            
+            // Φόρτωσε death (3 frames)
+            SpriteSheet deathSheet = new SpriteSheet("res/player/battle/death.png", 64, 64);
+            BufferedImage[] deathFrames = deathSheet.getAllFrames(); // 3 frames
+            
+            // Φόρτωσε attack1 (π.χ. 6 frames)
+            SpriteSheet attack1Sheet = new SpriteSheet("res/player/battle/attack.png", 64, 64);
+            BufferedImage[] attack1Frames = attack1Sheet.getAllFrames(); // 6 frames
+            
+            // Δημιούργησε το animation object
+            playerBattleAnim = new PlayerAnimation(idleFrames, hurtFrames, deathFrames, attack1Frames);
+            
+            System.out.println("Player battle animations loaded successfully with SpriteSheet!");
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("Failed to load player battle animations");
         }
 
         // === FONTS ===
@@ -1451,7 +1480,13 @@ public class GamePanel extends JPanel implements Runnable {
                             
                             // Ενημέρωσε και το αντίστοιχο BattlePlayer
                             if (!battlePlayers.isEmpty()) {
+                                battlePlayers.get(0).playAnimation("hurt");
                                 battlePlayers.get(0).hp = target.hp;
+                            }
+
+                            // Όταν ο παίκτης πεθαίνει
+                            if (!battlePlayers.isEmpty() && player.hp <= 0) {
+                                battlePlayers.get(0).playAnimation("death");
                             }
                             
                             // Μικρή καθυστέρηση
@@ -1506,6 +1541,7 @@ public class GamePanel extends JPanel implements Runnable {
                                     selectingTarget = true;
                                     selectedTarget = 0;
                                     battleMessage = "Επίλεξε στόχο!";
+                                    // Πάιξε attack animation
                                     break;
                                     
                                 case 1: // CLASS SKILLS
@@ -1570,6 +1606,9 @@ public class GamePanel extends JPanel implements Runnable {
                                 BattleEntity target = battleParty.enemies.get(selectedTarget);
                                 BattleEntity currentPlayer = battleParty.getCurrentTurn();
 
+                                if (!battlePlayers.isEmpty()) {
+                                    battlePlayers.get(0).playAnimation("attack1");
+                                }
                                 // Παίξε hurt animation
                                 be.playAnimation("hurt");
                                 // Μικρή καθυστέρηση για το hurt animation
@@ -2472,6 +2511,10 @@ public class GamePanel extends JPanel implements Runnable {
                 for (BattleEnemy be : battleEnemies) {
                     be.update();
                 }
+                // Ενημέρωσε τα animations των παικτών 
+                for (BattlePlayer bp : battlePlayers) {
+                    bp.update();
+                }
                 
                 // ========== ΕΛΕΓΧΟΣ ΟΛΟΚΛΗΡΩΣΗΣ DEATH ANIMATION ==========
                 if (deathAnimationPlaying) {
@@ -2852,24 +2895,34 @@ public class GamePanel extends JPanel implements Runnable {
         BattleEntity enemyEntity = new BattleEntity(currentEnemy, enemyImage);
         battleParty.enemies.add(enemyEntity);
         
-        // Δημιούργησε τον παίκτη (προς το παρόν 1)
+        // ========== ΔΗΜΙΟΥΡΓΙΑ ΠΑΙΚΤΗ ΜΕ ΤΑ ΝΕΑ ANIMATIONS ==========
         BattlePlayer bp = new BattlePlayer();
-        bp.player = player;
+        bp.player = player;  // Το Entity του παίκτη
         bp.hp = player.hp;
         bp.maxHp = player.maxHp;
         bp.mp = player.mp;
         bp.maxMp = player.maxMp;
         
-        // Ο παίκτης ξεκινάει εκτός οθόνης ΔΕΞΙΑ
-        bp.x = screenWidth + tileSize * 2;
-        bp.y = groundY - tileSize;
+        // ΠΕΡΑΣΕ ΤΟ ANIMATION (το νέο αντικείμενο που φορτώσαμε)
+        bp.anim = playerBattleAnim;
+        
+        // Ορισμός fallback image (αν δεν υπάρχει animation)
+        bp.image = playerDown1; // Χρησιμοποίησε την παλιά εικόνα ως fallback
+        
+        // Ξεκίνα με idle animation
+        if (bp.anim != null) {
+            bp.playAnimation("idle");
+        }
+        
+        bp.x = screenWidth + tileSize * 4; // Λίγο πιο μακριά λόγω μεγέθους
+        bp.y = groundY - tileSize * 4 + 40;     // Ίδια λογική: groundY - ύψος sprite
         bp.targetX = screenWidth - tileSize * 5;
-        bp.targetY = groundY - tileSize;
+        bp.targetY = groundY - tileSize * 4 + 40; // Το ίδιο και για το targetY
         
         battlePlayers.add(bp);
         
-        // Δημιούργησε BattleEntity για τον παίκτη
-        BufferedImage playerImage = getWeaponImage();
+        // Δημιούργησε BattleEntity για τον παίκτη (για το σύστημα μάχης)
+        BufferedImage playerImage = getWeaponImage(); // Fallback
         BattleEntity playerEntity = new BattleEntity(player, playerImage);
         battleParty.party.add(playerEntity);
         
@@ -2891,7 +2944,7 @@ public class GamePanel extends JPanel implements Runnable {
         // Αρχικοποίησε μεταβλητές μάχης
         battleMenuOption = 0;
         selectingTarget = false;
-        battleMessage = ""; // ΚΑΝΕΝΑ ΜΗΝΥΜΑ
+        battleMessage = "";
         
         // Βεβαιώσου ότι το battleEnded είναι false
         battleParty.battleEnded = false;
@@ -3526,18 +3579,31 @@ public class GamePanel extends JPanel implements Runnable {
             // ========== ΤΕΛΟΣ ANIMATION ΖΗΜΙΑΣ ==========
         }
         
-        // ========== ΖΩΓΡΑΦΙΣΕ ΠΑΙΚΤΕΣ (ΧΩΡΙΣ HP/MP BARS) ==========
+        // ========== ΖΩΓΡΑΦΙΣΕ ΠΑΙΚΤΕΣ ΜΕ ΤΑ ΝΕΑ ANIMATIONS ==========
         for (int i = 0; i < battlePlayers.size(); i++) {
             BattlePlayer bp = battlePlayers.get(i);
             int drawX = (int)bp.x;
-            int drawY = (int)bp.y;
             
-            // Σκιά
+            // ΝΕΟ ΜΕΓΕΘΟΣ: 4 φορές το tileSize (192x192)
+            int spriteSize = tileSize * 4;
+            
+            // Υπολόγισε τη θέση Υ για να πατάει στην πλατφόρμα
+            // Το groundY είναι το πάνω μέρος της πλατφόρμας
+            // Θέλουμε το κάτω μέρος του sprite να είναι στο groundY
+            int drawY = groundY - spriteSize + 40;
+            
+            // Σκιά (προσαρμοσμένη στο νέο μέγεθος)
             g2.setColor(new Color(0, 0, 0, 100));
-            g2.fillOval(drawX + tileSize/2, drawY + tileSize*2 - 5, tileSize*2, tileSize/3);
+            g2.fillOval(drawX + spriteSize/4, drawY + spriteSize - 10, spriteSize/2, spriteSize/8);
             
-            int spriteSize = tileSize * 2;
-            g2.drawImage(bp.image, drawX, drawY, spriteSize, spriteSize, null);
+            // ΧΡΗΣΙΜΟΠΟΙΗΣΕ ΤΟ getCurrentImage() ΑΠΟ ΤΟ BattlePlayer
+            BufferedImage playerImg = bp.getCurrentImage();
+            if (playerImg != null) {
+                g2.drawImage(playerImg, drawX, drawY, spriteSize, spriteSize, null);
+            } else {
+                // Fallback στην παλιά εικόνα
+                g2.drawImage(bp.image, drawX, drawY, spriteSize, spriteSize, null);
+            }
             
             // ========== ANIMATION ΖΗΜΙΑΣ ΓΙΑ ΠΑΙΚΤΗ ==========
             BattleEntity playerEntity = (i < battleParty.party.size()) ? battleParty.party.get(i) : null;
