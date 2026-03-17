@@ -81,6 +81,10 @@ public class GamePanel extends JPanel implements Runnable {
     public Entity player; // Ο ήρωας ως Entity
     public ArrayList<ArrayList<Entity>> npcs = new ArrayList<>();
 
+    // New classes
+    public ArrayList<PartyMember> partyMembers = new ArrayList<>();
+    public ArrayList<BattlePartyMember> battlePartyMembers = new ArrayList<>();
+
     // Inventory
     public Inventory inventory = new Inventory();
     public boolean showInventory = false; // Να εμφανίζεται το inventory
@@ -288,7 +292,20 @@ public class GamePanel extends JPanel implements Runnable {
         player.speed = 4;
         player.direction = "down";
 
-        // ========== ΝΕΟ: Δημιουργία NPC OldMan και προσθήκη στον χάρτη 0 ==========
+        // ========== Δημιουργία των άλλων μελών της ομάδας ==========
+        PartyMember assassin = new PartyMember(this, "assassin", "Assassin");
+        assassin.worldX = player.worldX - tileSize; // Δίπλα στον κεντρικό ήρωα
+        assassin.worldY = player.worldY;
+
+        PartyMember mage = new PartyMember(this, "mage", "Mage");
+        mage.worldX = player.worldX - tileSize * 2; // Πιο αριστερά
+        mage.worldY = player.worldY;
+
+        // Πρόσθεσέ τα στη λίστα
+        partyMembers.add(assassin);
+        partyMembers.add(mage);
+
+        // ========== Δημιουργία NPC OldMan και προσθήκη στον χάρτη 0 ==========
         NPC_OldMan oldMan = new NPC_OldMan(this);
         oldMan.worldX = 38 * tileSize;
         oldMan.worldY = 10 * tileSize;
@@ -1457,48 +1474,93 @@ public class GamePanel extends JPanel implements Runnable {
                             }
                         }
                         
-                        // Απλή AI: επιτίθεται στον πρώτο παίκτη
+                        // Βελτιωμένη AI: τυχαία επιλογή στόχου από τους ζωντανούς παίκτες
                         if (currentEnemy != null && !battleParty.party.isEmpty()) {
-                            BattleEntity target = battleParty.party.get(0);
-
-                            // Παίξε attack animation
-                            if (attackingEnemy != null) {
-                                attackingEnemy.playAnimation("attack");
+                            // Δημιούργησε λίστα με ζωντανούς παίκτες
+                            ArrayList<BattleEntity> alivePlayers = new ArrayList<>();
+                            for (BattleEntity player : battleParty.party) {
+                                if (player.isAlive()) {
+                                    alivePlayers.add(player);
+                                }
+                            }
+                            
+                            // Επέλεξε τυχαίο στόχο
+                            if (!alivePlayers.isEmpty()) {
+                                int randomIndex = (int)(Math.random() * alivePlayers.size());
+                                BattleEntity target = alivePlayers.get(randomIndex);
                                 
-                                // Μικρή καθυστέρηση για να φανεί το attack animation
-                                try { Thread.sleep(300); } catch (Exception e) {}
-                            }
+                                System.out.println(currentEnemy.name + " randomly targets " + target.name);
 
-                            
-                            // Υπολόγισε ζημιά
-                            int damage = currentEnemy.attack - target.defense;
-                            if (damage < 1) damage = 1;
-                            
-                            target.takeDamage(damage);
+                                // Παίξε attack animation
+                                if (attackingEnemy != null) {
+                                    attackingEnemy.playAnimation("attack");
+                                    
+                                    // Μικρή καθυστέρηση για να φανεί το attack animation
+                                    try { Thread.sleep(300); } catch (Exception e) {}
+                                }
 
-                            showActionMessage(currentEnemy.name + " attacks " + target.name + " for " + damage + " damage!");
-                            
-                            // Ενημέρωσε και το αντίστοιχο BattlePlayer
-                            if (!battlePlayers.isEmpty()) {
-                                battlePlayers.get(0).playAnimation("hurt");
-                                battlePlayers.get(0).hp = target.hp;
-                            }
+                                // Υπολόγισε ζημιά
+                                int damage = currentEnemy.attack - target.defense;
+                                if (damage < 1) damage = 1;
+                                
+                                target.takeDamage(damage);
 
-                            // Όταν ο παίκτης πεθαίνει
-                            if (!battlePlayers.isEmpty() && player.hp <= 0) {
-                                battlePlayers.get(0).playAnimation("death");
-                            }
-                            
-                            // Μικρή καθυστέρηση
-                            repaint();
-                            try { Thread.sleep(100); } catch (Exception e) {}
-                            
-                            // Έλεγξε αν πέθανε ο παίκτης
-                            battleParty.removeDeadEntities();
-                            
-                            // Αν τελείωσε η μάχη, σταμάτα
-                            if (battleParty.battleEnded) {
-                                continue;
+                                showActionMessage(currentEnemy.name + " attacks " + target.name + " for " + damage + " damage!");
+                                
+                                // Βρες ΠΟΙΟΣ παίκτης είναι ο target και παίξε το αντίστοιχο hurt animation
+                                if (target.name.equals("Hero")) {
+                                    if (!battlePlayers.isEmpty()) {
+                                        battlePlayers.get(0).playAnimation("hurt");
+                                        battlePlayers.get(0).hp = target.hp;
+                                    }
+                                } else if (target.name.equals("Assassin")) {
+                                    for (BattlePartyMember bpm : battlePartyMembers) {
+                                        if (bpm.member.className.equals("Assassin")) {
+                                            bpm.playAnimation("hurt");
+                                            break;
+                                        }
+                                    }
+                                } else if (target.name.equals("Mage")) {
+                                    for (BattlePartyMember bpm : battlePartyMembers) {
+                                        if (bpm.member.className.equals("Mage")) {
+                                            bpm.playAnimation("hurt");
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                // Όταν ο παίκτης πεθαίνει
+                                if (!battlePlayers.isEmpty() && target.hp <= 0) {
+                                    if (target.name.equals("Hero")) {
+                                        battlePlayers.get(0).playAnimation("death");
+                                    } else if (target.name.equals("Assassin")) {
+                                        for (BattlePartyMember bpm : battlePartyMembers) {
+                                            if (bpm.member.className.equals("Assassin")) {
+                                                bpm.playAnimation("death");
+                                                break;
+                                            }
+                                        }
+                                    } else if (target.name.equals("Mage")) {
+                                        for (BattlePartyMember bpm : battlePartyMembers) {
+                                            if (bpm.member.className.equals("Mage")) {
+                                                bpm.playAnimation("death");
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                // Μικρή καθυστέρηση
+                                repaint();
+                                try { Thread.sleep(100); } catch (Exception e) {}
+                                
+                                // Έλεγξε αν πέθανε ο παίκτης
+                                battleParty.removeDeadEntities();
+                                
+                                // Αν τελείωσε η μάχη, σταμάτα
+                                if (battleParty.battleEnded) {
+                                    continue;
+                                }
                             }
                         }
                         
@@ -1602,14 +1664,54 @@ public class GamePanel extends JPanel implements Runnable {
                         
                         if (keyH.enterPressed) {
                             if (selectedTarget >= 0 && selectedTarget < battleParty.enemies.size()) {
-                                BattleEnemy be = battleEnemies.get(selectedTarget);
+                                // ΣΗΜΑΝΤΙΚΟ: Το selectedTarget αναφέρεται στο battleParty.enemies
                                 BattleEntity target = battleParty.enemies.get(selectedTarget);
                                 BattleEntity currentPlayer = battleParty.getCurrentTurn();
-
-                                if (!battlePlayers.isEmpty()) {
-                                    battlePlayers.get(0).playAnimation("attack1");
+                                
+                                // Βρες το αντίστοιχο BattleEnemy για το οπτικό effect
+                                BattleEnemy be = null;
+                                for (BattleEnemy enemy : battleEnemies) {
+                                    if (enemy.enemy == target.enemyRef) {
+                                        be = enemy;
+                                        break;
+                                    }
                                 }
-                                // Παίξε hurt animation
+                                
+                                if (be == null) {
+                                    // Αν δεν βρέθηκε, ο εχθρός είναι ήδη νεκρός - μην κάνεις τίποτα
+                                    System.out.println("ERROR: Enemy not found in battleEnemies!");
+                                    keyH.enterPressed = false;
+                                    selectingTarget = false;
+                                    continue;
+                                }
+
+                                // Βρες ΠΟΙΟΣ παίκτης επιτίθεται (με βάση το currentTurn)
+                                if (currentPlayer != null && currentPlayer.isPlayer) {
+                                    if (currentPlayer.name.equals("Hero")) {
+                                        // Βασικός ήρωας
+                                        if (!battlePlayers.isEmpty()) {
+                                            battlePlayers.get(0).playAnimation("attack1");
+                                        }
+                                    } else if (currentPlayer.name.equals("Assassin")) {
+                                        // Assassin - βρες το αντίστοιχο BattlePartyMember
+                                        for (BattlePartyMember bpm : battlePartyMembers) {
+                                            if (bpm.member.className.equals("Assassin")) {
+                                                bpm.playAnimation("attack1");
+                                                break;
+                                            }
+                                        }
+                                    } else if (currentPlayer.name.equals("Mage")) {
+                                        // Mage
+                                        for (BattlePartyMember bpm : battlePartyMembers) {
+                                            if (bpm.member.className.equals("Mage")) {
+                                                bpm.playAnimation("attack1");
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                // Παίξε hurt animation στον εχθρό
                                 be.playAnimation("hurt");
                                 // Μικρή καθυστέρηση για το hurt animation
                                 repaint();
@@ -1625,12 +1727,12 @@ public class GamePanel extends JPanel implements Runnable {
                                 // Αν πεθάνει
                                 if (target.hp <= 0) {
                                     be.playAnimation("death");
-                                    deathAnimationPlaying = true;  // <-- ΠΡΟΣΘΕΣΕ ΑΥΤΟ
-                                    deathAnimationTimer = 0;       // <-- ΚΑΙ ΑΥΤΟ
+                                    deathAnimationPlaying = true;
+                                    deathAnimationTimer = 0;
                                     waitingForDeathAnimation = true;
                                     battleParty.turnOrder.remove(target);
-                                    // Μην το αφαιρέσεις αμέσως, περίμενε να τελειώσει το animation
-                                    // Αποθήκευσε τα rewards αλλά μην τελειώσεις τη μάχη αμέσως
+                                    
+                                    // Αποθήκευσε τα rewards
                                     boolean enemyDied = !target.isAlive();
                                     if (enemyDied && target.enemyRef != null) {
                                         int[] rewards = target.enemyRef.giveRewards(player);
@@ -1643,35 +1745,23 @@ public class GamePanel extends JPanel implements Runnable {
                                 showActionMessage(currentPlayer.name + " attacks " + target.name + " for " + damage + " damage!");
                                 
                                 // Ενημέρωσε το αντίστοιχο BattleEnemy για το οπτικό
-                                if (selectedTarget < battleEnemies.size()) {
-                                    battleEnemies.get(selectedTarget).hp = target.hp;
+                                if (be != null) {
+                                    be.hp = target.hp;
                                 }
                                 
                                 repaint();
                                 try { Thread.sleep(200); } catch (Exception e) {}
                                 
-                                // Έλεγξε αν πέθανε ο εχθρός
-                                // ΑΦΑΙΡΕΣΕ ΤΟΝ ΕΧΘΡΟ ΜΟΝΟ ΑΝ ΔΕΝ ΠΑΙΖΕΙ ΑΝΙΜΑΤΙΟΝ ΘΑΝΑΤΟΥ
-                                if (!deathAnimationPlaying) {
-                                    battleParty.removeDeadEntities();
-                                }
-                                
-                                // Αν τελείωσε η μάχη, σταμάτα
-                                if (battleParty.battleEnded && !deathAnimationPlaying) {
-                                    selectingTarget = false;
-                                    keyH.enterPressed = false;
-                                    continue;
-                                }
+                                // ΜΗΝ αφαιρέσεις τον εχθρό αμέσως - περίμενε το death animation
+                                // Η αφαίρεση γίνεται στο deathAnimationPlaying block
                                 
                                 // ΠΡΟΧΩΡΑ ΣΤΗΝ ΕΠΟΜΕΝΗ ΣΕΙΡΑ
-                                // Delay πριν την επόμενη σειρά
                                 waitingForNextTurn = true;
                                 battleTurnDelay = 0;
                                 selectingTarget = false;
                                 keyH.enterPressed = false;
                                 repaint();
                                 
-                                // ΣΗΜΑΝΤΙΚΟ: Συνέχισε στην επόμενη επανάληψη για να μην ξαναμπείς στο ίδιο state
                                 continue;
                             }
                             keyH.enterPressed = false;
@@ -2405,8 +2495,7 @@ public class GamePanel extends JPanel implements Runnable {
             // 🔄 ANIMATION: Αλλάζουμε εικόνα ανάλογα με την κατεύθυνση
             if (moving) {
                 counter++;
-                if (counter > 10) { // Ταχύτητα animation
-                    // Εναλλάξ μεταξύ 1ου και 2ου καρέ
+                if (counter > 10) {
                     if (frame == 0) {
                         frame = 1;
                     } else {
@@ -2414,9 +2503,80 @@ public class GamePanel extends JPanel implements Runnable {
                     }
                     counter = 0;
                 }
+                
+                // ========== ΔΙΟΡΘΩΜΕΝΗ ΚΙΝΗΣΗ ΤΩΝ ΥΠΟΛΟΙΠΩΝ ΜΕΛΩΝ ==========
+                int formationIndex = 1; // Ξεκινάμε από 1 για τον πρώτο συμπαίκτη
+                for (PartyMember member : partyMembers) {
+                    // Υπολόγισε τη θέση-στόχο σε σχηματισμό πίσω από τον παίκτη
+                    int targetX = player.worldX;
+                    int targetY = player.worldY;
+                    
+                    // Τοποθέτηση σε σχηματισμό ανάλογα με την κατεύθυνση
+                    switch(player.direction) {
+                        case "down":
+                            targetY = player.worldY - (tileSize * formationIndex); // Πίσω (πάνω)
+                            targetX = player.worldX; // Ίδια στήλη
+                            break;
+                        case "up":
+                            targetY = player.worldY + (tileSize * formationIndex); // Πίσω (κάτω)
+                            targetX = player.worldX;
+                            break;
+                        case "left":
+                            targetX = player.worldX + (tileSize * formationIndex); // Πίσω (δεξιά)
+                            targetY = player.worldY;
+                            break;
+                        case "right":
+                            targetX = player.worldX - (tileSize * formationIndex); // Πίσω (αριστερά)
+                            targetY = player.worldY;
+                            break;
+                    }
+                    
+                    // Προσθήκη μικρής απόκλισης για να μην είναι τέλεια στοίχιση
+                    if (formationIndex == 1) {
+                        targetX += tileSize/4; // Μικρή μετατόπιση για τον 1ο
+                    } else if (formationIndex == 2) {
+                        targetX -= tileSize/4; // Μικρή μετατόπιση για τον 2ο
+                    }
+                    
+                    // Κινήσου προς τη θέση-στόχο (ομαλά)
+                    if (member.worldX < targetX) member.worldX += playerSpeed;
+                    else if (member.worldX > targetX) member.worldX -= playerSpeed;
+                    
+                    if (member.worldY < targetY) member.worldY += playerSpeed;
+                    else if (member.worldY > targetY) member.worldY -= playerSpeed;
+                    
+                    // Ενημέρωση κατεύθυνσης και animation
+                    member.direction = player.direction;
+                    member.counter++;
+                    if (member.counter > 10) {
+                        member.frame = (member.frame == 0) ? 1 : 0;
+                        member.counter = 0;
+                    }
+                    member.updateImage();
+                    
+                    formationIndex++;
+                }
             } else {
-                frame = 0; // Όταν σταματάει, δείξε το 1ο καρέ
+                // Όταν σταματάει ο παίκτης, τα μέλη κοιτάνε προς τον παίκτη
+                frame = 0;
                 counter = 0;
+                
+                for (PartyMember member : partyMembers) {
+                    // Τα μέλη κοιτάνε προς τον παίκτη
+                    if (member.worldY > player.worldY + tileSize/2) {
+                        member.direction = "up";
+                    } else if (member.worldY < player.worldY - tileSize/2) {
+                        member.direction = "down";
+                    } else if (member.worldX > player.worldX + tileSize/2) {
+                        member.direction = "left";
+                    } else if (member.worldX < player.worldX - tileSize/2) {
+                        member.direction = "right";
+                    } else {
+                        member.direction = player.direction;
+                    }
+                    member.frame = 0;
+                    member.updateImage();
+                }
             }
             
             // Αποφάσισε ποια εικόνα θα δείξεις με βάση direction και frame
@@ -2515,6 +2675,15 @@ public class GamePanel extends JPanel implements Runnable {
                 for (BattlePlayer bp : battlePlayers) {
                     bp.update();
                 }
+                for (BattlePartyMember bpm : battlePartyMembers) {
+                    bpm.update();
+                }
+
+                // Αν είμαστε στο entering stage, μην προχωράς
+                if (battleEntering) {
+                    repaint();
+                    continue;
+                }
                 
                 // ========== ΕΛΕΓΧΟΣ ΟΛΟΚΛΗΡΩΣΗΣ DEATH ANIMATION ==========
                 if (deathAnimationPlaying) {
@@ -2523,6 +2692,17 @@ public class GamePanel extends JPanel implements Runnable {
                         // Το animation τελείωσε – αφαίρεσε τους νεκρούς εχθρούς
                         battleParty.removeDeadEntities();
                         battleParty.turnOrder.removeIf(entity -> !entity.isAlive());
+                        // ========== Αφαίρεσε και από το battleEnemies ==========
+                        for (int i = battleEnemies.size() - 1; i >= 0; i--) {
+                            BattleEnemy be = battleEnemies.get(i);
+                            // Βρες το αντίστοιχο BattleEntity για αυτόν τον εχθρό
+                            for (BattleEntity enemyEntity : battleParty.enemies) {
+                                if (enemyEntity.enemyRef == be.enemy && !enemyEntity.isAlive()) {
+                                    battleEnemies.remove(i);
+                                    break;
+                                }
+                            }
+                        }
                         
                         // Αν ο τρέχων γύρος ήταν ο εχθρός που πέθανε, προχώρα στον επόμενο
                         if (!battleParty.isPlayerTurn() && 
@@ -2853,6 +3033,7 @@ public class GamePanel extends JPanel implements Runnable {
         lastAction = "";
         battleEnemies.clear();
         battlePlayers.clear();
+        battlePartyMembers.clear();  // ΝΕΟ: Καθάρισε τη λίστα
         battleParty.party.clear();
         battleParty.enemies.clear();
 
@@ -2865,88 +3046,117 @@ public class GamePanel extends JPanel implements Runnable {
             groundImage = groundGrass;
         }
         
-        // Υπολόγισε τη θέση του εδάφους (στο κάτω μέρος της οθόνης)
+        // Υπολόγισε τη θέση του εδάφους
         groundY = screenHeight - groundHeight - tileSize - 100;
         groundX = 0;
         
-        // ========== ΔΗΜΙΟΥΡΓΙΑ BATTLE ENTITIES ==========
+        // ========== ΔΗΜΙΟΥΡΓΙΑ ΕΧΘΡΩΝ (2-3) ==========
+        int numEnemies = 2 + (int)(Math.random() * 2);
         
-        // Δημιούργησε τους εχθρούς (προς το παρόν 1)
-        BattleEnemy be = new BattleEnemy(currentEnemy);
-        System.out.println("BattleEnemy created - anim is null? " + (be.anim == null));
-        if (be.anim != null) {
-            System.out.println("Anim loaded, idle frames: " + be.anim.idle.length);
+        for (int i = 0; i < numEnemies; i++) {
+            Enemy enemy;
+            String[] possibleEnemies;
+            if (currentArea.equals("overworld")) {
+                possibleEnemies = new String[]{"Goblin", "Mushroom"};
+            } else {
+                possibleEnemies = new String[]{"Goblin", "Skeleton"};
+            }
+            String enemyType = possibleEnemies[(int)(Math.random() * possibleEnemies.length)];
+            
+            if (enemyType.equals("Goblin")) {
+                enemy = new Enemy_Goblin(this);
+            } else if (enemyType.equals("Mushroom")) {
+                enemy = new Enemy_Mushroom(this);
+            } else {
+                enemy = new Enemy_Skeleton(this);
+            }
+            
+            BattleEnemy be = new BattleEnemy(enemy);
+            
+            // Στοίχιση κατακόρυφα
+            be.x = -tileSize * 4;
+            be.y = groundY - tileSize - (i * 120);
+            be.targetX = tileSize / 2 - 60;
+            be.targetY = groundY - tileSize - (i * 120);
+            
+            be.playAnimation("idle");
+            battleEnemies.add(be);
+            
+            BattleEntity enemyEntity = new BattleEntity(enemy, enemy.currentImage);
+            battleParty.enemies.add(enemyEntity);
         }
         
-        // Ο εχθρός ξεκινάει εκτός οθόνης ΑΡΙΣΤΕΡΑ
-        be.x = -tileSize * 4;
-        be.y = groundY - tileSize;
-        be.targetX = tileSize / 2 - 60;
-        be.targetY = groundY - tileSize;
-
-        // Ξεκίνα με idle animation
-        be.playAnimation("idle");
-        System.out.println("Playing idle animation, current image: " + be.getCurrentImage());
-        
-        battleEnemies.add(be);
-        
-        // Δημιούργησε BattleEntity για τον εχθρό
-        BufferedImage enemyImage = (be.anim != null) ? be.getCurrentImage() : currentEnemy.currentImage;
-        BattleEntity enemyEntity = new BattleEntity(currentEnemy, enemyImage);
-        battleParty.enemies.add(enemyEntity);
-        
-        // ========== ΔΗΜΙΟΥΡΓΙΑ ΠΑΙΚΤΗ ΜΕ ΤΑ ΝΕΑ ANIMATIONS ==========
+        // ========== ΔΗΜΙΟΥΡΓΙΑ ΠΑΙΚΤΗ (ΚΕΝΤΡΙΚΟΣ) ==========
         BattlePlayer bp = new BattlePlayer();
-        bp.player = player;  // Το Entity του παίκτη
+        bp.player = player;
         bp.hp = player.hp;
         bp.maxHp = player.maxHp;
         bp.mp = player.mp;
         bp.maxMp = player.maxMp;
-        
-        // ΠΕΡΑΣΕ ΤΟ ANIMATION (το νέο αντικείμενο που φορτώσαμε)
         bp.anim = playerBattleAnim;
+        bp.image = playerDown1;
+        if (bp.anim != null) bp.playAnimation("idle");
         
-        // Ορισμός fallback image (αν δεν υπάρχει animation)
-        bp.image = playerDown1; // Χρησιμοποίησε την παλιά εικόνα ως fallback
-        
-        // Ξεκίνα με idle animation
-        if (bp.anim != null) {
-            bp.playAnimation("idle");
-        }
-        
-        bp.x = screenWidth + tileSize * 4; // Λίγο πιο μακριά λόγω μεγέθους
-        bp.y = groundY - tileSize * 4 + 40;     // Ίδια λογική: groundY - ύψος sprite
+        bp.x = screenWidth + tileSize * 4;
+        bp.y = groundY - tileSize * 4 + 40;
         bp.targetX = screenWidth - tileSize * 5;
-        bp.targetY = groundY - tileSize * 4 + 40; // Το ίδιο και για το targetY
+        bp.targetY = groundY - tileSize * 4 + 40;
         
         battlePlayers.add(bp);
         
-        // Δημιούργησε BattleEntity για τον παίκτη (για το σύστημα μάχης)
-        BufferedImage playerImage = getWeaponImage(); // Fallback
-        BattleEntity playerEntity = new BattleEntity(player, playerImage);
+        // ========== ΔΗΜΙΟΥΡΓΙΑ ΤΩΝ ΑΛΛΩΝ ΜΕΛΩΝ ==========
+        for (int i = 0; i < partyMembers.size(); i++) {
+            PartyMember member = partyMembers.get(i);
+            BattlePartyMember bpm = new BattlePartyMember(member);
+
+            bpm.playAnimation("idle");
+            
+            // Τοποθέτηση σε κατακόρυφη σειρά (πιο πάνω από τον κεντρικό)
+            bpm.x = screenWidth + tileSize * 4;
+            bpm.y = groundY - tileSize * 4 + 40 - ((i + 1) * 100);
+            bpm.targetX = screenWidth - tileSize * 5;
+            bpm.targetY = groundY - tileSize * 4 + 40 - ((i + 1) * 100);
+            
+            battlePartyMembers.add(bpm);
+        }
+        
+        // ========== ΔΗΜΙΟΥΡΓΙΑ BATTLE ENTITIES ==========
+        // Κεντρικός
+        battleParty.party.clear(); // Σιγουρέψου ότι είναι άδειο
+
+        // ΠΡΩΤΑ ο κεντρικός ήρωας
+        BattleEntity playerEntity = new BattleEntity(player, playerDown1);
+        playerEntity.name = "Hero"; // Δώσε του όνομα
         battleParty.party.add(playerEntity);
+
+        // ΜΕΤΑ τα άλλα μέλη (με διαφορετικά ονόματα)
+        for (int i = 0; i < partyMembers.size(); i++) {
+            PartyMember member = partyMembers.get(i);
+            BattleEntity memberEntity = new BattleEntity(member, member.down1);
+            
+            // Δώσε τους διαφορετικά ονόματα!
+            if (member.className.equals("Assassin")) {
+                memberEntity.name = "Assassin";
+            } else if (member.className.equals("Mage")) {
+                memberEntity.name = "Mage";
+            }
+            
+            battleParty.party.add(memberEntity);
+        }
+
+        // Εκτύπωσε για επιβεβαίωση
+        System.out.println("BattleParty party size: " + battleParty.party.size());
+        for (BattleEntity be : battleParty.party) {
+            System.out.println("  - " + be.name + " (HP: " + be.hp + ")");
+        }
         
         // Υπολόγισε τη σειρά σειράς
-        battleParty.calculateTurnOrder();
-        // Εξασφάλισε ότι ο παίκτης είναι πρώτος στη σειρά σειράς
-        if (!battleParty.turnOrder.isEmpty() && !battleParty.turnOrder.get(0).isPlayer) {
-            for (int i = 1; i < battleParty.turnOrder.size(); i++) {
-                if (battleParty.turnOrder.get(i).isPlayer) {
-                    playerEntity = battleParty.turnOrder.remove(i);
-                    battleParty.turnOrder.add(0, playerEntity);
-                    break;
-                }
-            }
-        }
-        // Ενημέρωσε τον currentTurnIndex ώστε να δείχνει στο 0 (παίκτης)
-        battleParty.currentTurnIndex = 0;
+        battleParty.calculateRandomTurnOrder();
         
         // Αρχικοποίησε μεταβλητές μάχης
         battleMenuOption = 0;
         selectingTarget = false;
         battleMessage = "";
-        
-        // Βεβαιώσου ότι το battleEnded είναι false
         battleParty.battleEnded = false;
     }
 
@@ -3290,6 +3500,16 @@ public class GamePanel extends JPanel implements Runnable {
                 g2.drawImage(item.image, screenX, screenY, tileSize, tileSize, null);
             }
         }
+
+        // ========== ΖΩΓΡΑΦΙΣΕ ΤΑ ΜΕΛΗ ΤΗΣ ΟΜΑΔΑΣ (ΠΙΣΩ ΑΠΟ ΤΟΝ ΠΑΙΚΤΗ) ==========
+        for (PartyMember member : partyMembers) {
+            int screenX = member.worldX - worldX;
+            int screenY = member.worldY - worldY;
+            if (screenX + tileSize > 0 && screenX < screenWidth &&
+                screenY + tileSize > 0 && screenY < screenHeight) {
+                g2.drawImage(member.currentImage, screenX, screenY, tileSize, tileSize, null);
+            }
+        }
         
         // 🧙 ΖΩΓΡΑΦΙΣΕ ΜΕΤΑ ΤΟΝ ΗΡΩΑ (από πάνω)
         if (currentPlayerImage != null) {
@@ -3450,68 +3670,52 @@ public class GamePanel extends JPanel implements Runnable {
 
     // ========== Μέθοδος για μάχη ==========
     public void drawBattleScreen(Graphics2D g2) {
-        // Σκούρο φόντο για transition
+        // Σκούρο φόντο
         g2.setColor(new Color(0, 0, 0, 200));
         g2.fillRect(0, 0, screenWidth, screenHeight);
         
-        // Ζωγράφισε το background της μάχης
+        // Ζωγράφισε το background
         if (battleBackground != null) {
             g2.drawImage(battleBackground, 0, 0, screenWidth, screenHeight, null);
         }
         
-        // ========== ΖΩΓΡΑΦΙΣΕ ΤΗΝ ΠΛΑΤΦΟΡΜΑ ΜΕ ΕΙΚΟΝΑ ==========
+        // ========== ΠΛΑΤΦΟΡΜΑ ==========
         if (groundImage != null) {
-            // Υπολόγισε τις συντεταγμένες της πλατφόρμας
-            int groundScreenX = groundX; // Συνήθως 0
-            int groundScreenY = groundY; // Αυτό το έχεις υπολογίσει στο setupBattleEntities
+            int groundScreenX = groundX;
+            int groundScreenY = groundY;
+            int gw = groundWidth;
+            int gh = groundHeight;
+            int topInset = -200;
+            int leftExtension = 500;
+            int rightExtension = 500;
 
-            int gw = groundWidth;   // Πλάτος (συνήθως screenWidth)
-            int gh = groundHeight;  // Ύψος (π.χ. tileSize * 2)
-
-            // Πόσο θα στενέψει η πάνω πλευρά για προοπτική (τώρα θα είναι αρνητικό για να βγαίνει έξω)
-            int topInset = -200; // ΑΡΝΗΤΙΚΗ ΤΙΜΗ για να βγουν οι πάνω γωνίες ΕΞΩ από την οθόνη
-
-            // ΕΠΙΜΗΚΥΝΣΗ: Τα κάτω σημεία βγαίνουν έξω από την οθόνη αριστερά και δεξιά
-            int leftExtension = 500;  // Πόσο θα βγει αριστερά
-            int rightExtension = 500; // Πόσο θα βγει δεξιά
-
-            // Ορίζουμε τις 4 γωνίες του τραπεζίου (σε screen coordinates)
             int[] xPoints = {
-                groundScreenX + topInset,           // Πάνω αριστερά (βγαίνει αριστερά)
-                groundScreenX + gw - topInset,      // Πάνω δεξιά (βγαίνει δεξιά)
-                groundScreenX + gw + rightExtension, // Κάτω δεξιά (βγαίνει δεξιά)
-                groundScreenX - leftExtension        // Κάτω αριστερά (βγαίνει αριστερά)
+                groundScreenX + topInset,
+                groundScreenX + gw - topInset,
+                groundScreenX + gw + rightExtension,
+                groundScreenX - leftExtension
             };
             int[] yPoints = {
-                groundScreenY,                        // Πάνω αριστερά
-                groundScreenY,                        // Πάνω δεξιά
-                groundScreenY + gh,                   // Κάτω δεξιά
-                groundScreenY + gh                     // Κάτω αριστερά
+                groundScreenY,
+                groundScreenY,
+                groundScreenY + gh,
+                groundScreenY + gh
             };
 
-            // Ζωγράφισε την εικόνα του εδάφους ΠΑΝΩ στο τραπέζιο
-            // Χρησιμοποιούμε clipping για να "κόψουμε" την εικόνα στο σχήμα του τραπεζίου
-            
-            // Αποθήκευσε το παλιό clip
             java.awt.Shape oldClip = g2.getClip();
-            
-            // Δημιούργησε polygon στο σχήμα του τραπεζίου και όρισέ το ως νέο clip
             java.awt.Polygon groundPolygon = new java.awt.Polygon(xPoints, yPoints, 4);
             g2.setClip(groundPolygon);
             
-            // Ζωγράφισε την εικόνα να καλύπτει όλη την περιοχή
-            // Η εικόνα θα "κοπεί" αυτόματα στο σχήμα του τραπεζίου
             g2.drawImage(groundImage, 
-                groundScreenX - leftExtension - 100,  // Ξεκίνα πιο αριστερά (ακόμα πιο έξω)
-                groundScreenY - 50,                    // Ξεκίνα πιο πάνω
-                gw + leftExtension + rightExtension + 200, // Ακόμα πιο φαρδιά
-                gh + 100,                               // Πιο ψηλή
+                groundScreenX - leftExtension - 100,
+                groundScreenY - 50,
+                gw + leftExtension + rightExtension + 200,
+                gh + 100,
                 null);
             
-            // Επαναφορά του παλιού clip
             g2.setClip(oldClip);
             
-            // Σκιά από κάτω (για να φαίνεται ότι "πατάει" στο έδαφος)
+            // Σκιά
             g2.setColor(new Color(0, 0, 0, 70));
             int[] shadowX = {
                 groundScreenX - leftExtension + 20, 
@@ -3526,122 +3730,148 @@ public class GamePanel extends JPanel implements Runnable {
                 groundScreenY + gh + 15
             };
             g2.fillPolygon(shadowX, shadowY, 4);
-
-        } else {
-            // Fallback: απλό έδαφος
-            g2.setColor(new Color(34, 139, 34));
-            g2.fillRect(0, screenHeight - tileSize*3, screenWidth, tileSize*2);
         }
         
-        // ========== ΖΩΓΡΑΦΙΣΕ ΕΧΘΡΟΥΣ (ΧΩΡΙΣ HP BARS) ==========
-        for (int i = 0; i < battleEnemies.size(); i++) {
+        // ========== ΕΧΘΡΟΙ (ΣΕ ΣΧΗΜΑ ΚΩΝΟΥ) ==========
+        int enemySpriteSize = tileSize * 8; // Λίγο μικρότεροι για να χωράνε
+        int baseSize = tileSize * 2;
+        
+        int numEnemies = battleEnemies.size();
+        int startX = screenWidth / 2 - (numEnemies * 100) / 2; // Κεντράρισμα
+        
+        for (int i = 0; i < numEnemies; i++) {
             BattleEnemy be = battleEnemies.get(i);
             BattleEntity enemyEntity = (i < battleParty.enemies.size()) ? battleParty.enemies.get(i) : null;
+            
             if (enemyEntity != null && !enemyEntity.isAlive() && gameState == battleVictoryState) {
                 continue;
             }
-    
-            // ΒΑΣΙΚΟ ΜΕΓΕΘΟΣ (το αρχικό)
-            int baseSize = tileSize * 2; // 96x96
-            int spriteSize = tileSize * 10; // ή tileSize * 2, ή 128, ή 192
             
-            int drawX = (int)be.x;
-            // Η θέση Υ πρέπει να προσαρμοστεί
-            // Όσο μεγαλώνει η εικόνα, τόσο πρέπει να ανεβαίνει
-            int drawY = (int)be.y - (spriteSize - baseSize);
+            // Υπολόγισε θέση σε σχήμα κώνου
+            int drawX;
+            int drawY;
+            
+            if (numEnemies == 1) {
+                // 1 εχθρός: κέντρο
+                drawX = screenWidth / 2 - enemySpriteSize / 2;
+                drawY = groundY - enemySpriteSize + (tileSize * 2);
+            } else if (numEnemies == 2) {
+                // 2 εχθροί: δεξιά-αριστερά
+                if (i == 0) {
+                    drawX = screenWidth / 2 - enemySpriteSize - 40;
+                    drawY = groundY - enemySpriteSize + (tileSize * 2) - 70;
+                } else {
+                    drawX = screenWidth / 2 - enemySpriteSize + 60;
+                    drawY = groundY - enemySpriteSize + (tileSize * 2) - 30;
+                }
+            } else {
+                // 3+ εχθροί: σχήμα κώνου
+                double angle = (i - (numEnemies-1)/2.0) * 0.3; // Γωνία απόκλισης
+                drawX = screenWidth / 2 - enemySpriteSize + (int)(Math.sin(angle) * 200);
+                drawY = groundY - enemySpriteSize + (tileSize * 2) - (int)(Math.abs(angle) * 50) - 50;
+            }
+            
+            // Σκιά εχθρού
             g2.setColor(new Color(0, 0, 0, 100));
-            g2.fillOval(drawX + spriteSize/3, drawY + spriteSize - 10, spriteSize/4, spriteSize/8);
+            g2.fillOval(drawX + enemySpriteSize/3, drawY + enemySpriteSize - 10, 
+                    enemySpriteSize/4, enemySpriteSize/8);
             
             // Εχθρός
-            g2.drawImage(be.getCurrentImage(), drawX, drawY, spriteSize, spriteSize, null);
+            g2.drawImage(be.getCurrentImage(), drawX, drawY, enemySpriteSize, enemySpriteSize, null);
             
-            // ========== ANIMATION ΖΗΜΙΑΣ ΓΙΑ ΕΧΘΡΟ ==========
+            // HP Bar πάνω από τον εχθρό
+            if (enemyEntity != null) {
+                int barWidth = 120;
+                int barHeight = 10;
+                int barX = drawX + enemySpriteSize/2 - barWidth/2;
+                int barY = drawY - 20;
+                
+                g2.setColor(Color.black);
+                g2.fillRect(barX, barY, barWidth, barHeight);
+                g2.setColor(Color.red);
+                double hpPercentage = (double)enemyEntity.hp / enemyEntity.maxHp;
+                int hpWidth = (int)(barWidth * hpPercentage);
+                g2.fillRect(barX, barY, hpWidth, barHeight);
+            }
+            
+            // Animation ζημιάς
             if (enemyEntity != null && enemyEntity.isTakingDamage) {
-                // Μείωσε τον timer
                 enemyEntity.damageTimer--;
                 if (enemyEntity.damageTimer <= 0) {
                     enemyEntity.isTakingDamage = false;
                 }
                 
-                // Ζωγράφισε τον αριθμό ζημιάς
                 g2.setFont(new Font("Arial", Font.BOLD, 24));
                 g2.setColor(Color.red);
-                
-                // Κάνε τον αριθμό να "πετάει" προς τα πάνω
                 int offsetY = - (enemyEntity.DAMAGE_DURATION - enemyEntity.damageTimer) / 2;
                 String damageText = "-" + enemyEntity.damageNumber;
                 int textWidth = g2.getFontMetrics().stringWidth(damageText);
-                int textX = drawX + spriteSize/2 - textWidth/2;
-                int textY = drawY - 20 - offsetY;
-                
+                int textX = drawX + enemySpriteSize/2 - textWidth/2;
+                int textY = drawY - 40 - offsetY;
                 g2.drawString(damageText, textX, textY);
             }
-            // ========== ΤΕΛΟΣ ANIMATION ΖΗΜΙΑΣ ==========
         }
         
-        // ========== ΖΩΓΡΑΦΙΣΕ ΠΑΙΚΤΕΣ ΜΕ ΤΑ ΝΕΑ ANIMATIONS ==========
-        for (int i = 0; i < battlePlayers.size(); i++) {
-            BattlePlayer bp = battlePlayers.get(i);
-            int drawX = (int)bp.x;
+        // ========== ΠΑΙΚΤΕΣ (ΣΕ ΔΙΑΓΩΝΙΑ ΣΤΟΙΧΙΣΗ) ==========
+        int playerSpriteSize = tileSize * 4;
+        int totalPlayers = 1 + battlePartyMembers.size(); // Hero + άλλα μέλη
+        
+        // Υπολόγισε κεντρική θέση για τους παίκτες (αριστερά)
+        int basePlayerX = 450;
+        int basePlayerY = groundY - playerSpriteSize + 100;
+        
+        // 1. ΖΩΓΡΑΦΙΣΕ ΠΡΩΤΑ ΤΟΝ ΚΕΝΤΡΙΚΟ ΗΡΩΑ (πιο μπροστά)
+        if (!battlePlayers.isEmpty()) {
+            BattlePlayer bp = battlePlayers.get(0);
+            int drawX = basePlayerX;
+            int drawY = basePlayerY;
             
-            // ΝΕΟ ΜΕΓΕΘΟΣ: 4 φορές το tileSize (192x192)
-            int spriteSize = tileSize * 4;
-            
-            // Υπολόγισε τη θέση Υ για να πατάει στην πλατφόρμα
-            // Το groundY είναι το πάνω μέρος της πλατφόρμας
-            // Θέλουμε το κάτω μέρος του sprite να είναι στο groundY
-            int drawY = groundY - spriteSize + 40;
-            
-            // Σκιά (προσαρμοσμένη στο νέο μέγεθος)
+            // Σκιά ήρωα
             g2.setColor(new Color(0, 0, 0, 100));
-            g2.fillOval(drawX + spriteSize/4, drawY + spriteSize - 10, spriteSize/2, spriteSize/8);
+            g2.fillOval(drawX + playerSpriteSize/4, drawY + playerSpriteSize - 10, 
+                    playerSpriteSize/2, playerSpriteSize/8);
             
-            // ΧΡΗΣΙΜΟΠΟΙΗΣΕ ΤΟ getCurrentImage() ΑΠΟ ΤΟ BattlePlayer
             BufferedImage playerImg = bp.getCurrentImage();
             if (playerImg != null) {
-                g2.drawImage(playerImg, drawX, drawY, spriteSize, spriteSize, null);
-            } else {
-                // Fallback στην παλιά εικόνα
-                g2.drawImage(bp.image, drawX, drawY, spriteSize, spriteSize, null);
+                g2.drawImage(playerImg, drawX, drawY, playerSpriteSize, playerSpriteSize, null);
             }
-            
-            // ========== ANIMATION ΖΗΜΙΑΣ ΓΙΑ ΠΑΙΚΤΗ ==========
-            BattleEntity playerEntity = (i < battleParty.party.size()) ? battleParty.party.get(i) : null;
-            if (playerEntity != null && playerEntity.isTakingDamage) {
-                // Μείωσε τον timer
-                playerEntity.damageTimer--;
-                if (playerEntity.damageTimer <= 0) {
-                    playerEntity.isTakingDamage = false;
-                }
-                
-                // Ζωγράφισε τον αριθμό ζημιάς
-                g2.setFont(new Font("Arial", Font.BOLD, 24));
-                g2.setColor(Color.red);
-                
-                int offsetY = - (playerEntity.DAMAGE_DURATION - playerEntity.damageTimer) / 2;
-                String damageText = "-" + playerEntity.damageNumber;
-                int textWidth = g2.getFontMetrics().stringWidth(damageText);
-                int textX = drawX + spriteSize/2 - textWidth/2;
-                int textY = drawY - 20 - offsetY;
-                
-                g2.drawString(damageText, textX, textY);
-            }
-            // ========== ΤΕΛΟΣ ANIMATION ΖΗΜΙΑΣ ==========
         }
         
-        // Μην εμφανίζεις το μενού κατά τη διάρκεια του transition
+        // 2. ΖΩΓΡΑΦΙΣΕ ΜΕΤΑ ΤΑ ΑΛΛΑ ΜΕΛΗ (σε διαγώνια στοίχιση)
+        for (int i = 0; i < battlePartyMembers.size(); i++) {
+            BattlePartyMember bpm = battlePartyMembers.get(i);
+            
+            // Διαγώνια στοίχιση: κάθε επόμενο μέλος πιο πάνω και δεξιά
+            int offsetX = 40 + (i * 40);
+            int offsetY = -40 - (i * 30);
+            
+            int drawX = basePlayerX + offsetX;
+            int drawY = basePlayerY + offsetY;
+            
+            // Σκιά
+            g2.setColor(new Color(0, 0, 0, 100));
+            g2.fillOval(drawX + playerSpriteSize/4, drawY + playerSpriteSize - 10, 
+                    playerSpriteSize/2, playerSpriteSize/8);
+            
+            BufferedImage memberImg = bpm.getCurrentImage();
+            if (memberImg != null) {
+                g2.drawImage(memberImg, drawX, drawY, playerSpriteSize, playerSpriteSize, null);
+            }
+        }
+        
+        // ========== ΜΕΝΟΥ ΜΑΧΗΣ ==========
         if (!battleEntering) {
-            // ========== STATUS PARTY (ΠΑΝΩ ΔΕΞΙΑ) ==========
+            // Status party
             drawPartyStatus(g2);
             
-            // ========== ΜΗΝΥΜΑ ACTION (ΠΑΝΩ ΚΕΝΤΡΟ) ==========
+            // Μήνυμα ενέργειας
             if (actionMessageTimer > 0) {
                 actionMessageTimer--;
                 
                 int msgWidth = 250;
                 int msgHeight = 30;
                 int msgX = screenWidth/2 - msgWidth/2;
-                int msgY = 80;              // Κατέβασέ το από 60 σε 80 (ακόμα πιο κάτω)
+                int msgY = 80;
                 
                 g2.setColor(new Color(0, 0, 0, 180));
                 g2.fillRoundRect(msgX, msgY, msgWidth, msgHeight, 10, 10);
@@ -3649,27 +3879,23 @@ public class GamePanel extends JPanel implements Runnable {
                 g2.setStroke(new BasicStroke(1));
                 g2.drawRoundRect(msgX, msgY, msgWidth, msgHeight, 10, 10);
                 
-                g2.setFont(maruMonicaSmall.deriveFont(12f)); // ΜΙΚΡΟΤΕΡΗ ΓΡΑΜΜΑΤΟΣΕΙΡΑ
+                g2.setFont(maruMonicaSmall.deriveFont(12f));
                 g2.setColor(Color.white);
                 int textX = getXforCenteredText(lastAction, g2);
-                int textY = msgY + 20;
-                g2.drawString(lastAction, textX, textY);
+                g2.drawString(lastAction, textX, msgY + 20);
             }
 
-            // ========== ΜΗΝΥΜΑ ΝΙΚΗΣ ==========
+            // Μήνυμα νίκης
             if (gameState == battleVictoryState) {
-                // Σκούρο φόντο
                 g2.setColor(new Color(0, 0, 0, 150));
                 g2.fillRect(0, 0, screenWidth, screenHeight);
                 
-                // Μήνυμα νίκης
                 g2.setFont(maruMonicaLarge);
                 g2.setColor(Color.yellow);
                 String victory = "VICTORY!";
                 int x = getXforCenteredText(victory, g2);
                 g2.drawString(victory, x, screenHeight/2 - 50);
                 
-                // Rewards
                 g2.setFont(maruMonicaBold);
                 g2.setColor(Color.white);
                 String expText = "+" + victoryExp + " EXP";
@@ -3681,23 +3907,20 @@ public class GamePanel extends JPanel implements Runnable {
                 x = getXforCenteredText(goldText, g2);
                 g2.drawString(goldText, x, screenHeight/2 + 40);
 
-                // Μήνυμα για Enter - ΑΝΑΒΟΣΒΗΝΕΙ (με χρήση victoryTimer)
-                victoryTimer++; // Πρόσθεσε αυτό - το victoryTimer υπάρχει ήδη
-                
-                if ((victoryTimer / 30) % 2 == 0) { // Αλλάζει κάθε 30 frames (0.5 sec)
+                victoryTimer++;
+                if ((victoryTimer / 30) % 2 == 0) {
                     g2.setFont(maruMonicaSmall);
                     g2.setColor(Color.lightGray);
                     String cont = "Press ENTER to continue";
                     x = getXforCenteredText(cont, g2);
                     g2.drawString(cont, x, screenHeight/2 + 70);
                 }
-
             }
             
             // Σειρά σειράς
             drawBattleTurnOrder(g2);
             
-            // Μενού επιλογών
+            // Κύριο μενού
             int menuX = 0;
             int menuY = screenHeight - tileSize * 3;
             int menuWidth = screenWidth;
@@ -3705,7 +3928,7 @@ public class GamePanel extends JPanel implements Runnable {
             
             drawPanel(g2, menuX, menuY, menuWidth, menuHeight, new Color(0, 0, 0, 220), Color.white);
             
-            // Τίτλος - ποιανού σειρά είναι
+            // Τίτλος σειράς
             g2.setFont(maruMonicaBold);
             g2.setColor(Color.yellow);
             BattleEntity current = battleParty.getCurrentTurn();
@@ -3713,9 +3936,9 @@ public class GamePanel extends JPanel implements Runnable {
             int turnX = getXforCenteredText(turnText, g2);
             g2.drawString(turnText, turnX, menuY + 25);
             
-            // Μόνο αν είναι σειρά του παίκτη, δείξε το μενού
+            // Μενού επιλογών (μόνο για παίκτη)
             if (battleParty.isPlayerTurn() && !selectingTarget) {
-                g2.setFont(maruMonica); // Κανονικό font για όλες
+                g2.setFont(maruMonica);
                 int optionSpacing = menuWidth / battleMenuOptions.length;
                 
                 for (int i = 0; i < battleMenuOptions.length; i++) {
@@ -3723,12 +3946,10 @@ public class GamePanel extends JPanel implements Runnable {
                     int optionY = menuY + 70;
                     
                     if (i == battleMenuOption) {
-                        // Η επιλεγμένη επιλογή με bold και κίτρινο
                         g2.setFont(maruMonicaBold);
                         g2.setColor(Color.yellow);
                         g2.drawString("▶", optionX - 15, optionY);
                         
-                        // Αν είναι Attack, δείξε και εικονίδιο όπλου
                         if (i == 0) {
                             BufferedImage weaponImg = getWeaponImage();
                             if (weaponImg != null) {
@@ -3738,17 +3959,14 @@ public class GamePanel extends JPanel implements Runnable {
                         
                         g2.drawString(battleMenuOptions[i], optionX, optionY);
                         
-                        // Μικρή περιγραφή (με μικρό font)
                         g2.setFont(maruMonicaSmall);
                         g2.setColor(Color.lightGray);
                         String desc = getBattleOptionDescription(i);
                         int descX = getXforCenteredText(desc, g2);
                         g2.drawString(desc, descX, menuY + 100);
                         
-                        // Επαναφορά στο κανονικό font για την επόμενη επανάληψη
                         g2.setFont(maruMonica);
                     } else {
-                        // Οι υπόλοιπες επιλογές με κανονικό μέγεθος
                         g2.setColor(Color.white);
                         g2.drawString(battleMenuOptions[i], optionX, optionY);
                     }
@@ -3815,7 +4033,8 @@ public class GamePanel extends JPanel implements Runnable {
             // Όνομα χαρακτήρα ΜΕΣΑ στο παραθυράκι
             g2.setFont(maruMonicaSmall);  // Μικρότερο font
             g2.setColor(Color.yellow);
-            String name = (entity.playerRef != null) ? "Hero" : entity.name;
+            String name = entity.name; // Απλά πάρε το όνομα από το BattleEntity
+            if (name.length() > 8) name = name.substring(0, 8);
             if (name.length() > 8) name = name.substring(0, 8); // Κόψε αν είναι πολύ μακρύ
             g2.drawString(name, startX, y);
             
@@ -3917,10 +4136,26 @@ public class GamePanel extends JPanel implements Runnable {
             
             // Εικόνα οντότητας
             BufferedImage icon = null;
-            
+
             if (entity.isPlayer) {
-                // Για παίκτη, χρησιμοποίησε την εικόνα του ήρωα
-                icon = playerDown1;
+                if (entity.name.equals("Hero")) {
+                    icon = playerDown1;
+                } else if (entity.name.equals("Assassin")) {
+                    // Βρες τον assassin στα partyMembers
+                    for (PartyMember member : partyMembers) {
+                        if (member.className.equals("Assassin")) {
+                            icon = member.down1;
+                            break;
+                        }
+                    }
+                } else if (entity.name.equals("Mage")) {
+                    for (PartyMember member : partyMembers) {
+                        if (member.className.equals("Mage")) {
+                            icon = member.down1;
+                            break;
+                        }
+                    }
+                }
             } else {
                 // Για εχθρό, χρησιμοποίησε την εικόνα του εχθρού
                 if (entity.enemyRef != null && entity.enemyRef.currentImage != null) {
@@ -3929,46 +4164,6 @@ public class GamePanel extends JPanel implements Runnable {
             }
             
             // Ζωγράφισε την εικόνα (ελαφρώς μικρότερη για να φαίνεται το πλαίσιο)
-            if (icon != null) {
-                g2.drawImage(icon, x + 4, y + 4, slotWidth - 8, slotHeight - 8, null);
-            }
-        }
-        
-        // Επόμενος γύρος (δεξιά)
-        int nextStartX = startX + (battleParty.turnOrder.size()) * (slotWidth + spacing) + 50;
-        
-        // Λέξη "NEXT"
-        g2.setFont(maruMonicaBold.deriveFont(20f));
-        g2.setColor(Color.black);
-        g2.drawString("Next Round", nextStartX, startY + slotHeight/2);
-        
-        // Επόμενες εικόνες (3 επόμενες)
-        int nextX = nextStartX + 95; // Μετά τη λέξη NEXT
-        for (int i = 0; i < Math.min(3, battleParty.turnOrder.size()); i++) {
-            int index = (currentIndex + i + 1) % battleParty.turnOrder.size();
-            BattleEntity entity = battleParty.turnOrder.get(index);
-            
-            int x = nextX + i * (slotWidth + spacing);
-            int y = startY;
-            
-            // Πιο σκούρα και με διαφάνεια για τους επόμενους
-            g2.setColor(new Color(0, 0, 0, 120));
-            g2.fillRoundRect(x, y, slotWidth, slotHeight, 10, 10);
-            g2.setColor(Color.gray);
-            g2.setStroke(new BasicStroke(1));
-            g2.drawRoundRect(x, y, slotWidth, slotHeight, 10, 10);
-            
-            // Εικόνα για τον επόμενο γύρο
-            BufferedImage icon = null;
-            
-            if (entity.isPlayer) {
-                icon = playerDown1;
-            } else {
-                if (entity.enemyRef != null && entity.enemyRef.currentImage != null) {
-                    icon = entity.enemyRef.currentImage;
-                }
-            }
-            
             if (icon != null) {
                 g2.drawImage(icon, x + 4, y + 4, slotWidth - 8, slotHeight - 8, null);
             }

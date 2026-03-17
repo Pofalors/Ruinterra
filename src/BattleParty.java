@@ -25,6 +25,54 @@ public class BattleParty {
         currentTurnIndex = 0;
         battleEnded = false; // ΕΠΑΝΑΦΟΡΑ
     }
+
+    public void calculateRandomTurnOrder() {
+        turnOrder.clear();
+        turnOrder.addAll(party);
+        turnOrder.addAll(enemies);
+        
+        // Ανακάτεμα της σειράς
+        Collections.shuffle(turnOrder);
+        
+        currentTurnIndex = 0;
+        battleEnded = false;
+        
+        // Εξασφάλισε ότι στον πρώτο γύρο θα έχουμε 2 καλούς πριν τους κακούς
+        if (!turnOrder.isEmpty()) {
+            // Μέτρησε πόσοι καλοί και κακοί υπάρχουν
+            int firstPlayerIndex = -1;
+            int secondPlayerIndex = -1;
+            int firstEnemyIndex = -1;
+            
+            // Βρες τις θέσεις
+            for (int i = 0; i < turnOrder.size(); i++) {
+                if (turnOrder.get(i).isPlayer) {
+                    if (firstPlayerIndex == -1) {
+                        firstPlayerIndex = i;
+                    } else if (secondPlayerIndex == -1) {
+                        secondPlayerIndex = i;
+                    }
+                } else {
+                    if (firstEnemyIndex == -1) {
+                        firstEnemyIndex = i;
+                    }
+                }
+            }
+            
+            // Αν ο πρώτος εχθρός είναι πριν από τον δεύτερο καλό, κάνε swap
+            if (firstEnemyIndex != -1 && secondPlayerIndex != -1 && 
+                firstEnemyIndex < secondPlayerIndex) {
+                // Αντάλλαξε τον πρώτο εχθρό με τον δεύτερο καλό
+                Collections.swap(turnOrder, firstEnemyIndex, secondPlayerIndex);
+            }
+            
+            // Αν ο πρώτος εχθρός είναι πριν από τον πρώτο καλό (απίθανο, αλλά για σιγουριά)
+            if (firstEnemyIndex != -1 && firstPlayerIndex != -1 && 
+                firstEnemyIndex < firstPlayerIndex) {
+                Collections.swap(turnOrder, firstEnemyIndex, firstPlayerIndex);
+            }
+        }
+    }
     
     public BattleEntity getCurrentTurn() {
         if (turnOrder.isEmpty() || currentTurnIndex >= turnOrder.size()) {

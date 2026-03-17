@@ -3,6 +3,8 @@ import java.util.ArrayList;
 
 public class Entity {
     public GamePanel gp;
+
+    public String name = "Entity";
     
     // Θέση και κίνηση
     public int worldX, worldY;
@@ -15,6 +17,7 @@ public class Entity {
     // Κατεύθυνση και animation
     public String direction = "down";
     public int frame = 0;
+    public int counter = 0;
     public int animCounter = 0;
     
     // Collision
@@ -170,6 +173,18 @@ public class Entity {
                     System.out.println("Quest completed: " + quest.name);
                 }
             }
+        }
+    }
+
+    public void updateImage() {
+        if (direction.equals("down")) {
+            currentImage = (frame == 0) ? down1 : down2;
+        } else if (direction.equals("up")) {
+            currentImage = (frame == 0) ? up1 : up2;
+        } else if (direction.equals("left")) {
+            currentImage = (frame == 0) ? left1 : left2;
+        } else if (direction.equals("right")) {
+            currentImage = (frame == 0) ? right1 : right2;
         }
     }
 }

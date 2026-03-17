@@ -29,7 +29,11 @@ public class BattleEntity {
     
     // Για παίκτες
     public BattleEntity(Entity player, BufferedImage img) {
-        this.name = "Hero"; // Θα το αλλάξουμε όταν έχουμε ονόματα
+        if (player instanceof PartyMember) {
+            this.name = ((PartyMember)player).className; // "Assassin" ή "Mage"
+        } else {
+            this.name = "Hero";
+        }
         this.hp = player.hp;
         this.maxHp = player.maxHp;
         this.mp = player.mp;

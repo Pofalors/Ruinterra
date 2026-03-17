@@ -22,7 +22,7 @@ public class PlayerAnimation {
     
     // Ταχύτητες animation (μπορείς να τις προσαρμόσεις)
     public final int FRAME_DELAY_NORMAL = 12;   // για idle, lowHpIdle
-    public final int FRAME_DELAY_FAST = 15;      // για attack, hurt, death
+    public final int FRAME_DELAY_FAST = 10;      // για attack, hurt, death
     
     public PlayerAnimation(BufferedImage[] idleFrames,
                         BufferedImage[] hurtFrames,
