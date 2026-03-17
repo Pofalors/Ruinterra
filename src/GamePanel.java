@@ -319,14 +319,14 @@ public class GamePanel extends JPanel implements Runnable {
         // Φόρτωση της εικόνας του ήρωα
         try {
             // Φόρτωση όλων των εικόνων
-            playerDown1 = ImageIO.read(new File("res/player/Walking sprites/boy_down_1.png"));
-            playerDown2 = ImageIO.read(new File("res/player/Walking sprites/boy_down_2.png"));
-            playerUp1 = ImageIO.read(new File("res/player/Walking sprites/boy_up_1.png"));
-            playerUp2 = ImageIO.read(new File("res/player/Walking sprites/boy_up_2.png"));
-            playerLeft1 = ImageIO.read(new File("res/player/Walking sprites/boy_left_1.png"));
-            playerLeft2 = ImageIO.read(new File("res/player/Walking sprites/boy_left_2.png"));
-            playerRight1 = ImageIO.read(new File("res/player/Walking sprites/boy_right_1.png"));
-            playerRight2 = ImageIO.read(new File("res/player/Walking sprites/boy_right_2.png"));
+            playerDown1 = ImageIO.read(new File("res/player/player_down_1.png"));
+            playerDown2 = ImageIO.read(new File("res/player/player_down_2.png"));
+            playerUp1 = ImageIO.read(new File("res/player/player_up_1.png"));
+            playerUp2 = ImageIO.read(new File("res/player/player_up_2.png"));
+            playerLeft1 = ImageIO.read(new File("res/player/player_left_1.png"));
+            playerLeft2 = ImageIO.read(new File("res/player/player_left_2.png"));
+            playerRight1 = ImageIO.read(new File("res/player/player_right_1.png"));
+            playerRight2 = ImageIO.read(new File("res/player/player_right_2.png"));
             
             // Ξεκίνα με την πρώτη εικόνα (κάτω)
             currentPlayerImage = playerDown1;
