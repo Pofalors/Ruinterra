@@ -13,6 +13,7 @@ import java.awt.event.KeyEvent;
 import java.awt.Graphics2D;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
+import java.awt.Point;
 import java.awt.Font;
 import java.awt.GradientPaint;
 import java.awt.BasicStroke;
@@ -84,6 +85,7 @@ public class GamePanel extends JPanel implements Runnable {
     // New classes
     public ArrayList<PartyMember> partyMembers = new ArrayList<>();
     public ArrayList<BattlePartyMember> battlePartyMembers = new ArrayList<>();
+    ArrayList<Point> playerPositions = new ArrayList<>();
 
     // Inventory
     public Inventory inventory = new Inventory();
@@ -2494,6 +2496,7 @@ public class GamePanel extends JPanel implements Runnable {
             
             // 🔄 ANIMATION: Αλλάζουμε εικόνα ανάλογα με την κατεύθυνση
             if (moving) {
+                // Animation του βασικού ήρωα
                 counter++;
                 if (counter > 10) {
                     if (frame == 0) {
@@ -2503,81 +2506,28 @@ public class GamePanel extends JPanel implements Runnable {
                     }
                     counter = 0;
                 }
-                
-                // ========== ΔΙΟΡΘΩΜΕΝΗ ΚΙΝΗΣΗ ΤΩΝ ΥΠΟΛΟΙΠΩΝ ΜΕΛΩΝ ==========
-                int formationIndex = 1; // Ξεκινάμε από 1 για τον πρώτο συμπαίκτη
-                for (PartyMember member : partyMembers) {
-                    // Υπολόγισε τη θέση-στόχο σε σχηματισμό πίσω από τον παίκτη
-                    int targetX = player.worldX;
-                    int targetY = player.worldY;
-                    
-                    // Τοποθέτηση σε σχηματισμό ανάλογα με την κατεύθυνση
-                    switch(player.direction) {
-                        case "down":
-                            targetY = player.worldY - (tileSize * formationIndex); // Πίσω (πάνω)
-                            targetX = player.worldX; // Ίδια στήλη
-                            break;
-                        case "up":
-                            targetY = player.worldY + (tileSize * formationIndex); // Πίσω (κάτω)
-                            targetX = player.worldX;
-                            break;
-                        case "left":
-                            targetX = player.worldX + (tileSize * formationIndex); // Πίσω (δεξιά)
-                            targetY = player.worldY;
-                            break;
-                        case "right":
-                            targetX = player.worldX - (tileSize * formationIndex); // Πίσω (αριστερά)
-                            targetY = player.worldY;
-                            break;
-                    }
-                    
-                    // Προσθήκη μικρής απόκλισης για να μην είναι τέλεια στοίχιση
-                    if (formationIndex == 1) {
-                        targetX += tileSize/4; // Μικρή μετατόπιση για τον 1ο
-                    } else if (formationIndex == 2) {
-                        targetX -= tileSize/4; // Μικρή μετατόπιση για τον 2ο
-                    }
-                    
-                    // Κινήσου προς τη θέση-στόχο (ομαλά)
-                    if (member.worldX < targetX) member.worldX += playerSpeed;
-                    else if (member.worldX > targetX) member.worldX -= playerSpeed;
-                    
-                    if (member.worldY < targetY) member.worldY += playerSpeed;
-                    else if (member.worldY > targetY) member.worldY -= playerSpeed;
-                    
-                    // Ενημέρωση κατεύθυνσης και animation
-                    member.direction = player.direction;
-                    member.counter++;
-                    if (member.counter > 10) {
-                        member.frame = (member.frame == 0) ? 1 : 0;
-                        member.counter = 0;
-                    }
-                    member.updateImage();
-                    
-                    formationIndex++;
-                }
             } else {
-                // Όταν σταματάει ο παίκτης, τα μέλη κοιτάνε προς τον παίκτη
                 frame = 0;
                 counter = 0;
-                
-                for (PartyMember member : partyMembers) {
-                    // Τα μέλη κοιτάνε προς τον παίκτη
-                    if (member.worldY > player.worldY + tileSize/2) {
-                        member.direction = "up";
-                    } else if (member.worldY < player.worldY - tileSize/2) {
-                        member.direction = "down";
-                    } else if (member.worldX > player.worldX + tileSize/2) {
-                        member.direction = "left";
-                    } else if (member.worldX < player.worldX - tileSize/2) {
-                        member.direction = "right";
-                    } else {
-                        member.direction = player.direction;
-                    }
-                    member.frame = 0;
-                    member.updateImage();
+            }
+
+            // ========== ΚΙΝΗΣΗ ΤΩΝ ΥΠΟΛΟΙΠΩΝ ΜΕΛΩΝ (ΠΑΝΤΑ, ΑΚΟΜΑ ΚΑΙ ΟΤΑΝ Ο ΠΑΙΚΤΗΣ ΕΙΝΑΙ ΑΚΙΝΗΤΟΣ) ==========
+            // Αποθήκευση θέσεων παίκτη (για follow system)
+            boolean playerMoving = keyH.leftPressed || keyH.rightPressed || keyH.upPressed || keyH.downPressed;
+
+            if (playerMoving) {
+                playerPositions.add(0, new Point(player.worldX, player.worldY));
+
+                if (playerPositions.size() > 200) {
+                    playerPositions.remove(playerPositions.size() - 1);
                 }
             }
+
+            // Κράτα λίγες θέσεις για performance
+            if (playerPositions.size() > 200) {
+                playerPositions.remove(playerPositions.size() - 1);
+            }
+            updatePartyMembers();
             
             // Αποφάσισε ποια εικόνα θα δείξεις με βάση direction και frame
             if (direction == 0) { // Κάτω
@@ -3051,7 +3001,7 @@ public class GamePanel extends JPanel implements Runnable {
         groundX = 0;
         
         // ========== ΔΗΜΙΟΥΡΓΙΑ ΕΧΘΡΩΝ (2-3) ==========
-        int numEnemies = 2 + (int)(Math.random() * 2);
+        int numEnemies = 1 + (int)(Math.random() * 2);
         
         for (int i = 0; i < numEnemies; i++) {
             Enemy enemy;
@@ -3173,6 +3123,59 @@ public class GamePanel extends JPanel implements Runnable {
             return ImageIO.read(new File("res/items/weapon_default.png"));
         } catch (Exception e) {
             return playerDown1; // Fallback
+        }
+    }
+
+    public void updatePartyMembers() {
+
+        if (gameState != playState || battleStarting) return;
+
+        boolean playerMoving = keyH.leftPressed || keyH.rightPressed || keyH.upPressed || keyH.downPressed;
+
+        for (int i = 0; i < partyMembers.size(); i++) {
+
+            PartyMember member = partyMembers.get(i);
+
+            // Delay = πόσο πίσω ακολουθεί
+            int delay = (i + 1) * 15;
+
+            if (playerPositions.size() > delay) {
+
+                Point target = playerPositions.get(delay);
+
+                int targetX = target.x;
+                int targetY = target.y;
+
+                int dx = targetX - member.worldX;
+                int dy = targetY - member.worldY;
+
+                // Κίνηση στον άξονα X
+                if (Math.abs(dx) > 2) {
+                    member.worldX += (int) Math.signum(dx) * member.speed;
+                    member.direction = (dx > 0) ? "right" : "left";
+                }
+
+                // Κίνηση στον άξονα Y
+                if (Math.abs(dy) > 2) {
+                    member.worldY += (int) Math.signum(dy) * member.speed;
+                    member.direction = (dy > 0) ? "down" : "up";
+                }
+
+                // Animation μόνο όταν κινείται ο player
+                if (playerMoving) {
+                    member.counter++;
+                    if (member.counter > 10) {
+                        member.frame = (member.frame == 0) ? 1 : 0;
+                        member.counter = 0;
+                    }
+                } else {
+                    member.frame = 0;
+                    member.counter = 0;
+                }
+
+            }
+
+            member.updateImage();
         }
     }
 
@@ -3753,8 +3756,8 @@ public class GamePanel extends JPanel implements Runnable {
             
             if (numEnemies == 1) {
                 // 1 εχθρός: κέντρο
-                drawX = screenWidth / 2 - enemySpriteSize / 2;
-                drawY = groundY - enemySpriteSize + (tileSize * 2);
+                drawX = screenWidth / 2 - enemySpriteSize - 40;
+                drawY = groundY - enemySpriteSize + (tileSize * 2) - 50;
             } else if (numEnemies == 2) {
                 // 2 εχθροί: δεξιά-αριστερά
                 if (i == 0) {
@@ -3817,7 +3820,7 @@ public class GamePanel extends JPanel implements Runnable {
         int totalPlayers = 1 + battlePartyMembers.size(); // Hero + άλλα μέλη
         
         // Υπολόγισε κεντρική θέση για τους παίκτες (αριστερά)
-        int basePlayerX = 450;
+        int basePlayerX = 600;
         int basePlayerY = groundY - playerSpriteSize + 100;
         
         // 1. ΖΩΓΡΑΦΙΣΕ ΠΡΩΤΑ ΤΟΝ ΚΕΝΤΡΙΚΟ ΗΡΩΑ (πιο μπροστά)
@@ -3842,8 +3845,8 @@ public class GamePanel extends JPanel implements Runnable {
             BattlePartyMember bpm = battlePartyMembers.get(i);
             
             // Διαγώνια στοίχιση: κάθε επόμενο μέλος πιο πάνω και δεξιά
-            int offsetX = 40 + (i * 40);
-            int offsetY = -40 - (i * 30);
+            int offsetX = -80 - (i * 60);
+            int offsetY = -40 - (i * 40);
             
             int drawX = basePlayerX + offsetX;
             int drawY = basePlayerY + offsetY;

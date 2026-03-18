@@ -112,4 +112,15 @@ public class PartyMember extends Entity {
             }
         }
     }
+    public void updateImage() {
+        if (direction.equals("down")) {
+            currentImage = (frame == 0) ? down1 : down2;
+        } else if (direction.equals("up")) {
+            currentImage = (frame == 0) ? up1 : up2;
+        } else if (direction.equals("left")) {
+            currentImage = (frame == 0) ? left1 : left2;
+        } else if (direction.equals("right")) {
+            currentImage = (frame == 0) ? right1 : right2;
+        }
+    }
 }
