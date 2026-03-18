@@ -1,140 +1,177 @@
 import java.awt.image.BufferedImage;
 
 public class PlayerAnimation {
-    // Τα διαφορετικά animations
-    public BufferedImage[] idle;        // 3 frames
-    public BufferedImage[] hurt;        // 2 frames
-    public BufferedImage[] death;       // 3 frames
-    public BufferedImage[] attack1;     // Attack variation 1
-    public BufferedImage[] attackAxe;   // Attack variation 2
-    public BufferedImage[] attack02;    // Attack variation 3
-    public BufferedImage[] lowHpIdle;   // 4 frames
-    public BufferedImage[] defend;      // 1 frame
-    public BufferedImage[] useItem;     // 5 frames
-    
-    // Τρέχον animation
+    public BufferedImage[] idle;
+    public BufferedImage[] hurt;
+    public BufferedImage[] death;
+    public BufferedImage[] attack1;
+    public BufferedImage[] attack2;
+    public BufferedImage[] attack3;
+    public BufferedImage[] lowHpIdle;
+    public BufferedImage[] defend;
+    public BufferedImage[] useItem;
+
     private BufferedImage[] currentAnimation;
     public int currentFrame = 0;
     public int frameCounter = 0;
     public boolean isPlaying = false;
     public boolean loop = true;
     public String currentAnimName = "idle";
-    
-    // Ταχύτητες animation (μπορείς να τις προσαρμόσεις)
-    public final int FRAME_DELAY_NORMAL = 12;   // για idle, lowHpIdle
-    public final int FRAME_DELAY_FAST = 10;      // για attack, hurt, death
-    
+    public boolean actionJustFinished = false;
+
+    public final int FRAME_DELAY_NORMAL = 15;
+    public final int FRAME_DELAY_FAST = 10;
+
     public PlayerAnimation(BufferedImage[] idleFrames,
-                        BufferedImage[] hurtFrames,
-                        BufferedImage[] deathFrames,
-                        BufferedImage[] attack1Frames) {
-        
+                           BufferedImage[] hurtFrames,
+                           BufferedImage[] deathFrames,
+                           BufferedImage[] attack1Frames) {
+
         this.idle = idleFrames;
         this.hurt = hurtFrames;
         this.death = deathFrames;
         this.attack1 = attack1Frames;
-        
-        // Τα υπόλοιπα animations τα αφήνουμε null προσωρινά
-        this.attackAxe = null;
-        this.attack02 = null;
+
+        this.attack2 = null;
+        this.attack3 = null;
         this.lowHpIdle = null;
         this.defend = null;
         this.useItem = null;
-        
-        // Ξεκίνα με idle
+
         this.currentAnimation = idleFrames;
+        this.isPlaying = true;
+        this.loop = true;
     }
-    
+
     public void update() {
-        if (!isPlaying) return;
-        
+        if (!isPlaying || currentAnimation == null || currentAnimation.length == 0) return;
+
         frameCounter++;
-        
-        // Διάλεξε ταχύτητα ανάλογα με το animation
+
         int currentDelay = FRAME_DELAY_NORMAL;
-        if (currentAnimName.equals("attack1") || 
-            currentAnimName.equals("attackAxe") ||
-            currentAnimName.equals("attack02") ||
+        if (currentAnimName.equals("attack1") ||
+            currentAnimName.equals("attack2") ||
+            currentAnimName.equals("attack3") ||
             currentAnimName.equals("hurt") ||
             currentAnimName.equals("death") ||
             currentAnimName.equals("useItem")) {
             currentDelay = FRAME_DELAY_FAST;
         }
-        
+
         if (frameCounter >= currentDelay) {
             frameCounter = 0;
             currentFrame++;
-            
+
             if (currentFrame >= currentAnimation.length) {
                 if (loop) {
                     currentFrame = 0;
                 } else {
-                    isPlaying = false;
-                    // Για death, μείνε στο τελευταίο frame
                     if (currentAnimName.equals("death")) {
+                        isPlaying = false;
                         currentFrame = currentAnimation.length - 1;
+                        actionJustFinished = true;
                     } else {
-                        // Για άλλα non-looping animations, γύρνα στο idle
-                        setAnimation("idle", true);
+                        currentAnimation = idle;
+                        currentAnimName = "idle";
+                        currentFrame = 0;
+                        frameCounter = 0;
+                        loop = true;
+                        isPlaying = true;   // ΣΗΜΑΝΤΙΚΟ: idle συνεχίζει κανονικά
+                        actionJustFinished = true;
                     }
                 }
             }
         }
     }
-    
+
     public BufferedImage getCurrentImage() {
-        if (currentAnimation != null && currentFrame < currentAnimation.length) {
+        if (currentAnimation != null && currentAnimation.length > 0 && currentFrame < currentAnimation.length) {
             return currentAnimation[currentFrame];
         }
-        // Fallback
+
         if (idle != null && idle.length > 0) {
             return idle[0];
         }
+
         return null;
     }
-    
+
     public void setAnimation(String animName, boolean shouldLoop) {
-        // Αν είναι το ίδιο animation και παίζει ήδη, μην το ξαναρχίσεις
         if (animName.equals(currentAnimName) && isPlaying) return;
-        
+
+        BufferedImage[] selected = null;
+
+        switch (animName) {
+            case "idle":
+                selected = idle;
+                break;
+            case "hurt":
+                selected = hurt;
+                break;
+            case "death":
+                selected = death;
+                shouldLoop = false;
+                break;
+            case "attack1":
+                selected = attack1;
+                break;
+            case "attack2":
+                selected = (attack2 != null) ? attack2 : attack1;
+                break;
+            case "attack3":
+                selected = (attack3 != null) ? attack3 : ((attack2 != null) ? attack2 : attack1);
+                break;
+            case "lowHpIdle":
+                selected = (lowHpIdle != null) ? lowHpIdle : idle;
+                break;
+            case "defend":
+                selected = (defend != null) ? defend : idle;
+                break;
+            case "useItem":
+                selected = (useItem != null) ? useItem : attack1;
+                break;
+            default:
+                selected = idle;
+                animName = "idle";
+                shouldLoop = true;
+                break;
+        }
+
+        if (selected == null || selected.length == 0) {
+            selected = idle;
+            animName = "idle";
+            shouldLoop = true;
+        }
+
         currentAnimName = animName;
         loop = shouldLoop;
         currentFrame = 0;
         frameCounter = 0;
         isPlaying = true;
-        
-        switch(animName) {
-            case "idle":
-                currentAnimation = idle;
-                break;
-            case "hurt":
-                currentAnimation = hurt;
-                break;
-            case "death":
-                currentAnimation = death;
-                loop = false;
-                break;
+        actionJustFinished = false;
+        currentAnimation = selected;
+    }
+
+    public boolean isFinished() {
+        return actionJustFinished;
+    }
+
+    public int getStrikeFrame() {
+        switch (currentAnimName) {
             case "attack1":
-                currentAnimation = attack1;
-                break;
-            case "attackAxe":
-                currentAnimation = attackAxe;
-                break;
-            case "attack02":
-                currentAnimation = attack02;
-                break;
-            case "lowHpIdle":
-                currentAnimation = lowHpIdle;
-                break;
-            case "defend":
-                currentAnimation = defend;
-                break;
+                return 2;
+            case "attack2":
+                return 3;
+            case "attack3":
+                return 4;
             case "useItem":
-                currentAnimation = useItem;
-                break;
+                return 2;
             default:
-                currentAnimation = idle;
-                break;
+                return -1;
         }
+    }
+
+    public boolean isOnStrikeFrame() {
+        return currentFrame == getStrikeFrame();
     }
 }

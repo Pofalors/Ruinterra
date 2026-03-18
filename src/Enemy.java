@@ -17,13 +17,15 @@ public class Enemy extends Entity {
     }
     
     public void update() {
-        // Μόνο animation
-        animCounter++;
-        if (animCounter > 10) {
-            frame = (frame == 0) ? 1 : 0;
-            animCounter = 0;
+        if (gp.gameState != gp.battleState) {
+            // overworld animation μόνο
+            animCounter++;
+            if (animCounter > 10) {
+                frame = (frame == 0) ? 1 : 0;
+                animCounter = 0;
+            }
+            currentImage = (frame == 0) ? down1 : down2;
         }
-        currentImage = (frame == 0) ? down1 : down2;
     }
 
     // Μέθοδος για επιβράβευση όταν πεθαίνει - τώρα επιστρέφει array {exp, gold}

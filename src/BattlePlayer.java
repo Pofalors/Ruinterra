@@ -1,35 +1,38 @@
 import java.awt.image.BufferedImage;
 
 public class BattlePlayer {
-    public Entity player;        
+    public Entity player;
     public double x, y;
     public double targetX, targetY;
     public int hp, mp;
     public int maxHp, maxMp;
-    public BufferedImage image;  // Fallback image
-    
-    // ΝΕΟ: Animation για τη μάχη
+    public BufferedImage image;
     public PlayerAnimation anim;
-    
-    // Μέθοδος για να παίζει animation
+
     public void playAnimation(String name) {
         if (anim != null) {
-            anim.setAnimation(name, name.equals("idle"));
+            anim.setAnimation(name, name.equals("idle") || name.equals("lowHpIdle"));
         }
     }
-    
-    // Getter για την τρέχουσα εικόνα μάχης
+
     public BufferedImage getCurrentImage() {
-        if (anim != null && anim.isPlaying) {
+        if (anim != null) {
             return anim.getCurrentImage();
         }
-        return image; // fallback στην παλιά εικόνα
+        return image;
     }
-    
-    // Ενημέρωση animation (καλείται κάθε frame)
+
     public void update() {
         if (anim != null) {
             anim.update();
         }
+    }
+
+    public boolean isAnimationFinished() {
+        return anim == null || anim.isFinished();
+    }
+
+    public boolean isOnStrikeFrame() {
+        return anim != null && anim.isOnStrikeFrame();
     }
 }

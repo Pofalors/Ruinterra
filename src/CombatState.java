@@ -1,0 +1,14 @@
+public enum CombatState {
+    IDLE,
+    READY,
+    SELECTING_COMMAND,
+    SELECTING_BOOST,
+    SELECTING_TARGET,
+    WINDUP,
+    ATTACKING,
+    HIT_PAUSE,
+    RECOVERY,
+    HURT,
+    DEFENDING,
+    DEAD
+}

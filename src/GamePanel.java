@@ -206,6 +206,12 @@ public class GamePanel extends JPanel implements Runnable {
     public String[] battleMenuOptions = {"Attack", "Class Skills", "Items", "Defend", "Flee"};
     public int selectedTarget = 0;
     public boolean selectingTarget = false;
+    public int selectedBoost = 0;
+    public boolean selectingBoost = false;
+    public boolean actionInProgress = false;
+
+    public int hitPauseTimer = 0;
+    public final int HIT_PAUSE_DURATION = 8;
     public BufferedImage[] weaponIcons; // Για τα εικονίδια όπλων
     public int pendingExp = 0;
     public int pendingGold = 0;
@@ -228,11 +234,7 @@ public class GamePanel extends JPanel implements Runnable {
     public BattleEnemy currentBattleEnemy = null;
     public int pendingDamage = 0;
     public PlayerAnimation playerBattleAnim;
-    // DEATH ANIMATION
-    public boolean deathAnimationPlaying = false;
-    public int deathAnimationTimer = 0;
-    public final int DEATH_ANIMATION_DELAY = 90; // 2 δευτερόλεπτα στα 60fps
-    public boolean waitingForDeathAnimation = false;
+
     // variables για victory
     public int victoryTimer = 0;
     public int victoryExp = 0;
@@ -1434,7 +1436,8 @@ public class GamePanel extends JPanel implements Runnable {
                     repaint();
                 } else {
                     // ========== ΚΑΝΟΝΙΚΗ ΛΟΓΙΚΗ ΜΑΧΗΣ ==========
-                    
+                    updateBattleVisuals();
+                    updateBattleAction();
                     // Έλεγξε αν τελείωσε η μάχη
                     if (battleParty.battleEnded) {
                         if (battleParty.party.isEmpty()) {
@@ -1465,118 +1468,17 @@ public class GamePanel extends JPanel implements Runnable {
                     }                     
                     // Αν είναι σειρά του εχθρού
                     else if (!battleParty.isPlayerTurn()) {
-                        BattleEntity currentEnemy = battleParty.getCurrentTurn();
-
-                        // Βρες το αντίστοιχο BattleEnemy για το animation
-                        BattleEnemy attackingEnemy = null;
-                        for (BattleEnemy be : battleEnemies) {
-                            if (be.enemy == currentEnemy.enemyRef) {
-                                attackingEnemy = be;
-                                break;
+                        if (!actionInProgress) {
+                            BattleEntity currentEnemy = battleParty.getCurrentTurn();
+                            if (currentEnemy != null && currentEnemy.canAct()) {
+                                actionInProgress = true;
+                                currentEnemy.enterState(CombatState.WINDUP);
                             }
                         }
-                        
-                        // Βελτιωμένη AI: τυχαία επιλογή στόχου από τους ζωντανούς παίκτες
-                        if (currentEnemy != null && !battleParty.party.isEmpty()) {
-                            // Δημιούργησε λίστα με ζωντανούς παίκτες
-                            ArrayList<BattleEntity> alivePlayers = new ArrayList<>();
-                            for (BattleEntity player : battleParty.party) {
-                                if (player.isAlive()) {
-                                    alivePlayers.add(player);
-                                }
-                            }
-                            
-                            // Επέλεξε τυχαίο στόχο
-                            if (!alivePlayers.isEmpty()) {
-                                int randomIndex = (int)(Math.random() * alivePlayers.size());
-                                BattleEntity target = alivePlayers.get(randomIndex);
-                                
-                                System.out.println(currentEnemy.name + " randomly targets " + target.name);
-
-                                // Παίξε attack animation
-                                if (attackingEnemy != null) {
-                                    attackingEnemy.playAnimation("attack");
-                                    
-                                    // Μικρή καθυστέρηση για να φανεί το attack animation
-                                    try { Thread.sleep(300); } catch (Exception e) {}
-                                }
-
-                                // Υπολόγισε ζημιά
-                                int damage = currentEnemy.attack - target.defense;
-                                if (damage < 1) damage = 1;
-                                
-                                target.takeDamage(damage);
-
-                                showActionMessage(currentEnemy.name + " attacks " + target.name + " for " + damage + " damage!");
-                                
-                                // Βρες ΠΟΙΟΣ παίκτης είναι ο target και παίξε το αντίστοιχο hurt animation
-                                if (target.name.equals("Hero")) {
-                                    if (!battlePlayers.isEmpty()) {
-                                        battlePlayers.get(0).playAnimation("hurt");
-                                        battlePlayers.get(0).hp = target.hp;
-                                    }
-                                } else if (target.name.equals("Assassin")) {
-                                    for (BattlePartyMember bpm : battlePartyMembers) {
-                                        if (bpm.member.className.equals("Assassin")) {
-                                            bpm.playAnimation("hurt");
-                                            break;
-                                        }
-                                    }
-                                } else if (target.name.equals("Mage")) {
-                                    for (BattlePartyMember bpm : battlePartyMembers) {
-                                        if (bpm.member.className.equals("Mage")) {
-                                            bpm.playAnimation("hurt");
-                                            break;
-                                        }
-                                    }
-                                }
-
-                                // Όταν ο παίκτης πεθαίνει
-                                if (!battlePlayers.isEmpty() && target.hp <= 0) {
-                                    if (target.name.equals("Hero")) {
-                                        battlePlayers.get(0).playAnimation("death");
-                                    } else if (target.name.equals("Assassin")) {
-                                        for (BattlePartyMember bpm : battlePartyMembers) {
-                                            if (bpm.member.className.equals("Assassin")) {
-                                                bpm.playAnimation("death");
-                                                break;
-                                            }
-                                        }
-                                    } else if (target.name.equals("Mage")) {
-                                        for (BattlePartyMember bpm : battlePartyMembers) {
-                                            if (bpm.member.className.equals("Mage")) {
-                                                bpm.playAnimation("death");
-                                                break;
-                                            }
-                                        }
-                                    }
-                                }
-                                
-                                // Μικρή καθυστέρηση
-                                repaint();
-                                try { Thread.sleep(100); } catch (Exception e) {}
-                                
-                                // Έλεγξε αν πέθανε ο παίκτης
-                                battleParty.removeDeadEntities();
-                                
-                                // Αν τελείωσε η μάχη, σταμάτα
-                                if (battleParty.battleEnded) {
-                                    continue;
-                                }
-                            }
-                        }
-                        
-                        // ΠΡΟΧΩΡΑ ΣΤΗΝ ΕΠΟΜΕΝΗ ΣΕΙΡΑ
-                        waitingForNextTurn = true;
-                        battleTurnDelay = 0;
                         repaint();
-                        
-                        // ΣΗΜΑΝΤΙΚΟ: Μην επιτρέψεις να εκτελεστεί άλλος κώδικας πριν το repaint
-                        // Απλά συνέχισε στην επόμενη επανάληψη του loop
-                        continue;
                     }
                     // Αν είναι σειρά του παίκτη
-                    else if (battleParty.isPlayerTurn() && !selectingTarget) {
+                    else if (battleParty.isPlayerTurn() && !selectingTarget && !selectingBoost && !actionInProgress) {
                         // Πλοήγηση στο μενού
                         if (keyH.leftPressed) {
                             battleMenuOption--;
@@ -1602,10 +1504,9 @@ public class GamePanel extends JPanel implements Runnable {
                             
                             switch(battleMenuOption) {
                                 case 0: // ATTACK
-                                    selectingTarget = true;
-                                    selectedTarget = 0;
-                                    battleMessage = "Επίλεξε στόχο!";
-                                    // Πάιξε attack animation
+                                    selectingBoost = true;
+                                    selectedBoost = 0;
+                                    battleMessage = "Διάλεξε Boost (0-3)";
                                     break;
                                     
                                 case 1: // CLASS SKILLS
@@ -1617,11 +1518,11 @@ public class GamePanel extends JPanel implements Runnable {
                                     break;
                                     
                                 case 3: // DEFEND
-                                    try { Thread.sleep(1000); } catch (Exception e) {}
-                                    
-                                    // Εδώ θα μπει λογική για defend (μείωση ζημιάς επόμενου γύρου)
-                                    
-                                    battleParty.nextTurn();
+                                    currentPlayer.defending = true;
+                                    currentPlayer.enterState(CombatState.DEFENDING);
+                                    battleMessage = currentPlayer.name + " guards!";
+                                    waitingForNextTurn = true;
+                                    battleTurnDelay = 0;
                                     break;
                                     
                                 case 4: // FLEE
@@ -1639,6 +1540,37 @@ public class GamePanel extends JPanel implements Runnable {
                                     }
                                     break;
                             }
+                            keyH.enterPressed = false;
+                            repaint();
+                        }
+                    }
+                    else if (selectingBoost) {
+                        BattleEntity currentPlayer = battleParty.getCurrentTurn();
+                        int maxSelectableBoost = Math.min(3, currentPlayer.bp);
+
+                        if (keyH.leftPressed) {
+                            selectedBoost--;
+                            if (selectedBoost < 0) selectedBoost = 0;
+                            playSound("menu_select");
+                            try { Thread.sleep(150); } catch (Exception e) {}
+                            keyH.leftPressed = false;
+                            repaint();
+                        }
+
+                        if (keyH.rightPressed) {
+                            selectedBoost++;
+                            if (selectedBoost > maxSelectableBoost) selectedBoost = maxSelectableBoost;
+                            playSound("menu_select");
+                            try { Thread.sleep(150); } catch (Exception e) {}
+                            keyH.rightPressed = false;
+                            repaint();
+                        }
+
+                        if (keyH.enterPressed) {
+                            selectingBoost = false;
+                            selectingTarget = true;
+                            selectedTarget = 0;
+                            battleMessage = "Επίλεξε στόχο!";
                             keyH.enterPressed = false;
                             repaint();
                         }
@@ -1669,111 +1601,26 @@ public class GamePanel extends JPanel implements Runnable {
                                 // ΣΗΜΑΝΤΙΚΟ: Το selectedTarget αναφέρεται στο battleParty.enemies
                                 BattleEntity target = battleParty.enemies.get(selectedTarget);
                                 BattleEntity currentPlayer = battleParty.getCurrentTurn();
-                                
-                                // Βρες το αντίστοιχο BattleEnemy για το οπτικό effect
-                                BattleEnemy be = null;
-                                for (BattleEnemy enemy : battleEnemies) {
-                                    if (enemy.enemy == target.enemyRef) {
-                                        be = enemy;
-                                        break;
-                                    }
-                                }
-                                
-                                if (be == null) {
-                                    // Αν δεν βρέθηκε, ο εχθρός είναι ήδη νεκρός - μην κάνεις τίποτα
-                                    System.out.println("ERROR: Enemy not found in battleEnemies!");
-                                    keyH.enterPressed = false;
-                                    selectingTarget = false;
-                                    continue;
-                                }
+                                currentPlayer.queuedAction = "attack";
+                                currentPlayer.queuedTarget = target;
+                                currentPlayer.boostUsed = selectedBoost;
+                                currentPlayer.spendBP(selectedBoost);
+                                currentPlayer.enterState(CombatState.WINDUP);
 
-                                // Βρες ΠΟΙΟΣ παίκτης επιτίθεται (με βάση το currentTurn)
-                                if (currentPlayer != null && currentPlayer.isPlayer) {
-                                    if (currentPlayer.name.equals("Hero")) {
-                                        // Βασικός ήρωας
-                                        if (!battlePlayers.isEmpty()) {
-                                            battlePlayers.get(0).playAnimation("attack1");
-                                        }
-                                    } else if (currentPlayer.name.equals("Assassin")) {
-                                        // Assassin - βρες το αντίστοιχο BattlePartyMember
-                                        for (BattlePartyMember bpm : battlePartyMembers) {
-                                            if (bpm.member.className.equals("Assassin")) {
-                                                bpm.playAnimation("attack1");
-                                                break;
-                                            }
-                                        }
-                                    } else if (currentPlayer.name.equals("Mage")) {
-                                        // Mage
-                                        for (BattlePartyMember bpm : battlePartyMembers) {
-                                            if (bpm.member.className.equals("Mage")) {
-                                                bpm.playAnimation("attack1");
-                                                break;
-                                            }
-                                        }
-                                    }
-                                }
-                                
-                                // Παίξε hurt animation στον εχθρό
-                                be.playAnimation("hurt");
-                                // Μικρή καθυστέρηση για το hurt animation
-                                repaint();
-                                try { Thread.sleep(200); } catch (Exception e) {}
-                                
-                                // Υπολόγισε ζημιά
-                                playSound("hitmonster");
-                                int damage = currentPlayer.attack - target.defense;
-                                if (damage < 1) damage = 1;
-                                
-                                target.takeDamage(damage);
-
-                                // Αν πεθάνει
-                                if (target.hp <= 0) {
-                                    be.playAnimation("death");
-                                    deathAnimationPlaying = true;
-                                    deathAnimationTimer = 0;
-                                    waitingForDeathAnimation = true;
-                                    battleParty.turnOrder.remove(target);
-                                    
-                                    // Αποθήκευσε τα rewards
-                                    boolean enemyDied = !target.isAlive();
-                                    if (enemyDied && target.enemyRef != null) {
-                                        int[] rewards = target.enemyRef.giveRewards(player);
-                                        pendingExp += rewards[0];
-                                        pendingGold += rewards[1];
-                                        System.out.println("Enemy died! Pending rewards: EXP=" + pendingExp + ", Gold=" + pendingGold);
-                                    }
-                                }
-
-                                showActionMessage(currentPlayer.name + " attacks " + target.name + " for " + damage + " damage!");
-                                
-                                // Ενημέρωσε το αντίστοιχο BattleEnemy για το οπτικό
-                                if (be != null) {
-                                    be.hp = target.hp;
-                                }
-                                
-                                repaint();
-                                try { Thread.sleep(200); } catch (Exception e) {}
-                                
-                                // ΜΗΝ αφαιρέσεις τον εχθρό αμέσως - περίμενε το death animation
-                                // Η αφαίρεση γίνεται στο deathAnimationPlaying block
-                                
-                                // ΠΡΟΧΩΡΑ ΣΤΗΝ ΕΠΟΜΕΝΗ ΣΕΙΡΑ
-                                waitingForNextTurn = true;
-                                battleTurnDelay = 0;
+                                actionInProgress = true;
                                 selectingTarget = false;
+                                battleMessage = "";
                                 keyH.enterPressed = false;
                                 repaint();
-                                
                                 continue;
                             }
-                            keyH.enterPressed = false;
-                            repaint();
                         }
                         
                         // Ακύρωση με ESC
                         if (keyH.escapePressed) {
                             selectingTarget = false;
-                            battleMessage = "";
+                            selectingBoost = true;
+                            battleMessage = "Διάλεξε Boost (0-3)";
                             keyH.escapePressed = false;
                             repaint();
                         }
@@ -2615,67 +2462,6 @@ public class GamePanel extends JPanel implements Runnable {
                     battleFadeIn = false;
                 }
             }
-
-            if (gameState == battleState && !battleEntering) {
-                // Ενημέρωσε τα animations των εχθρών
-                for (BattleEnemy be : battleEnemies) {
-                    be.update();
-                }
-                // Ενημέρωσε τα animations των παικτών 
-                for (BattlePlayer bp : battlePlayers) {
-                    bp.update();
-                }
-                for (BattlePartyMember bpm : battlePartyMembers) {
-                    bpm.update();
-                }
-
-                // Αν είμαστε στο entering stage, μην προχωράς
-                if (battleEntering) {
-                    repaint();
-                    continue;
-                }
-                
-                // ========== ΕΛΕΓΧΟΣ ΟΛΟΚΛΗΡΩΣΗΣ DEATH ANIMATION ==========
-                if (deathAnimationPlaying) {
-                    deathAnimationTimer++;
-                    if (deathAnimationTimer >= DEATH_ANIMATION_DELAY) {
-                        // Το animation τελείωσε – αφαίρεσε τους νεκρούς εχθρούς
-                        battleParty.removeDeadEntities();
-                        battleParty.turnOrder.removeIf(entity -> !entity.isAlive());
-                        // ========== Αφαίρεσε και από το battleEnemies ==========
-                        for (int i = battleEnemies.size() - 1; i >= 0; i--) {
-                            BattleEnemy be = battleEnemies.get(i);
-                            // Βρες το αντίστοιχο BattleEntity για αυτόν τον εχθρό
-                            for (BattleEntity enemyEntity : battleParty.enemies) {
-                                if (enemyEntity.enemyRef == be.enemy && !enemyEntity.isAlive()) {
-                                    battleEnemies.remove(i);
-                                    break;
-                                }
-                            }
-                        }
-                        
-                        // Αν ο τρέχων γύρος ήταν ο εχθρός που πέθανε, προχώρα στον επόμενο
-                        if (!battleParty.isPlayerTurn() && 
-                            (battleParty.getCurrentTurn() == null || !battleParty.getCurrentTurn().isAlive())) {
-                            battleParty.nextTurn();
-                        }
-                        battleParty.syncPlayerHealth();
-                        
-                        // Επαναφορά flags
-                        deathAnimationPlaying = false;
-                        deathAnimationTimer = 0;
-                        waitingForDeathAnimation = false;
-                        
-                        // Έλεγξε αν η μάχη τελείωσε (όλοι οι εχθροί νεκροί)
-                        if (battleParty.battleEnded) {
-                            victoryExp = pendingExp;
-                            victoryGold = pendingGold;
-                            victoryRewardsShown = false;
-                            gameState = battleVictoryState;
-                        }
-                    }
-                }
-            }
             
             // 2. ΣΧΕΔΙΑΣΗ
             repaint();
@@ -2975,11 +2761,14 @@ public class GamePanel extends JPanel implements Runnable {
         battleTurnDelay = 0;
         battlePhase = 0;
         battlePhaseTimer = 0;
-        deathAnimationPlaying = false;
-        waitingForDeathAnimation = false;
         selectingTarget = false;
         battleMenuOption = 0;
         actionMessageTimer = 0;
+        pendingExp = 0;
+        pendingGold = 0;
+        victoryExp = 0;
+        victoryGold = 0;
+        victoryRewardsShown = false;
         lastAction = "";
         battleEnemies.clear();
         battlePlayers.clear();
@@ -3106,6 +2895,9 @@ public class GamePanel extends JPanel implements Runnable {
         // Αρχικοποίησε μεταβλητές μάχης
         battleMenuOption = 0;
         selectingTarget = false;
+        selectingBoost = false;
+        selectedBoost = 0;
+        actionInProgress = false;
         battleMessage = "";
         battleParty.battleEnded = false;
     }
@@ -3123,6 +2915,328 @@ public class GamePanel extends JPanel implements Runnable {
             return ImageIO.read(new File("res/items/weapon_default.png"));
         } catch (Exception e) {
             return playerDown1; // Fallback
+        }
+    }
+
+    public void updateBattleVisuals() {
+        for (BattlePlayer bp : battlePlayers) {
+            bp.update();
+        }
+
+        for (BattlePartyMember bpm : battlePartyMembers) {
+            bpm.update();
+        }
+
+        for (BattleEnemy be : battleEnemies) {
+            be.update();
+        }
+    }
+
+    public void updateBattleAction() {
+        if (!actionInProgress) return;
+
+        BattleEntity actor = battleParty.getCurrentTurn();
+        if (actor == null) return;
+
+        actor.updateStateTimer();
+
+        if (actor.isPlayer) {
+            updatePlayerAction(actor);
+        } else {
+            updateEnemyAction(actor);
+        }
+    }
+
+    public void updatePlayerAction(BattleEntity actor) {
+        if (actor.state == CombatState.WINDUP) {
+            playActorAnimation(actor, getAttackAnimationName(actor));
+            actor.enterState(CombatState.ATTACKING);
+            return;
+        }
+
+        if (actor.state == CombatState.ATTACKING) {
+            if (!actor.strikeTriggered && actor.queuedTarget != null && isActorOnStrikeFrame(actor)) {
+                actor.strikeTriggered = true;
+
+                int damage = calculateAttackDamage(actor, actor.queuedTarget, actor.boostUsed);
+                actor.queuedTarget.takeDamage(damage);
+
+                playTargetHurt(actor.queuedTarget);
+                syncVisualHp(actor.queuedTarget);
+
+                showActionMessage(actor.name + " attacks " + actor.queuedTarget.name + " for " + damage + " damage!");
+
+                if (!actor.queuedTarget.isAlive()) {
+                    playTargetDeath(actor.queuedTarget);
+                }
+
+                hitPauseTimer = HIT_PAUSE_DURATION;
+                actor.enterState(CombatState.HIT_PAUSE);
+            }
+            return;
+        }
+
+        if (actor.state == CombatState.HIT_PAUSE) {
+            hitPauseTimer--;
+            if (hitPauseTimer <= 0) {
+                actor.enterState(CombatState.RECOVERY);
+            }
+            return;
+        }
+
+        if (actor.state == CombatState.RECOVERY) {
+            if (isActorAnimationFinished(actor)) {
+                finalizeDeathsAndRewards();
+                actor.resetTurnFlags();
+                actor.enterState(CombatState.IDLE);
+                actionInProgress = false;
+                waitingForNextTurn = true;
+                battleTurnDelay = 0;
+            }
+        }
+    }
+
+    public void updateEnemyAction(BattleEntity actor) {
+        if (actor.queuedTarget == null) {
+            ArrayList<BattleEntity> alivePlayers = new ArrayList<>();
+            for (BattleEntity playerEntity : battleParty.party) {
+                if (playerEntity.isAlive()) {
+                    alivePlayers.add(playerEntity);
+                }
+            }
+
+            if (alivePlayers.isEmpty()) return;
+
+            int randomIndex = (int)(Math.random() * alivePlayers.size());
+            actor.queuedTarget = alivePlayers.get(randomIndex);
+            actor.queuedAction = "attack";
+            actor.boostUsed = 0;
+            actor.enterState(CombatState.WINDUP);
+        }
+
+        if (actor.state == CombatState.WINDUP) {
+            System.out.println("ENEMY WINDUP -> PLAY ATTACK");
+            playActorAnimation(actor, "attack");
+            actor.enterState(CombatState.ATTACKING);
+            return;
+        }
+
+        if (actor.state == CombatState.ATTACKING) {
+            if (!actor.strikeTriggered && actor.queuedTarget != null && isActorOnStrikeFrame(actor)) {
+                actor.strikeTriggered = true;
+
+                int damage = calculateAttackDamage(actor, actor.queuedTarget, 0);
+                actor.queuedTarget.takeDamage(damage);
+
+                playTargetHurt(actor.queuedTarget);
+                syncVisualHp(actor.queuedTarget);
+
+                showActionMessage(actor.name + " attacks " + actor.queuedTarget.name + " for " + damage + " damage!");
+
+                if (!actor.queuedTarget.isAlive()) {
+                    playTargetDeath(actor.queuedTarget);
+                }
+
+                hitPauseTimer = HIT_PAUSE_DURATION;
+                actor.enterState(CombatState.HIT_PAUSE);
+            }
+            return;
+        }
+
+        if (actor.state == CombatState.HIT_PAUSE) {
+            hitPauseTimer--;
+            if (hitPauseTimer <= 0) {
+                actor.enterState(CombatState.RECOVERY);
+            }
+            return;
+        }
+
+        if (actor.state == CombatState.RECOVERY) {
+            if (isActorAnimationFinished(actor)) {
+                battleParty.removeDeadEntities();
+                battleParty.syncPlayerHealth();
+
+                actor.resetTurnFlags();
+                actor.enterState(CombatState.IDLE);
+                actionInProgress = false;
+                waitingForNextTurn = true;
+                battleTurnDelay = 0;
+            }
+        }
+    }
+
+    public int calculateAttackDamage(BattleEntity attacker, BattleEntity target, int boostUsed) {
+        double multiplier = 1.0 + (boostUsed * 0.5);
+        int baseDamage = attacker.attack - target.defense;
+        if (baseDamage < 1) baseDamage = 1;
+        return Math.max(1, (int)(baseDamage * multiplier));
+    }
+
+    public String getAttackAnimationName(BattleEntity actor) {
+        switch (actor.boostUsed) {
+            case 0: return "attack1";
+            case 1: return "attack1";
+            case 2: return "attack2";
+            case 3: return "attack3";
+            default: return "attack1";
+        }
+    }
+
+    public void playActorAnimation(BattleEntity actor, String animName) {
+        if (actor.isPlayer) {
+            if (actor.name.equals("Hero")) {
+                if (!battlePlayers.isEmpty()) battlePlayers.get(0).playAnimation(animName);
+            } else {
+                for (BattlePartyMember bpm : battlePartyMembers) {
+                    if (bpm.member.className.equals(actor.name)) {
+                        bpm.playAnimation(animName);
+                        break;
+                    }
+                }
+            }
+        } else {
+            for (BattleEnemy be : battleEnemies) {
+                if (be.enemy == actor.enemyRef) {
+                    be.playAnimation(animName);
+                    break;
+                }
+            }
+        }
+    }
+
+    public boolean isActorOnStrikeFrame(BattleEntity actor) {
+        if (actor.isPlayer) {
+            if (actor.name.equals("Hero")) {
+                return !battlePlayers.isEmpty() && battlePlayers.get(0).isOnStrikeFrame();
+            } else {
+                for (BattlePartyMember bpm : battlePartyMembers) {
+                    if (bpm.member.className.equals(actor.name)) {
+                        return bpm.isOnStrikeFrame();
+                    }
+                }
+            }
+        } else {
+            for (BattleEnemy be : battleEnemies) {
+                if (be.enemy == actor.enemyRef) {
+                    return be.isOnStrikeFrame();
+                }
+            }
+        }
+        return false;
+    }
+
+    public boolean isActorAnimationFinished(BattleEntity actor) {
+        if (actor.isPlayer) {
+            if (actor.name.equals("Hero")) {
+                return battlePlayers.isEmpty() || battlePlayers.get(0).isAnimationFinished();
+            } else {
+                for (BattlePartyMember bpm : battlePartyMembers) {
+                    if (bpm.member.className.equals(actor.name)) {
+                        return bpm.isAnimationFinished();
+                    }
+                }
+            }
+        } else {
+            for (BattleEnemy be : battleEnemies) {
+                if (be.enemy == actor.enemyRef) {
+                    return be.isAnimationFinished();
+                }
+            }
+        }
+        return true;
+    }
+
+    public void playTargetHurt(BattleEntity target) {
+        if (target.isPlayer) {
+            if (target.name.equals("Hero")) {
+                if (!battlePlayers.isEmpty()) battlePlayers.get(0).playAnimation("hurt");
+            } else {
+                for (BattlePartyMember bpm : battlePartyMembers) {
+                    if (bpm.member.className.equals(target.name)) {
+                        bpm.playAnimation("hurt");
+                        break;
+                    }
+                }
+            }
+        } else {
+            for (BattleEnemy be : battleEnemies) {
+                if (be.enemy == target.enemyRef) {
+                    be.playAnimation("hurt");
+                    break;
+                }
+            }
+        }
+    }
+
+    public void playTargetDeath(BattleEntity target) {
+        if (target.isPlayer) {
+            if (target.name.equals("Hero")) {
+                if (!battlePlayers.isEmpty()) battlePlayers.get(0).playAnimation("death");
+            } else {
+                for (BattlePartyMember bpm : battlePartyMembers) {
+                    if (bpm.member.className.equals(target.name)) {
+                        bpm.playAnimation("death");
+                        break;
+                    }
+                }
+            }
+        } else {
+            for (BattleEnemy be : battleEnemies) {
+                if (be.enemy == target.enemyRef) {
+                    be.playAnimation("death");
+                    break;
+                }
+            }
+        }
+    }
+
+    public void syncVisualHp(BattleEntity target) {
+        if (target.isPlayer) {
+            if (target.name.equals("Hero")) {
+                if (!battlePlayers.isEmpty()) battlePlayers.get(0).hp = target.hp;
+            } else {
+                for (BattlePartyMember bpm : battlePartyMembers) {
+                    if (bpm.member.className.equals(target.name)) {
+                        bpm.hp = target.hp;
+                        bpm.mp = target.mp;
+                        break;
+                    }
+                }
+            }
+        } else {
+            for (BattleEnemy be : battleEnemies) {
+                if (be.enemy == target.enemyRef) {
+                    be.hp = target.hp;
+                    break;
+                }
+            }
+        }
+    }
+
+    public void finalizeDeathsAndRewards() {
+        for (BattleEntity enemyEntity : new ArrayList<>(battleParty.enemies)) {
+            if (!enemyEntity.isAlive() && enemyEntity.enemyRef != null) {
+                int[] rewards = enemyEntity.enemyRef.giveRewards(player);
+                pendingExp += rewards[0];
+                pendingGold += rewards[1];
+            }
+        }
+
+        battleParty.removeDeadEntities();
+        battleParty.syncPlayerHealth();
+
+        battleEnemies.removeIf(be -> {
+            for (BattleEntity enemyEntity : battleParty.enemies) {
+                if (enemyEntity.enemyRef == be.enemy) return false;
+            }
+            return true;
+        });
+
+        if (battleParty.battleEnded) {
+            victoryExp = pendingExp;
+            victoryGold = pendingGold;
+            victoryRewardsShown = false;
+            gameState = battleVictoryState;
         }
     }
 
@@ -3940,7 +4054,7 @@ public class GamePanel extends JPanel implements Runnable {
             g2.drawString(turnText, turnX, menuY + 25);
             
             // Μενού επιλογών (μόνο για παίκτη)
-            if (battleParty.isPlayerTurn() && !selectingTarget) {
+            if (battleParty.isPlayerTurn() && !selectingTarget && !selectingBoost && !actionInProgress) {
                 g2.setFont(maruMonica);
                 int optionSpacing = menuWidth / battleMenuOptions.length;
                 
@@ -3974,6 +4088,30 @@ public class GamePanel extends JPanel implements Runnable {
                         g2.drawString(battleMenuOptions[i], optionX, optionY);
                     }
                 }
+            } else if (selectingBoost) {
+                g2.setFont(maruMonicaBold);
+                g2.setColor(Color.yellow);
+                g2.drawString("Select boost:", menuX + 50, menuY + 70);
+
+                BattleEntity currentPlayer = battleParty.getCurrentTurn();
+                int maxSelectableBoost = Math.min(3, currentPlayer.bp);
+
+                int boostY = menuY + 120;
+                for (int i = 0; i <= maxSelectableBoost; i++) {
+                    int x = menuX + 100 + (i * 80);
+
+                    if (i == selectedBoost) {
+                        g2.setColor(Color.yellow);
+                        g2.drawString("▶ " + i, x, boostY);
+                    } else {
+                        g2.setColor(Color.white);
+                        g2.drawString("" + i, x + 20, boostY);
+                    }
+                }
+
+                g2.setColor(Color.white);
+                g2.setFont(maruMonica);
+                g2.drawString("Current BP: " + currentPlayer.bp, menuX + 50, menuY + 180);    
             } else if (selectingTarget) {
                 // Μενού επιλογής στόχου
                 g2.setFont(maruMonicaBold);
