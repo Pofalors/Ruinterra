@@ -85,6 +85,14 @@ public class BattleParty {
         entity.gainBP();
         entity.defending = false;
         entity.enterState(CombatState.READY);
+
+        if (entity.playerRef != null && entity.playerRef.gp != null) {
+            if (entity.name.equals("Assassin")) {
+                entity.playerRef.gp.sound.playBattleSE("TURNASSASSIN");
+            } else if (entity.name.equals("Mage")) {
+                entity.playerRef.gp.sound.playBattleSE("TURNMAGE");
+            }
+        }
     }
 
     public void nextTurn() {

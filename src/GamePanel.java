@@ -209,6 +209,15 @@ public class GamePanel extends JPanel implements Runnable {
     public int selectedBoost = 0;
     public boolean selectingBoost = false;
     public boolean actionInProgress = false;
+    public String lastKillerName = "";
+    public boolean waitingForBattleMusic = false;
+    public int battleAppearTimer = 0;
+    public int battleAppearDurationFrames = 0;
+    public int boostLoopLevel = 0; // 0 = κανένα loop, 1/2/3 = BOOSTLVL1S/2S/3S
+    public boolean battleEnterLatch = false;
+    public boolean battleBLatch = false;
+    public boolean battleCLatch = false;
+    public boolean commandLocked = false;
 
     public int hitPauseTimer = 0;
     public final int HIT_PAUSE_DURATION = 8;
@@ -463,6 +472,42 @@ public class GamePanel extends JPanel implements Runnable {
         sound.preloadSound("unequip", "unequip.wav");
         sound.preloadSound("enemy_appear", "enemy_appear.wav");
         sound.preloadSound("coin", "coin.wav");
+        // ===== BATTLE SOUND EFFECTS =====
+        sound.preloadBattleSound("ATTACKMISS", "attackMiss.wav");
+        sound.preloadBattleSound("BOOSTASSASSIN", "boostAssassin.wav");
+        sound.preloadBattleSound("BOOSTMAGE", "boostMage.wav");
+        sound.preloadBattleSound("DEATHASSASSIN", "deathAssassin.wav");
+        sound.preloadBattleSound("DEATHENEMY", "deathEnemy.wav");
+        sound.preloadBattleSound("DEATHMAGE", "deathMage.wav");
+        sound.preloadBattleSound("ENEMY_APPEAR", "enemy_appear.wav");
+        sound.preloadBattleSound("GOBLIN_SLASH", "goblin_slash.wav");
+        sound.preloadBattleSound("GUARD", "guard.wav");
+        sound.preloadBattleSound("HEAL", "heal.wav");
+        sound.preloadBattleSound("ITEM", "item.wav");
+        sound.preloadBattleSound("LOWHPASSASSIN", "lowHpAssassin.wav");
+        sound.preloadBattleSound("LOWHPMAGE", "LowHpMage.wav");
+        sound.preloadBattleSound("MUSHROOM_ATTACK", "mushroom_attack.wav");
+        sound.preloadBattleSound("SKELETON_ATTACK", "skeleton_attack.wav");
+        sound.preloadBattleSound("SPEAR", "spear.wav");
+        sound.preloadBattleSound("SPEAR2", "spear2.wav");
+        sound.preloadBattleSound("STAFF", "staff.wav");
+        sound.preloadBattleSound("STAFF2", "staff2.wav");
+        sound.preloadBattleSound("SWORD", "sword.wav");
+        sound.preloadBattleSound("SWORD2", "sword2.wav");
+        sound.preloadBattleSound("THANKSASSASSIN", "thanksAssassin.wav");
+        sound.preloadBattleSound("THANKSMAGE", "ThanksMage.wav");
+        sound.preloadBattleSound("TURNASSASSIN", "turnAssassin.wav");
+        sound.preloadBattleSound("TURNMAGE", "turnMage.wav");
+        sound.preloadBattleSound("USEITEMASSASSIN", "useItemAssassin.wav");
+        sound.preloadBattleSound("VICTORYASSASSIN", "victoryAssassin.wav");
+        sound.preloadBattleSound("VICTORYMAGE", "victoryMage.wav");
+        sound.preloadBattleSound("BOOSTCANCEL", "boostCancel.wav");
+        sound.preloadBattleSound("BOOSTLVL1", "boostLvl1.wav");
+        sound.preloadBattleSound("BOOSTLVL1S", "boostLvl1s.wav");
+        sound.preloadBattleSound("BOOSTLVL2", "boostLvl2.wav");
+        sound.preloadBattleSound("BOOSTLVL2S", "boostLvl2s.wav");
+        sound.preloadBattleSound("BOOSTLVL3", "boostLvl3.wav");
+        sound.preloadBattleSound("BOOSTLVL3S", "boostLvl3s.wav");
         
         // Ξεκίνα με την μουσική ΤΙΤΛΟΥ
         sound.preloadMusic("title", "title_music.wav");
@@ -1436,6 +1481,14 @@ public class GamePanel extends JPanel implements Runnable {
                     repaint();
                 } else {
                     // ========== ΚΑΝΟΝΙΚΗ ΛΟΓΙΚΗ ΜΑΧΗΣ ==========
+                    boolean battleEnterJustPressed = keyH.enterPressed && !battleEnterLatch;
+                    boolean battleBJustPressed = keyH.bPressed && !battleBLatch;
+                    boolean battleCJustPressed = keyH.cPressed && !battleCLatch;
+
+                    battleEnterLatch = keyH.enterPressed;
+                    battleBLatch = keyH.bPressed;
+                    battleCLatch = keyH.cPressed;
+
                     updateBattleVisuals();
                     updateBattleAction();
                     // Έλεγξε αν τελείωσε η μάχη
@@ -1458,11 +1511,13 @@ public class GamePanel extends JPanel implements Runnable {
                     }
 
                     if (waitingForNextTurn) {
+                        commandLocked = true;
                         battleTurnDelay++;
                         if (battleTurnDelay >= BATTLE_TURN_DELAY_TIME) {
                             waitingForNextTurn = false;
                             battleTurnDelay = 0;
                             battleParty.nextTurn();
+                            commandLocked = false;
                         }
                         repaint();
                     }                     
@@ -1477,8 +1532,17 @@ public class GamePanel extends JPanel implements Runnable {
                         }
                         repaint();
                     }
+                    if (waitingForBattleMusic) {
+                        battleAppearTimer++;
+                        if (battleAppearTimer >= battleAppearDurationFrames) {
+                            sound.playMusic("battle");
+                            currentMusicVolume = musicVolume / 100.0f;
+                            sound.setMusicVolume(currentMusicVolume);
+                            waitingForBattleMusic = false;
+                        }
+                    }
                     // Αν είναι σειρά του παίκτη
-                    else if (battleParty.isPlayerTurn() && !selectingTarget && !selectingBoost && !actionInProgress) {
+                    else if (battleParty.isPlayerTurn() && !selectingTarget && !selectingBoost && !actionInProgress && !commandLocked) {
                         // Πλοήγηση στο μενού
                         if (keyH.leftPressed) {
                             battleMenuOption--;
@@ -1497,16 +1561,19 @@ public class GamePanel extends JPanel implements Runnable {
                             repaint();
                         }
                         
-                        if (keyH.enterPressed) {
+                        if (battleEnterJustPressed) {
                             playSound("menu_select");
                             
                             BattleEntity currentPlayer = battleParty.getCurrentTurn();
                             
                             switch(battleMenuOption) {
                                 case 0: // ATTACK
-                                    selectingBoost = true;
+                                    commandLocked = true;
+                                    selectingTarget = true;
+                                    selectedTarget = 0;
                                     selectedBoost = 0;
-                                    battleMessage = "Διάλεξε Boost (0-3)";
+                                    boostLoopLevel = 0;
+                                    battleMessage = "Επίλεξε στόχο!  B:+  C:-";
                                     break;
                                     
                                 case 1: // CLASS SKILLS
@@ -1518,65 +1585,71 @@ public class GamePanel extends JPanel implements Runnable {
                                     break;
                                     
                                 case 3: // DEFEND
+                                    commandLocked = true;
                                     currentPlayer.defending = true;
                                     currentPlayer.enterState(CombatState.DEFENDING);
+                                    playActorAnimation(currentPlayer, "defend");
                                     battleMessage = currentPlayer.name + " guards!";
-                                    waitingForNextTurn = true;
+                                    sound.playBattleSE("GUARD");
+                                    actionInProgress = true;
+                                    waitingForNextTurn = false;
                                     battleTurnDelay = 0;
                                     break;
                                     
                                 case 4: // FLEE
-                                    if (Math.random() < 0.5) {
-                                        battleMessage = "Απέδρασες!";
-                                        repaint();
-                                        try { Thread.sleep(1000); } catch (Exception e) {}
-                                        gameState = playState;
-                                        returnToMapMusic();
-                                    } else {
-                                        battleMessage = "Απέτυχες να αποδράσεις!";
-                                        repaint();
-                                        try { Thread.sleep(1000); } catch (Exception e) {}
-                                        battleParty.nextTurn();
-                                    }
+                                    commandLocked = true;
+                                    battleMessage = "Απέδρασες!";
+                                    repaint();
+                                    try { Thread.sleep(1000); } catch (Exception e) {}
+                                    gameState = playState;
+                                    returnToMapMusic();
+
                                     break;
                             }
                             keyH.enterPressed = false;
                             repaint();
                         }
                     }
-                    else if (selectingBoost) {
+                    // Αν είμαστε σε κατάσταση επιλογής στόχου
+                    else if (selectingTarget) {
                         BattleEntity currentPlayer = battleParty.getCurrentTurn();
                         int maxSelectableBoost = Math.min(3, currentPlayer.bp);
 
-                        if (keyH.leftPressed) {
-                            selectedBoost--;
-                            if (selectedBoost < 0) selectedBoost = 0;
-                            playSound("menu_select");
-                            try { Thread.sleep(150); } catch (Exception e) {}
-                            keyH.leftPressed = false;
+                        if (battleBJustPressed) {
+                            if (selectedBoost < maxSelectableBoost) {
+                                selectedBoost++;
+
+                                if (selectedBoost == 1) {
+                                    sound.playBattleSE("BOOSTLVL1");
+                                } else if (selectedBoost == 2) {
+                                    sound.playBattleSE("BOOSTLVL2");
+                                } else if (selectedBoost == 3) {
+                                    sound.playBattleSE("BOOSTLVL3");
+                                }
+
+                                if (currentPlayer.name.equals("Assassin")) {
+                                    sound.playBattleSE("BOOSTASSASSIN");
+                                } else if (currentPlayer.name.equals("Mage")) {
+                                    sound.playBattleSE("BOOSTMAGE");
+                                }
+
+                                boostLoopLevel = selectedBoost;
+                                battleMessage = "Επίλεξε στόχο!  B:+  C:-   BOOST: " + selectedBoost;
+                            }
+                            keyH.bPressed = false;
                             repaint();
                         }
 
-                        if (keyH.rightPressed) {
-                            selectedBoost++;
-                            if (selectedBoost > maxSelectableBoost) selectedBoost = maxSelectableBoost;
-                            playSound("menu_select");
-                            try { Thread.sleep(150); } catch (Exception e) {}
-                            keyH.rightPressed = false;
+                        if (battleCJustPressed) {
+                            if (selectedBoost > 0) {
+                                selectedBoost--;
+                                sound.playBattleSE("BOOSTCANCEL");
+                                boostLoopLevel = selectedBoost;
+                                battleMessage = "Επίλεξε στόχο!  B:+  C:-   BOOST: " + selectedBoost;
+                            }
+                            keyH.cPressed = false;
                             repaint();
                         }
-
-                        if (keyH.enterPressed) {
-                            selectingBoost = false;
-                            selectingTarget = true;
-                            selectedTarget = 0;
-                            battleMessage = "Επίλεξε στόχο!";
-                            keyH.enterPressed = false;
-                            repaint();
-                        }
-                    }
-                    // Αν είμαστε σε κατάσταση επιλογής στόχου
-                    else if (selectingTarget) {
                         // Πλοήγηση στους εχθρούς
                         if (keyH.leftPressed) {
                             selectedTarget--;
@@ -1596,19 +1669,20 @@ public class GamePanel extends JPanel implements Runnable {
                             repaint();
                         }
                         
-                        if (keyH.enterPressed) {
+                        if (battleEnterJustPressed) {
                             if (selectedTarget >= 0 && selectedTarget < battleParty.enemies.size()) {
                                 // ΣΗΜΑΝΤΙΚΟ: Το selectedTarget αναφέρεται στο battleParty.enemies
                                 BattleEntity target = battleParty.enemies.get(selectedTarget);
-                                BattleEntity currentPlayer = battleParty.getCurrentTurn();
                                 currentPlayer.queuedAction = "attack";
                                 currentPlayer.queuedTarget = target;
                                 currentPlayer.boostUsed = selectedBoost;
                                 currentPlayer.spendBP(selectedBoost);
+                                boostLoopLevel = 0;
                                 currentPlayer.enterState(CombatState.WINDUP);
 
                                 actionInProgress = true;
                                 selectingTarget = false;
+                                commandLocked = true;
                                 battleMessage = "";
                                 keyH.enterPressed = false;
                                 repaint();
@@ -2627,7 +2701,6 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     public void startRandomEncounter() {
-        float previousVolume = currentMusicVolume;
         // Επέλεξε τυχαίο τέρας ανάλογα με την περιοχή
         String[] possibleEnemies;
         
@@ -2655,12 +2728,16 @@ public class GamePanel extends JPanel implements Runnable {
             battleStarting = true;
             startBattleWithTransition(newEnemy);
             battleMessage = "Εμφανίστηκε " + enemyType + "!";
+            sound.stopMusic();
+            sound.playBattleSE("ENEMY_APPEAR");
+            waitingForBattleMusic = true;
+            battleAppearTimer = 0;
+            battleAppearDurationFrames = (int)(sound.getBattleSoundLengthMs("ENEMY_APPEAR") / 16.67);
 
-            // ========== ΑΛΛΑΓΗ ΜΟΥΣΙΚΗΣ ==========
-            sound.playMusic("battle");
-            // Εφάρμοσε την ίδια ένταση στη μάχη
-            sound.setMusicVolume(previousVolume);
-            playSound("enemy_appear");
+            // ξεκίνα τη μουσική ~20 frames πριν τελειώσει ο ήχος
+            battleAppearDurationFrames -= 200;
+
+            if (battleAppearDurationFrames <= 0) battleAppearDurationFrames = 40;
         }
     }
 
@@ -2690,9 +2767,6 @@ public class GamePanel extends JPanel implements Runnable {
         
         // Ρύθμισε τους εχθρούς και τους παίκτες για οριζόντια μάχη
         //setupBattleEntities();
-        
-        // Άλλαξε μουσική
-        sound.playMusic("battle");
     }
 
     public BufferedImage createGroundGradient(Color topColor, Color bottomColor) {
@@ -2775,6 +2849,19 @@ public class GamePanel extends JPanel implements Runnable {
         battlePartyMembers.clear();  // ΝΕΟ: Καθάρισε τη λίστα
         battleParty.party.clear();
         battleParty.enemies.clear();
+
+        selectingBoost = false;
+        selectedBoost = 0;
+        actionInProgress = false;
+        battleMessage = "";
+        battleParty.battleEnded = false;
+        battleEnterLatch = false;
+        battleBLatch = false;
+        battleCLatch = false;
+        commandLocked = false;
+
+        lastKillerName = "";
+        boostLoopLevel = 0;
 
         // ========== ΕΠΙΛΕΞΕ ΤΗΝ ΚΑΤΑΛΛΗΛΗ ΕΙΚΟΝΑ ΕΔΑΦΟΥΣ ==========
         if (currentMap == 0) {
@@ -2900,6 +2987,12 @@ public class GamePanel extends JPanel implements Runnable {
         actionInProgress = false;
         battleMessage = "";
         battleParty.battleEnded = false;
+
+        pendingExp = 0;
+        pendingGold = 0;
+        victoryExp = 0;
+        victoryGold = 0;
+        victoryRewardsShown = false;
     }
 
     public BufferedImage getWeaponImage() {
@@ -2948,6 +3041,18 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     public void updatePlayerAction(BattleEntity actor) {
+        if (actor.state == CombatState.DEFENDING) {
+            if (isActorAnimationFinished(actor)) {
+                actor.resetTurnFlags();
+                actor.enterState(CombatState.IDLE);
+                actionInProgress = false;
+                waitingForNextTurn = true;
+                commandLocked = false;
+                battleTurnDelay = 0;
+            }
+            return;
+        }
+        
         if (actor.state == CombatState.WINDUP) {
             playActorAnimation(actor, getAttackAnimationName(actor));
             actor.enterState(CombatState.ATTACKING);
@@ -2958,6 +3063,8 @@ public class GamePanel extends JPanel implements Runnable {
             if (!actor.strikeTriggered && actor.queuedTarget != null && isActorOnStrikeFrame(actor)) {
                 actor.strikeTriggered = true;
 
+                playPlayerAttackSound(actor);
+
                 int damage = calculateAttackDamage(actor, actor.queuedTarget, actor.boostUsed);
                 actor.queuedTarget.takeDamage(damage);
 
@@ -2967,6 +3074,7 @@ public class GamePanel extends JPanel implements Runnable {
                 showActionMessage(actor.name + " attacks " + actor.queuedTarget.name + " for " + damage + " damage!");
 
                 if (!actor.queuedTarget.isAlive()) {
+                    lastKillerName = actor.name;
                     playTargetDeath(actor.queuedTarget);
                 }
 
@@ -2991,6 +3099,7 @@ public class GamePanel extends JPanel implements Runnable {
                 actor.enterState(CombatState.IDLE);
                 actionInProgress = false;
                 waitingForNextTurn = true;
+                commandLocked = false;
                 battleTurnDelay = 0;
             }
         }
@@ -3024,6 +3133,8 @@ public class GamePanel extends JPanel implements Runnable {
         if (actor.state == CombatState.ATTACKING) {
             if (!actor.strikeTriggered && actor.queuedTarget != null && isActorOnStrikeFrame(actor)) {
                 actor.strikeTriggered = true;
+
+                playEnemyAttackSound(actor);
 
                 int damage = calculateAttackDamage(actor, actor.queuedTarget, 0);
                 actor.queuedTarget.takeDamage(damage);
@@ -3061,6 +3172,51 @@ public class GamePanel extends JPanel implements Runnable {
                 actionInProgress = false;
                 waitingForNextTurn = true;
                 battleTurnDelay = 0;
+                commandLocked = false;
+            }
+        }
+    }
+
+    public void playPlayerAttackSound(BattleEntity actor) {
+        if (actor.name.equals("Hero")) {
+            if (actor.boostUsed > 0) sound.playBattleSE("SPEAR2");
+            else sound.playBattleSE("SPEAR");
+        } else if (actor.name.equals("Assassin")) {
+            if (actor.boostUsed > 0) sound.playBattleSE("SWORD2");
+            else sound.playBattleSE("SWORD");
+        } else if (actor.name.equals("Mage")) {
+            if (actor.boostUsed > 0) sound.playBattleSE("STAFF2");
+            else sound.playBattleSE("STAFF");
+        }
+    }
+
+    public void playEnemyAttackSound(BattleEntity actor) {
+        if (actor.enemyRef == null) return;
+
+        String enemyName = actor.enemyRef.getClass().getSimpleName().toLowerCase();
+
+        if (enemyName.contains("goblin")) {
+            sound.playBattleSE("GOBLIN_SLASH");
+        } else if (enemyName.contains("mushroom")) {
+            sound.playBattleSE("MUSHROOM_ATTACK");
+        } else if (enemyName.contains("skeleton")) {
+            sound.playBattleSE("SKELETON_ATTACK");
+        }
+    }
+
+    public void drawBPDots(Graphics2D g2, BattleEntity entity, int startX, int y) {
+        int dotSpacing = 14;
+        int dotSize = 8;
+
+        for (int i = 0; i < entity.maxBp; i++) {
+            int x = startX + (i * dotSpacing);
+
+            if (i < entity.bp) {
+                g2.setColor(Color.red);
+                g2.fillOval(x, y, dotSize, dotSize);
+            } else {
+                g2.setColor(Color.darkGray);
+                g2.drawOval(x, y, dotSize, dotSize);
             }
         }
     }
@@ -3176,6 +3332,13 @@ public class GamePanel extends JPanel implements Runnable {
                 for (BattlePartyMember bpm : battlePartyMembers) {
                     if (bpm.member.className.equals(target.name)) {
                         bpm.playAnimation("death");
+
+                        if (target.name.equals("Assassin")) {
+                            sound.playBattleSE("DEATHASSASSIN");
+                        } else if (target.name.equals("Mage")) {
+                            sound.playBattleSE("DEATHMAGE");
+                        }
+
                         break;
                     }
                 }
@@ -3184,6 +3347,7 @@ public class GamePanel extends JPanel implements Runnable {
             for (BattleEnemy be : battleEnemies) {
                 if (be.enemy == target.enemyRef) {
                     be.playAnimation("death");
+                    sound.playBattleSE("DEATHENEMY");
                     break;
                 }
             }
@@ -3237,6 +3401,12 @@ public class GamePanel extends JPanel implements Runnable {
             victoryGold = pendingGold;
             victoryRewardsShown = false;
             gameState = battleVictoryState;
+
+            if (lastKillerName.equals("Assassin")) {
+                sound.playBattleSE("VICTORYASSASSIN");
+            } else if (lastKillerName.equals("Mage")) {
+                sound.playBattleSE("VICTORYMAGE");
+            }
         }
     }
 
@@ -4088,30 +4258,6 @@ public class GamePanel extends JPanel implements Runnable {
                         g2.drawString(battleMenuOptions[i], optionX, optionY);
                     }
                 }
-            } else if (selectingBoost) {
-                g2.setFont(maruMonicaBold);
-                g2.setColor(Color.yellow);
-                g2.drawString("Select boost:", menuX + 50, menuY + 70);
-
-                BattleEntity currentPlayer = battleParty.getCurrentTurn();
-                int maxSelectableBoost = Math.min(3, currentPlayer.bp);
-
-                int boostY = menuY + 120;
-                for (int i = 0; i <= maxSelectableBoost; i++) {
-                    int x = menuX + 100 + (i * 80);
-
-                    if (i == selectedBoost) {
-                        g2.setColor(Color.yellow);
-                        g2.drawString("▶ " + i, x, boostY);
-                    } else {
-                        g2.setColor(Color.white);
-                        g2.drawString("" + i, x + 20, boostY);
-                    }
-                }
-
-                g2.setColor(Color.white);
-                g2.setFont(maruMonica);
-                g2.drawString("Current BP: " + currentPlayer.bp, menuX + 50, menuY + 180);    
             } else if (selectingTarget) {
                 // Μενού επιλογής στόχου
                 g2.setFont(maruMonicaBold);
@@ -4178,6 +4324,7 @@ public class GamePanel extends JPanel implements Runnable {
             if (name.length() > 8) name = name.substring(0, 8);
             if (name.length() > 8) name = name.substring(0, 8); // Κόψε αν είναι πολύ μακρύ
             g2.drawString(name, startX, y);
+            drawBPDots(g2, entity, startX + 90, y - 10);
             
             // HP Bar - πιο κοντό
             int barWidth = 150;  // Μίκρυνε από 200 σε 150
@@ -5284,6 +5431,8 @@ public class GamePanel extends JPanel implements Runnable {
         public boolean shiftPressed = false;
         public boolean mPressed = false;
         public boolean escapePressed = false;
+        public boolean bPressed = false;
+        public boolean cPressed = false;
 
         @Override
         public void keyTyped(KeyEvent e) {}
@@ -5324,7 +5473,13 @@ public class GamePanel extends JPanel implements Runnable {
             }
             if (code == KeyEvent.VK_M) {
                 mPressed = true;
-            }    
+            }
+            if (code == KeyEvent.VK_B) {
+                bPressed = true;
+            }
+            if (code == KeyEvent.VK_C) {
+                cPressed = true;
+            }   
         }
 
         @Override
@@ -5363,6 +5518,12 @@ public class GamePanel extends JPanel implements Runnable {
             }
             if (code == KeyEvent.VK_M) {
                 mPressed = false;
+            }
+            if (code == KeyEvent.VK_B) {
+                bPressed = false;
+            }
+            if (code == KeyEvent.VK_C) {
+                cPressed = false;
             }
         }
     }

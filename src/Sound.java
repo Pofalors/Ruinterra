@@ -6,82 +6,191 @@ public class Sound {
     private HashMap<String, Clip> soundEffects = new HashMap<>();
     private HashMap<String, Clip> musicTracks = new HashMap<>();
     private String currentMusic = "";
-    
+
+    // Base folders
+    private static final String SOUND_FOLDER = "res/sound/";
+    private static final String BATTLE_SOUND_FOLDER = "res/sound/battle/";
+
+    // Για συμβατότητα με την παλιά μέθοδο
+    private Clip clip;
+
     public void setFile(String soundFile) {
         try {
-            File file = new File("res/sound/" + soundFile);
+            File file = new File(SOUND_FOLDER + soundFile);
             System.out.println("Trying to load: " + file.getAbsolutePath());
             System.out.println("File exists: " + file.exists());
-            
+
             if (!file.exists()) {
                 System.out.println("Sound file not found: " + soundFile);
                 return;
             }
-            
+
             AudioInputStream ais = AudioSystem.getAudioInputStream(file);
             Clip clip = AudioSystem.getClip();
             clip.open(ais);
-            
-            // Για συμβατότητα με την παλιά μέθοδο
+
             this.clip = clip;
         } catch (Exception e) {
             System.out.println("Error loading sound: " + soundFile);
             e.printStackTrace();
         }
     }
-    
-    // Για συμβατότητα με την παλιά μέθοδο
-    private Clip clip;
-    
+
     public void play() {
         if (clip != null) {
             clip.setFramePosition(0);
             clip.start();
         }
     }
-    
+
     public void loop() {
         if (clip != null) {
             clip.loop(Clip.LOOP_CONTINUOUSLY);
         }
     }
-    
+
     public void stop() {
         if (clip != null) {
             clip.stop();
         }
     }
-    
+
+    // =========================
+    // NORMAL SOUND EFFECTS
+    // =========================
     public void preloadSound(String name, String filename) {
         try {
-            File file = new File("res/sound/" + filename);
+            File file = new File(SOUND_FOLDER + filename);
             System.out.println("Preloading sound: " + file.getAbsolutePath());
             System.out.println("File exists: " + file.exists());
-            
+
             if (!file.exists()) {
                 System.out.println("❌ Sound file NOT FOUND: " + filename);
                 return;
             }
-            
-            // Απλά αποθήκευσε το filename, όχι το Clip
+
             soundEffects.put(name, null);
             System.out.println("✅ Registered sound: " + name + " from " + filename);
         } catch (Exception e) {
             System.out.println("❌ Error registering sound: " + filename);
         }
     }
-    
+
+    public void playSE(String name) {
+        try {
+            String filename = name + ".wav";
+            File file = new File(SOUND_FOLDER + filename);
+
+            if (!file.exists()) {
+                System.out.println("❌ Sound file not found: " + filename);
+                return;
+            }
+
+            AudioInputStream ais = AudioSystem.getAudioInputStream(file);
+            Clip newClip = AudioSystem.getClip();
+            newClip.open(ais);
+
+            newClip.addLineListener(event -> {
+                if (event.getType() == LineEvent.Type.STOP) {
+                    newClip.close();
+                }
+            });
+
+            newClip.start();
+            System.out.println("▶ Playing sound: " + name);
+
+        } catch (Exception e) {
+            System.out.println("❌ Error playing sound: " + name);
+            e.printStackTrace();
+        }
+    }
+
+    // =========================
+    // BATTLE SOUND EFFECTS
+    // =========================
+    public void preloadBattleSound(String name, String filename) {
+        try {
+            File file = new File(BATTLE_SOUND_FOLDER + filename);
+            System.out.println("Preloading battle sound: " + file.getAbsolutePath());
+            System.out.println("File exists: " + file.exists());
+
+            if (!file.exists()) {
+                System.out.println("❌ Battle sound file NOT FOUND: " + filename);
+                return;
+            }
+
+            soundEffects.put(name, null);
+            System.out.println("✅ Registered battle sound: " + name + " from " + filename);
+        } catch (Exception e) {
+            System.out.println("❌ Error registering battle sound: " + filename);
+            e.printStackTrace();
+        }
+    }
+
+    public void playBattleSE(String name) {
+        try {
+            String filename = name + ".wav";
+            File file = new File(BATTLE_SOUND_FOLDER + filename);
+
+            if (!file.exists()) {
+                System.out.println("❌ Battle sound file not found: " + filename);
+                return;
+            }
+
+            AudioInputStream ais = AudioSystem.getAudioInputStream(file);
+            Clip newClip = AudioSystem.getClip();
+            newClip.open(ais);
+
+            newClip.addLineListener(event -> {
+                if (event.getType() == LineEvent.Type.STOP) {
+                    newClip.close();
+                }
+            });
+
+            newClip.start();
+            System.out.println("▶ Playing battle sound: " + name);
+
+        } catch (Exception e) {
+            System.out.println("❌ Error playing battle sound: " + name);
+            e.printStackTrace();
+        }
+    }
+
+    public long getBattleSoundLengthMs(String name) {
+        try {
+            String filename = name + ".wav";
+            File file = new File(BATTLE_SOUND_FOLDER + filename);
+
+            if (!file.exists()) {
+                return 0;
+            }
+
+            AudioInputStream ais = AudioSystem.getAudioInputStream(file);
+            AudioFormat format = ais.getFormat();
+            long frames = ais.getFrameLength();
+            ais.close();
+
+            return (long)((frames * 1000.0) / format.getFrameRate());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return 0;
+        }
+    }
+
+    // =========================
+    // MUSIC
+    // =========================
     public void preloadMusic(String name, String filename) {
         try {
-            File file = new File("res/sound/" + filename);
+            File file = new File(SOUND_FOLDER + filename);
             System.out.println("Preloading music: " + file.getAbsolutePath());
             System.out.println("File exists: " + file.exists());
-            
+
             if (!file.exists()) {
                 System.out.println("❌ Music file NOT FOUND: " + filename);
                 return;
             }
-            
+
             AudioInputStream ais = AudioSystem.getAudioInputStream(file);
             Clip newClip = AudioSystem.getClip();
             newClip.open(ais);
@@ -93,9 +202,7 @@ public class Sound {
         }
     }
 
-    // Στο Sound.java, ΠΡΟΣΘΕΣΕ αυτή τη μέθοδο (μόνο μία φορά):
     public void setMusicVolume(float volume) {
-        // volume: 0.0 - 1.0
         for (Clip clip : musicTracks.values()) {
             if (clip != null && clip.isRunning()) {
                 try {
@@ -106,52 +213,20 @@ public class Sound {
                     } else {
                         dB = (float)(Math.log(volume) / Math.log(10.0) * 20.0);
                     }
-                    // Περιόρισε σε λογικά όρια
+
                     dB = Math.max(gainControl.getMinimum(), Math.min(gainControl.getMaximum(), dB));
                     gainControl.setValue(dB);
                 } catch (Exception e) {
-                    // Αν δεν υποστηρίζεται volume control, απλά αγνόησε
+                    // ignore
                 }
             }
         }
     }
 
-    // ΑΝΤΙΚΑΤΕΣΤΗΣΕ την υπάρχουσα setMusicVolume(int volume) με αυτή:
     public void setMusicVolume(int volume) {
         setMusicVolume(volume / 100.0f);
     }
-    
-    public void playSE(String name) {
-        try {
-            // Βρες το αρχείο από το όνομα
-            String filename = name + ".wav";
-            File file = new File("res/sound/" + filename);
-            
-            if (!file.exists()) {
-                System.out.println("❌ Sound file not found: " + filename);
-                return;
-            }
-            
-            // Δημιούργησε νέο clip κάθε φορά
-            AudioInputStream ais = AudioSystem.getAudioInputStream(file);
-            Clip newClip = AudioSystem.getClip();
-            newClip.open(ais);
-            
-            // Αυτόματο κλείσιμο όταν τελειώσει
-            newClip.addLineListener(event -> {
-                if (event.getType() == LineEvent.Type.STOP) {
-                    newClip.close();
-                }
-            });
-            
-            newClip.start();
-            System.out.println("▶ Playing sound: " + name);
-            
-        } catch (Exception e) {
-            System.out.println("❌ Error playing sound: " + name);
-        }
-    }
-    
+
     public void playMusic(String name) {
         if (!currentMusic.isEmpty()) {
             Clip oldMusic = musicTracks.get(currentMusic);
@@ -160,7 +235,7 @@ public class Sound {
                 System.out.println("⏹ Stopped music: " + currentMusic);
             }
         }
-        
+
         Clip newMusic = musicTracks.get(name);
         if (newMusic != null) {
             newMusic.setFramePosition(0);
@@ -171,7 +246,7 @@ public class Sound {
             System.out.println("❌ Music not found: " + name);
         }
     }
-    
+
     public void stopMusic() {
         if (!currentMusic.isEmpty()) {
             Clip music = musicTracks.get(currentMusic);
@@ -182,11 +257,11 @@ public class Sound {
             currentMusic = "";
         }
     }
-    
+
     public boolean isMusicPlaying() {
         return !currentMusic.isEmpty();
     }
-    
+
     public String getCurrentMusic() {
         return currentMusic;
     }

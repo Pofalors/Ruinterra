@@ -19,8 +19,8 @@ public class PlayerAnimation {
     public String currentAnimName = "idle";
     public boolean actionJustFinished = false;
 
-    public final int FRAME_DELAY_NORMAL = 15;
-    public final int FRAME_DELAY_FAST = 10;
+    public final int FRAME_DELAY_NORMAL = 16;
+    public final int FRAME_DELAY_FAST = 11;
 
     public PlayerAnimation(BufferedImage[] idleFrames,
                            BufferedImage[] hurtFrames,
