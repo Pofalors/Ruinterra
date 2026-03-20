@@ -82,7 +82,6 @@ public class BattleParty {
     public void startTurn(BattleEntity entity) {
         if (entity == null || !entity.isAlive()) return;
 
-        entity.gainBP();
         entity.defending = false;
         entity.enterState(CombatState.READY);
 
@@ -99,13 +98,25 @@ public class BattleParty {
         if (turnOrder.isEmpty()) return;
 
         currentTurnIndex++;
+
+        // Αν τελείωσε ο κύκλος, ξεκινά νέο full round
         if (currentTurnIndex >= turnOrder.size()) {
             currentTurnIndex = 0;
+            startNewRoundBP();
         }
 
         BattleEntity current = getCurrentTurn();
         if (current != null && current.isAlive()) {
-            startTurn(current);
+            current.defending = false;
+            current.enterState(CombatState.READY);
+        }
+    }
+
+    public void startNewRoundBP() {
+        for (BattleEntity entity : party) {
+            if (entity.isAlive()) {
+                entity.gainBP();
+            }
         }
     }
 

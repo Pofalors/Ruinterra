@@ -1545,6 +1545,61 @@ public class GamePanel extends JPanel implements Runnable {
                     }
                     // Αν είναι σειρά του παίκτη
                     else if (battleParty.isPlayerTurn() && !selectingTarget && !selectingBoost && !actionInProgress && !commandLocked) {
+                        BattleEntity currentPlayer = battleParty.getCurrentTurn();
+                        int maxSelectableBoost = Math.min(3, currentPlayer.bp);
+
+                        if (battleBJustPressed) {
+                            if (selectedBoost < maxSelectableBoost) {
+                                selectedBoost++;
+
+                                if (selectedBoost == 1) {
+                                    sound.playBattleSE("BOOSTLVL1");
+                                } else if (selectedBoost == 2) {
+                                    sound.playBattleSE("BOOSTLVL2");
+                                } else if (selectedBoost == 3) {
+                                    sound.playBattleSE("BOOSTLVL3");
+                                }
+
+                                if (currentPlayer.name.equals("Assassin")) {
+                                    sound.playBattleSE("BOOSTASSASSIN");
+                                } else if (currentPlayer.name.equals("Mage")) {
+                                    sound.playBattleSE("BOOSTMAGE");
+                                }
+
+                                boostLoopLevel = selectedBoost;
+                                battleMessage = "Boost: " + selectedBoost + "   Press B/C";
+                            }
+                            keyH.bPressed = false;
+                            repaint();
+                        }
+
+                        if (battleCJustPressed) {
+                            if (selectedBoost > 0) {
+                                sound.stopBattleLoop();
+                                selectedBoost--;
+                                sound.playBattleSE("BOOSTCANCEL");
+                                boostLoopLevel = selectedBoost;
+                                battleMessage = "Boost: " + selectedBoost + "   Press B/C";
+                            }
+                            keyH.cPressed = false;
+                            repaint();
+                        }
+
+                        if (boostLoopLevel == 1) {
+                            if (!sound.isBattleLoopPlaying("BOOSTLVL1S")) {
+                                sound.playBattleLoopFromMs("BOOSTLVL1S", 100);
+                            }
+                        } else if (boostLoopLevel == 2) {
+                            if (!sound.isBattleLoopPlaying("BOOSTLVL2S")) {
+                                sound.playBattleLoopFromMs("BOOSTLVL2S", 850);
+                            }
+                        } else if (boostLoopLevel == 3) {
+                            if (!sound.isBattleLoopPlaying("BOOSTLVL3S")) {
+                                sound.playBattleLoopFromMs("BOOSTLVL3S", 450);
+                            }
+                        } else {
+                            sound.stopBattleLoop();
+                        }
                         // Πλοήγηση στο μενού
                         if (keyH.leftPressed) {
                             battleMenuOption--;
@@ -1566,16 +1621,15 @@ public class GamePanel extends JPanel implements Runnable {
                         if (battleEnterJustPressed) {
                             playSound("menu_select");
                             
-                            BattleEntity currentPlayer = battleParty.getCurrentTurn();
+                            currentPlayer = battleParty.getCurrentTurn();
                             
                             switch(battleMenuOption) {
                                 case 0: // ATTACK
                                     commandLocked = true;
                                     selectingTarget = true;
                                     selectedTarget = 0;
-                                    selectedBoost = 0;
-                                    boostLoopLevel = 0;
-                                    battleMessage = "Επίλεξε στόχο!  B:+  C:-";
+                                    boostLoopLevel = selectedBoost;
+                                    battleMessage = "Επίλεξε στόχο!  ENTER=Confirm  ESC=Back";
                                     break;
                                     
                                 case 1: // CLASS SKILLS
@@ -1615,60 +1669,6 @@ public class GamePanel extends JPanel implements Runnable {
                     // Αν είμαστε σε κατάσταση επιλογής στόχου
                     else if (selectingTarget) {
                         BattleEntity currentPlayer = battleParty.getCurrentTurn();
-                        int maxSelectableBoost = Math.min(3, currentPlayer.bp);
-
-                        if (battleBJustPressed) {
-                            if (selectedBoost < maxSelectableBoost) {
-                                selectedBoost++;
-
-                                if (selectedBoost == 1) {
-                                    sound.playBattleSE("BOOSTLVL1");
-                                } else if (selectedBoost == 2) {
-                                    sound.playBattleSE("BOOSTLVL2");
-                                } else if (selectedBoost == 3) {
-                                    sound.playBattleSE("BOOSTLVL3");
-                                }
-
-                                if (currentPlayer.name.equals("Assassin")) {
-                                    sound.playBattleSE("BOOSTASSASSIN");
-                                } else if (currentPlayer.name.equals("Mage")) {
-                                    sound.playBattleSE("BOOSTMAGE");
-                                }
-
-                                boostLoopLevel = selectedBoost;
-                                battleMessage = "Επίλεξε στόχο!  B:+  C:-   BOOST: " + selectedBoost;
-                            }
-                            keyH.bPressed = false;
-                            repaint();
-                        }
-
-                        if (battleCJustPressed) {
-                            if (selectedBoost > 0) {
-                                sound.stopBattleLoop();
-
-                                selectedBoost--;
-                                sound.playBattleSE("BOOSTCANCEL");
-                                boostLoopLevel = selectedBoost;
-                                battleMessage = "Επίλεξε στόχο!  B:+  C:-   BOOST: " + selectedBoost;
-                            }
-                            keyH.cPressed = false;
-                            repaint();
-                        }
-                        if (boostLoopLevel == 1) {
-                            if (!sound.isBattleLoopPlaying("BOOSTLVL1S")) {
-                                sound.playBattleLoopFromMs("BOOSTLVL1S", 350);
-                            }
-                        } else if (boostLoopLevel == 2) {
-                            if (!sound.isBattleLoopPlaying("BOOSTLVL2S")) {
-                                sound.playBattleLoopFromMs("BOOSTLVL2S", 350);
-                            }
-                        } else if (boostLoopLevel == 3) {
-                            if (!sound.isBattleLoopPlaying("BOOSTLVL3S")) {
-                                sound.playBattleLoopFromMs("BOOSTLVL3S", 350);
-                            }
-                        } else {
-                            sound.stopBattleLoop();
-                        }
                         // Πλοήγηση στους εχθρούς
                         if (keyH.leftPressed) {
                             selectedTarget--;
@@ -3005,6 +3005,7 @@ public class GamePanel extends JPanel implements Runnable {
         
         // Υπολόγισε τη σειρά σειράς
         battleParty.calculateRandomTurnOrder();
+        battleParty.startNewRoundBP();
         
         // Αρχικοποίησε μεταβλητές μάχης
         battleMenuOption = 0;
@@ -3235,14 +3236,39 @@ public class GamePanel extends JPanel implements Runnable {
         int dotSpacing = 14;
         int dotSize = 8;
 
+        // Pulse animation
+        double time = System.currentTimeMillis() * 0.006;
+        float pulse = (float)(Math.sin(time) * 0.5 + 0.5); // 0 -> 1
+
         for (int i = 0; i < entity.maxBp; i++) {
             int x = startX + (i * dotSpacing);
 
             if (i < entity.bp) {
-                g2.setColor(Color.red);
+                int glowSize = dotSize + 4 + (int)(pulse * 3);
+                int glowOffset = (glowSize - dotSize) / 2;
+
+                // Glow
+                g2.setColor(new Color(255, 80, 80, 70));
+                g2.fillOval(x - glowOffset, y - glowOffset, glowSize, glowSize);
+
+                // Main dot
+                g2.setColor(new Color(220, 40, 40));
                 g2.fillOval(x, y, dotSize, dotSize);
+
+                // Highlight
+                g2.setColor(new Color(255, 190, 190));
+                g2.drawOval(x, y, dotSize, dotSize);
+
+                // Tiny shine
+                g2.setColor(new Color(255, 220, 220, 180));
+                g2.fillOval(x + 2, y + 1, 2, 2);
+
             } else {
-                g2.setColor(Color.darkGray);
+                // Empty slot
+                g2.setColor(new Color(75, 75, 75));
+                g2.fillOval(x, y, dotSize, dotSize);
+
+                g2.setColor(new Color(130, 130, 130));
                 g2.drawOval(x, y, dotSize, dotSize);
             }
         }
@@ -4251,51 +4277,66 @@ public class GamePanel extends JPanel implements Runnable {
             g2.drawString(turnText, turnX, menuY + 25);
             
             // Μενού επιλογών (μόνο για παίκτη)
-            if (battleParty.isPlayerTurn() && !selectingTarget && !selectingBoost && !actionInProgress) {
+            if (battleParty.isPlayerTurn() && !selectingTarget && !actionInProgress && !commandLocked) {
                 g2.setFont(maruMonica);
                 int optionSpacing = menuWidth / battleMenuOptions.length;
-                
+
                 for (int i = 0; i < battleMenuOptions.length; i++) {
                     int optionX = 20 + (i * optionSpacing);
                     int optionY = menuY + 70;
-                    
+
+                    String optionText = battleMenuOptions[i];
+                    if (i == 0 && selectedBoost > 0) {
+                        optionText = "Attack +" + selectedBoost;
+                    }
+
                     if (i == battleMenuOption) {
                         g2.setFont(maruMonicaBold);
                         g2.setColor(Color.yellow);
                         g2.drawString("▶", optionX - 15, optionY);
-                        
+
                         if (i == 0) {
                             BufferedImage weaponImg = getWeaponImage();
                             if (weaponImg != null) {
-                                g2.drawImage(weaponImg, optionX + 65, optionY - 20, 20, 20, null);
+                                g2.drawImage(weaponImg, optionX + 85, optionY - 20, 20, 20, null);
                             }
                         }
-                        
-                        g2.drawString(battleMenuOptions[i], optionX, optionY);
-                        
+
+                        g2.drawString(optionText, optionX, optionY);
+
                         g2.setFont(maruMonicaSmall);
                         g2.setColor(Color.lightGray);
                         String desc = getBattleOptionDescription(i);
                         int descX = getXforCenteredText(desc, g2);
                         g2.drawString(desc, descX, menuY + 100);
-                        
+
+                        g2.setColor(Color.white);
+                        g2.drawString("B: Boost Up   C: Boost Down", menuX + 25, menuY + 120);
+                        g2.drawString("Current Boost: " + selectedBoost, menuX + 25, menuY + 138);
+
                         g2.setFont(maruMonica);
                     } else {
                         g2.setColor(Color.white);
-                        g2.drawString(battleMenuOptions[i], optionX, optionY);
+                        g2.drawString(optionText, optionX, optionY);
                     }
                 }
+
             } else if (selectingTarget) {
                 // Μενού επιλογής στόχου
                 g2.setFont(maruMonicaBold);
                 g2.setColor(Color.yellow);
                 g2.drawString("Select target:", menuX + 50, menuY + 70);
-                
+
+                g2.setFont(maruMonicaSmall);
+                g2.setColor(Color.lightGray);
+                g2.drawString("ENTER=Confirm   ESC=Back", menuX + 50, menuY + 92);
+                g2.drawString("Boost: " + selectedBoost, menuX + 260, menuY + 92);
+
                 int targetY = menuY + 110;
                 for (int i = 0; i < battleParty.enemies.size(); i++) {
                     BattleEntity enemy = battleParty.enemies.get(i);
                     int x = menuX + 100 + (i * 150);
-                    
+
                     if (i == selectedTarget) {
                         g2.setColor(Color.yellow);
                         g2.drawString("▶ " + enemy.name, x, targetY);
@@ -4303,18 +4344,18 @@ public class GamePanel extends JPanel implements Runnable {
                         g2.setColor(Color.white);
                         g2.drawString(enemy.name, x + 15, targetY);
                     }
-                    
+
                     // HP bar
                     int barWidth = 100;
                     int barHeight = 8;
                     int barX = x;
                     int barY = targetY + 10;
-                    
+
                     g2.setColor(Color.black);
                     g2.fillRect(barX, barY, barWidth, barHeight);
                     g2.setColor(Color.green);
-                    double hpPercentage = (double)enemy.hp / enemy.maxHp;
-                    int hpWidth = (int)(barWidth * hpPercentage);
+                    double hpPercentage = (double) enemy.hp / enemy.maxHp;
+                    int hpWidth = (int) (barWidth * hpPercentage);
                     g2.fillRect(barX, barY, hpWidth, barHeight);
                 }
             }
@@ -4322,78 +4363,83 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     public void drawPartyStatus(Graphics2D g2) {
-        int startX = screenWidth - 200;  // Μίκρυνε από 250 σε 200
+        int startX = screenWidth - 200;
         int startY = 20;
-        int slotHeight = 50;              // Μίκρυνε από 60 σε 50
-        int spacing = 8;                   // Μίκρυνε από 10 σε 8
-        
-        // Φόντο για όλο το party
+        int slotHeight = 50;
+        int spacing = 8;
+
+        int panelWidth = 190;
+        int slotWidth = 180;
+
+        // Φόντο για όλο το party panel
         g2.setColor(new Color(0, 0, 0, 180));
-        g2.fillRoundRect(startX - 8, startY - 8, 190,   // Μίκρυνε από 240 σε 190
-                        (battleParty.party.size() * (slotHeight + spacing)) + 8, 10, 10);
+        g2.fillRoundRect(startX - 8, startY - 8, panelWidth,
+                (battleParty.party.size() * (slotHeight + spacing)) + 8, 10, 10);
         g2.setColor(Color.white);
-        g2.setStroke(new BasicStroke(1));  // Λεπτότερο περίγραμμα
-        g2.drawRoundRect(startX - 8, startY - 8, 190,
-                        (battleParty.party.size() * (slotHeight + spacing)) + 8, 10, 10);
-        
+        g2.setStroke(new BasicStroke(1));
+        g2.drawRoundRect(startX - 8, startY - 8, panelWidth,
+                (battleParty.party.size() * (slotHeight + spacing)) + 8, 10, 10);
+
         for (int i = 0; i < battleParty.party.size(); i++) {
             BattleEntity entity = battleParty.party.get(i);
             int y = startY + i * (slotHeight + spacing);
-            
-            // Φόντο για κάθε χαρακτήρα
+
+            // Φόντο slot
             g2.setColor(new Color(30, 30, 30, 200));
-            g2.fillRoundRect(startX - 5, y - 5, 180, slotHeight, 8, 8);
-            
-            // Όνομα χαρακτήρα ΜΕΣΑ στο παραθυράκι
-            g2.setFont(maruMonicaSmall);  // Μικρότερο font
+            g2.fillRoundRect(startX - 5, y - 5, slotWidth, slotHeight, 8, 8);
+
+            // ===== NAME =====
+            g2.setFont(maruMonicaSmall);
             g2.setColor(Color.yellow);
-            String name = entity.name; // Απλά πάρε το όνομα από το BattleEntity
+
+            String name = entity.name;
             if (name.length() > 8) name = name.substring(0, 8);
-            if (name.length() > 8) name = name.substring(0, 8); // Κόψε αν είναι πολύ μακρύ
-            g2.drawString(name, startX, y);
-            drawBPDots(g2, entity, startX + 90, y - 10);
-            
-            // HP Bar - πιο κοντό
-            int barWidth = 150;  // Μίκρυνε από 200 σε 150
-            int barHeight = 10;   // Μίκρυνε από 15 σε 10
-            int hpBarY = y + 15;  // Προσάρμοσε την θέση
-            
-            // Background
+
+            int nameX = startX;
+            int nameY = y + 8;
+            g2.drawString(name, nameX, nameY);
+
+            // ===== BP DOTS =====
+            // Δίπλα από το όνομα, στην ίδια οπτική γραμμή
+            int bpX = startX + 78;
+            int bpY = y + 1;
+            drawBPDots(g2, entity, bpX, bpY);
+
+            // ===== HP BAR =====
+            int barWidth = 150;
+            int barHeight = 10;
+            int hpBarY = y + 15;
+
             g2.setColor(Color.darkGray);
             g2.fillRect(startX, hpBarY, barWidth, barHeight);
-            
-            // HP fill
+
             g2.setColor(Color.red);
-            double hpPercentage = (double)entity.hp / entity.maxHp;
-            int hpWidth = (int)(barWidth * hpPercentage);
+            double hpPercentage = (double) entity.hp / entity.maxHp;
+            int hpWidth = (int) (barWidth * hpPercentage);
             g2.fillRect(startX, hpBarY, hpWidth, barHeight);
-            
-            // HP text (πολύ μικρό)
+
             g2.setFont(new Font("Arial", Font.BOLD, 8));
             g2.setColor(Color.white);
             String hpText = entity.hp + "/" + entity.maxHp;
-            int textX = startX + (barWidth/2) - 15;
+            int textX = startX + (barWidth / 2) - 15;
             g2.drawString(hpText, textX, hpBarY + 8);
-            
-            // MP Bar (μόνο για παίκτες) - ακόμα πιο κοντό
+
+            // ===== MP BAR =====
             if (entity.isPlayer) {
                 int mpBarY = hpBarY + barHeight + 2;
-                
-                // Background
+
                 g2.setColor(Color.darkGray);
                 g2.fillRect(startX, mpBarY, barWidth, barHeight);
-                
-                // MP fill
+
                 g2.setColor(Color.blue);
-                double mpPercentage = (double)entity.mp / entity.maxMp;
-                int mpWidth = (int)(barWidth * mpPercentage);
+                double mpPercentage = (double) entity.mp / entity.maxMp;
+                int mpWidth = (int) (barWidth * mpPercentage);
                 g2.fillRect(startX, mpBarY, mpWidth, barHeight);
-                
-                // MP text
+
                 g2.setFont(new Font("Arial", Font.BOLD, 8));
                 g2.setColor(Color.white);
                 String mpText = entity.mp + "/" + entity.maxMp;
-                textX = startX + (barWidth/2) - 15;
+                textX = startX + (barWidth / 2) - 15;
                 g2.drawString(mpText, textX, mpBarY + 8);
             }
         }
