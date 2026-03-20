@@ -6,6 +6,8 @@ public class Sound {
     private HashMap<String, Clip> soundEffects = new HashMap<>();
     private HashMap<String, Clip> musicTracks = new HashMap<>();
     private String currentMusic = "";
+    private Clip currentBattleLoopClip = null;
+    private String currentBattleLoopName = "";
 
     // Base folders
     private static final String SOUND_FOLDER = "res/sound/";
@@ -175,6 +177,67 @@ public class Sound {
             e.printStackTrace();
             return 0;
         }
+    }
+
+    public void playBattleLoopFromMs(String name, int loopStartMs) {
+        stopBattleLoop();
+
+        try {
+            String filename = "res/sound/battle/" + name + ".wav";
+            File file = new File(filename);
+
+            if (!file.exists()) {
+                System.out.println("❌ Battle loop file not found: " + filename);
+                return;
+            }
+
+            AudioInputStream ais = AudioSystem.getAudioInputStream(file);
+            Clip clip = AudioSystem.getClip();
+            clip.open(ais);
+
+            currentBattleLoopClip = clip;
+            currentBattleLoopName = name;
+
+            // Παίξε μία φορά από την αρχή
+            clip.setFramePosition(0);
+            clip.start();
+
+            // Όταν φτάσει στο τέλος, ξαναπήγαινε από το loopStartMs και μετά
+            clip.addLineListener(event -> {
+                if (event.getType() == LineEvent.Type.STOP && currentBattleLoopClip == clip) {
+                    if (clip.getMicrosecondPosition() >= clip.getMicrosecondLength() - 2000) {
+                        long startMicros = loopStartMs * 1000L;
+                        clip.setMicrosecondPosition(startMicros);
+                        clip.start();
+                    }
+                }
+            });
+
+            System.out.println("▶ Playing battle loop: " + name + " (loop from " + loopStartMs + " ms)");
+
+        } catch (Exception e) {
+            System.out.println("❌ Error playing battle loop: " + name);
+            e.printStackTrace();
+        }
+    }
+
+    public void stopBattleLoop() {
+        if (currentBattleLoopClip != null) {
+            try {
+                currentBattleLoopClip.stop();
+                currentBattleLoopClip.close();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            currentBattleLoopClip = null;
+            currentBattleLoopName = "";
+        }
+    }
+
+    public boolean isBattleLoopPlaying(String name) {
+        return currentBattleLoopClip != null &&
+            currentBattleLoopClip.isRunning() &&
+            currentBattleLoopName.equals(name);
     }
 
     // =========================

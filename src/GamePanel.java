@@ -214,6 +214,8 @@ public class GamePanel extends JPanel implements Runnable {
     public int battleAppearTimer = 0;
     public int battleAppearDurationFrames = 0;
     public int boostLoopLevel = 0; // 0 = κανένα loop, 1/2/3 = BOOSTLVL1S/2S/3S
+    public int boostLoopTimer = 0;
+    public final int BOOST_LOOP_INTERVAL = 45;
     public boolean battleEnterLatch = false;
     public boolean battleBLatch = false;
     public boolean battleCLatch = false;
@@ -1642,6 +1644,8 @@ public class GamePanel extends JPanel implements Runnable {
 
                         if (battleCJustPressed) {
                             if (selectedBoost > 0) {
+                                sound.stopBattleLoop();
+
                                 selectedBoost--;
                                 sound.playBattleSE("BOOSTCANCEL");
                                 boostLoopLevel = selectedBoost;
@@ -1649,6 +1653,21 @@ public class GamePanel extends JPanel implements Runnable {
                             }
                             keyH.cPressed = false;
                             repaint();
+                        }
+                        if (boostLoopLevel == 1) {
+                            if (!sound.isBattleLoopPlaying("BOOSTLVL1S")) {
+                                sound.playBattleLoopFromMs("BOOSTLVL1S", 350);
+                            }
+                        } else if (boostLoopLevel == 2) {
+                            if (!sound.isBattleLoopPlaying("BOOSTLVL2S")) {
+                                sound.playBattleLoopFromMs("BOOSTLVL2S", 350);
+                            }
+                        } else if (boostLoopLevel == 3) {
+                            if (!sound.isBattleLoopPlaying("BOOSTLVL3S")) {
+                                sound.playBattleLoopFromMs("BOOSTLVL3S", 350);
+                            }
+                        } else {
+                            sound.stopBattleLoop();
                         }
                         // Πλοήγηση στους εχθρούς
                         if (keyH.leftPressed) {
@@ -1677,7 +1696,9 @@ public class GamePanel extends JPanel implements Runnable {
                                 currentPlayer.queuedTarget = target;
                                 currentPlayer.boostUsed = selectedBoost;
                                 currentPlayer.spendBP(selectedBoost);
+                                sound.stopBattleLoop();
                                 boostLoopLevel = 0;
+                                boostLoopTimer = 0;
                                 currentPlayer.enterState(CombatState.WINDUP);
 
                                 actionInProgress = true;
@@ -1692,9 +1713,14 @@ public class GamePanel extends JPanel implements Runnable {
                         
                         // Ακύρωση με ESC
                         if (keyH.escapePressed) {
+                            sound.stopBattleLoop();
                             selectingTarget = false;
-                            selectingBoost = true;
-                            battleMessage = "Διάλεξε Boost (0-3)";
+                            selectingBoost = false;
+                            selectedBoost = 0;
+                            boostLoopLevel = 0;
+                            boostLoopTimer = 0;
+                            commandLocked = false;
+                            battleMessage = "";
                             keyH.escapePressed = false;
                             repaint();
                         }
@@ -2862,6 +2888,7 @@ public class GamePanel extends JPanel implements Runnable {
 
         lastKillerName = "";
         boostLoopLevel = 0;
+        boostLoopTimer = 0;
 
         // ========== ΕΠΙΛΕΞΕ ΤΗΝ ΚΑΤΑΛΛΗΛΗ ΕΙΚΟΝΑ ΕΔΑΦΟΥΣ ==========
         if (currentMap == 0) {
