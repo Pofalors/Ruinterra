@@ -226,6 +226,9 @@ public class GamePanel extends JPanel implements Runnable {
     public int boostBurstLevel = 0;
     public int boostBurstX = 0;
     public int boostBurstY = 0;
+    public int hitFlashTimer = 0;
+    public int hitFlashDuration = 0;
+    public int hitFlashLevel = 0;
 
     public int screenShakeTimer = 0;
     public int screenShakeDuration = 0;
@@ -3129,6 +3132,7 @@ public class GamePanel extends JPanel implements Runnable {
 
                 if (actor.boostUsed > 0) {
                     triggerBoostBurst(actor.queuedTarget, actor.boostUsed);
+                    triggerHitFlash(actor.boostUsed);
                 }
 
                 int damage = calculateAttackDamage(actor, actor.queuedTarget, actor.boostUsed);
@@ -3144,7 +3148,16 @@ public class GamePanel extends JPanel implements Runnable {
                     playTargetDeath(actor.queuedTarget);
                 }
 
-                hitPauseTimer = HIT_PAUSE_DURATION;
+                if (actor.boostUsed == 1) {
+                    hitPauseTimer = HIT_PAUSE_DURATION + 2;
+                } else if (actor.boostUsed == 2) {
+                    hitPauseTimer = HIT_PAUSE_DURATION + 4;
+                } else if (actor.boostUsed >= 3) {
+                    hitPauseTimer = HIT_PAUSE_DURATION + 6;
+                } else {
+                    hitPauseTimer = HIT_PAUSE_DURATION;
+                }
+
                 actor.enterState(CombatState.HIT_PAUSE);
             }
             return;
@@ -3485,6 +3498,10 @@ public class GamePanel extends JPanel implements Runnable {
         if (screenShakeTimer > 0) {
             screenShakeTimer--;
         }
+
+        if (hitFlashTimer > 0) {
+            hitFlashTimer--;
+        }
     }
 
     public void drawMiniBoostIndicator(Graphics2D g2, int x, int y, int boostLevel) {
@@ -3594,6 +3611,43 @@ public class GamePanel extends JPanel implements Runnable {
         }
 
         g.dispose();
+    }
+
+    public void triggerHitFlash(int boostLevel) {
+        if (boostLevel <= 0) return;
+
+        hitFlashLevel = boostLevel;
+
+        if (boostLevel == 1) {
+            hitFlashDuration = 4;
+        } else if (boostLevel == 2) {
+            hitFlashDuration = 6;
+        } else {
+            hitFlashDuration = 8;
+        }
+
+        hitFlashTimer = hitFlashDuration;
+    }
+
+    public void drawHitFlashOverlay(Graphics2D g2) {
+        if (hitFlashTimer <= 0 || hitFlashLevel <= 0) return;
+
+        float progress = (float) hitFlashTimer / hitFlashDuration;
+
+        int alpha;
+        if (hitFlashLevel == 1) {
+            alpha = (int)(70 * progress);
+        } else if (hitFlashLevel == 2) {
+            alpha = (int)(110 * progress);
+        } else {
+            alpha = (int)(150 * progress);
+        }
+
+        if (alpha < 0) alpha = 0;
+        if (alpha > 255) alpha = 255;
+
+        g2.setColor(new Color(255, 255, 255, alpha));
+        g2.fillRect(0, 0, screenWidth, screenHeight);
     }
 
     public int calculateAttackDamage(BattleEntity attacker, BattleEntity target, int boostUsed) {
@@ -4545,6 +4599,7 @@ public class GamePanel extends JPanel implements Runnable {
 
         // ===== BOOST BURST EFFECT ΠΑΝΩ ΑΠΟ ΤΑ SPRITES, ΠΡΙΝ ΤΟ UI =====
         drawBoostBurstEffect(g);
+        drawHitFlashOverlay(g);
 
         // ========== ΜΕΝΟΥ ΜΑΧΗΣ ==========
         if (!battleEntering) {
