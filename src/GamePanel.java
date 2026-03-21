@@ -220,6 +220,16 @@ public class GamePanel extends JPanel implements Runnable {
     public boolean battleBLatch = false;
     public boolean battleCLatch = false;
     public boolean commandLocked = false;
+    public long boostVisualStartTime = 0;
+    public int boostBurstTimer = 0;
+    public int boostBurstDuration = 0;
+    public int boostBurstLevel = 0;
+    public int boostBurstX = 0;
+    public int boostBurstY = 0;
+
+    public int screenShakeTimer = 0;
+    public int screenShakeDuration = 0;
+    public int screenShakeStrength = 0;
 
     public int hitPauseTimer = 0;
     public final int HIT_PAUSE_DURATION = 8;
@@ -1493,6 +1503,7 @@ public class GamePanel extends JPanel implements Runnable {
 
                     updateBattleVisuals();
                     updateBattleAction();
+                    updateBoostBurstEffect();
                     // Έλεγξε αν τελείωσε η μάχη
                     if (battleParty.battleEnded) {
                         if (battleParty.party.isEmpty()) {
@@ -1518,11 +1529,17 @@ public class GamePanel extends JPanel implements Runnable {
                         if (battleTurnDelay >= BATTLE_TURN_DELAY_TIME) {
                             waitingForNextTurn = false;
                             battleTurnDelay = 0;
+
+                            selectedBoost = 0;
+                            boostLoopLevel = 0;
+                            boostLoopTimer = 0;
+                            sound.stopBattleLoop();
+
                             battleParty.nextTurn();
                             commandLocked = false;
                         }
                         repaint();
-                    }                     
+                    }                   
                     // Αν είναι σειρά του εχθρού
                     else if (!battleParty.isPlayerTurn()) {
                         if (!actionInProgress) {
@@ -1553,10 +1570,13 @@ public class GamePanel extends JPanel implements Runnable {
                                 selectedBoost++;
 
                                 if (selectedBoost == 1) {
+                                    boostVisualStartTime = System.currentTimeMillis();
                                     sound.playBattleSE("BOOSTLVL1");
                                 } else if (selectedBoost == 2) {
+                                    boostVisualStartTime = System.currentTimeMillis();
                                     sound.playBattleSE("BOOSTLVL2");
                                 } else if (selectedBoost == 3) {
+                                    boostVisualStartTime = System.currentTimeMillis();
                                     sound.playBattleSE("BOOSTLVL3");
                                 }
 
@@ -1577,6 +1597,7 @@ public class GamePanel extends JPanel implements Runnable {
                             if (selectedBoost > 0) {
                                 sound.stopBattleLoop();
                                 selectedBoost--;
+                                boostVisualStartTime = System.currentTimeMillis();
                                 sound.playBattleSE("BOOSTCANCEL");
                                 boostLoopLevel = selectedBoost;
                                 battleMessage = "Boost: " + selectedBoost + "   Press B/C";
@@ -1641,6 +1662,11 @@ public class GamePanel extends JPanel implements Runnable {
                                     break;
                                     
                                 case 3: // DEFEND
+                                    sound.stopBattleLoop();
+                                    selectedBoost = 0;
+                                    boostLoopLevel = 0;
+                                    boostLoopTimer = 0;
+
                                     commandLocked = true;
                                     currentPlayer.defending = true;
                                     currentPlayer.enterState(CombatState.DEFENDING);
@@ -1699,6 +1725,7 @@ public class GamePanel extends JPanel implements Runnable {
                                 sound.stopBattleLoop();
                                 boostLoopLevel = 0;
                                 boostLoopTimer = 0;
+                                boostVisualStartTime = 0;
                                 currentPlayer.enterState(CombatState.WINDUP);
 
                                 actionInProgress = true;
@@ -2889,6 +2916,7 @@ public class GamePanel extends JPanel implements Runnable {
         lastKillerName = "";
         boostLoopLevel = 0;
         boostLoopTimer = 0;
+        boostVisualStartTime = System.currentTimeMillis();
 
         // ========== ΕΠΙΛΕΞΕ ΤΗΝ ΚΑΤΑΛΛΗΛΗ ΕΙΚΟΝΑ ΕΔΑΦΟΥΣ ==========
         if (currentMap == 0) {
@@ -3073,6 +3101,12 @@ public class GamePanel extends JPanel implements Runnable {
             if (isActorAnimationFinished(actor)) {
                 actor.resetTurnFlags();
                 actor.enterState(CombatState.IDLE);
+
+                selectedBoost = 0;
+                boostLoopLevel = 0;
+                boostLoopTimer = 0;
+                sound.stopBattleLoop();
+
                 actionInProgress = false;
                 waitingForNextTurn = true;
                 commandLocked = false;
@@ -3092,6 +3126,10 @@ public class GamePanel extends JPanel implements Runnable {
                 actor.strikeTriggered = true;
 
                 playPlayerAttackSound(actor);
+
+                if (actor.boostUsed > 0) {
+                    triggerBoostBurst(actor.queuedTarget, actor.boostUsed);
+                }
 
                 int damage = calculateAttackDamage(actor, actor.queuedTarget, actor.boostUsed);
                 actor.queuedTarget.takeDamage(damage);
@@ -3125,6 +3163,12 @@ public class GamePanel extends JPanel implements Runnable {
                 finalizeDeathsAndRewards();
                 actor.resetTurnFlags();
                 actor.enterState(CombatState.IDLE);
+
+                selectedBoost = 0;
+                boostLoopLevel = 0;
+                boostLoopTimer = 0;
+                sound.stopBattleLoop();
+
                 actionInProgress = false;
                 waitingForNextTurn = true;
                 commandLocked = false;
@@ -3272,6 +3316,284 @@ public class GamePanel extends JPanel implements Runnable {
                 g2.drawOval(x, y, dotSize, dotSize);
             }
         }
+    }
+
+    public Point getBattleEntityScreenCenter(BattleEntity entity) {
+        int enemySpriteSize = tileSize * 8;
+        int playerSpriteSize = tileSize * 4;
+
+        // ===== ENEMIES =====
+        for (int i = 0; i < battleParty.enemies.size(); i++) {
+            BattleEntity enemyEntity = battleParty.enemies.get(i);
+            if (enemyEntity == entity) {
+                int numEnemies = battleEnemies.size();
+                int drawX;
+                int drawY;
+
+                if (numEnemies == 1) {
+                    drawX = screenWidth / 2 - enemySpriteSize - 40;
+                    drawY = groundY - enemySpriteSize + (tileSize * 2) - 50;
+                } else if (numEnemies == 2) {
+                    if (i == 0) {
+                        drawX = screenWidth / 2 - enemySpriteSize - 40;
+                        drawY = groundY - enemySpriteSize + (tileSize * 2) - 70;
+                    } else {
+                        drawX = screenWidth / 2 - enemySpriteSize + 60;
+                        drawY = groundY - enemySpriteSize + (tileSize * 2) - 30;
+                    }
+                } else {
+                    double angle = (i - (numEnemies - 1) / 2.0) * 0.3;
+                    drawX = screenWidth / 2 - enemySpriteSize + (int)(Math.sin(angle) * 200);
+                    drawY = groundY - enemySpriteSize + (tileSize * 2) - (int)(Math.abs(angle) * 50) - 50;
+                }
+
+                return new Point(drawX + enemySpriteSize / 2, drawY + enemySpriteSize / 2);
+            }
+        }
+
+        // ===== HERO =====
+        if (!battlePlayers.isEmpty() && entity.name.equals("Hero")) {
+            int basePlayerX = 600;
+            int basePlayerY = groundY - playerSpriteSize + 100;
+            return new Point(basePlayerX + playerSpriteSize / 2, basePlayerY + playerSpriteSize / 2);
+        }
+
+        // ===== PARTY MEMBERS =====
+        for (int i = 0; i < battlePartyMembers.size(); i++) {
+            BattlePartyMember bpm = battlePartyMembers.get(i);
+            if (entity.name.equals(bpm.member.className)) {
+                int basePlayerX = 600;
+                int basePlayerY = groundY - playerSpriteSize + 100;
+
+                int offsetX = -80 - (i * 60);
+                int offsetY = -40 - (i * 40);
+
+                int drawX = basePlayerX + offsetX;
+                int drawY = basePlayerY + offsetY;
+
+                return new Point(drawX + playerSpriteSize / 2, drawY + playerSpriteSize / 2);
+            }
+        }
+
+        return new Point(screenWidth / 2, screenHeight / 2);
+    }
+
+    public void triggerBoostBurst(BattleEntity target, int boostLevel) {
+        if (target == null || boostLevel <= 0) return;
+
+        Point p = getBattleEntityScreenCenter(target);
+
+        boostBurstLevel = boostLevel;
+        boostBurstX = p.x;
+        boostBurstY = p.y;
+        boostBurstTimer = 0;
+
+        if (boostLevel == 1) {
+            boostBurstDuration = 12;
+            screenShakeStrength = 3;
+            screenShakeDuration = 6;
+        } else if (boostLevel == 2) {
+            boostBurstDuration = 16;
+            screenShakeStrength = 5;
+            screenShakeDuration = 8;
+        } else {
+            boostBurstDuration = 20;
+            screenShakeStrength = 7;
+            screenShakeDuration = 10;
+        }
+
+        screenShakeTimer = screenShakeDuration;
+    }
+
+    public void drawBoostBurstEffect(Graphics2D g2) {
+        if (boostBurstTimer >= boostBurstDuration || boostBurstLevel <= 0) return;
+
+        Graphics2D g = (Graphics2D) g2.create();
+
+        float progress = (float) boostBurstTimer / boostBurstDuration;
+        float inv = 1.0f - progress;
+
+        // ===== OFFSET για να είναι πιο αριστερά και πιο χαμηλά =====
+        int impactX = boostBurstX - 15;
+        int impactY = boostBurstY + 120;
+
+        // ===== ΙΔΙΟ ΧΡΩΜΑ ΓΙΑ ΟΛΑ ΤΑ BOOST =====
+        Color flashColor = new Color(255, 180, 100, Math.max(0, (int)(200 * inv)));
+
+        // ===== IMPACT FLASH =====
+        int flashRadius;
+        if (boostBurstLevel == 1) {
+            flashRadius = 24 + (int)(progress * 30);
+        } else if (boostBurstLevel == 2) {
+            flashRadius = 34 + (int)(progress * 40);
+        } else {
+            flashRadius = 46 + (int)(progress * 52);
+        }
+
+        g.setColor(flashColor);
+        g.fillOval(impactX - flashRadius, impactY - flashRadius, flashRadius * 2, flashRadius * 2);
+
+        // ===== RING EXPLOSION =====
+        g.setStroke(new BasicStroke(3f));
+        int ringRadius;
+        if (boostBurstLevel == 1) {
+            ringRadius = 28 + (int)(progress * 38);
+        } else if (boostBurstLevel == 2) {
+            ringRadius = 40 + (int)(progress * 50);
+        } else {
+            ringRadius = 54 + (int)(progress * 64);
+        }
+
+        g.setColor(new Color(255, 210, 150, Math.max(0, (int)(170 * inv))));
+        g.drawOval(impactX - ringRadius, impactY - ringRadius, ringRadius * 2, ringRadius * 2);
+
+        // ===== SECOND RING για boost 2/3 =====
+        if (boostBurstLevel >= 2) {
+            int ringRadius2;
+            if (boostBurstLevel == 2) {
+                ringRadius2 = 18 + (int)(progress * 32);
+            } else {
+                ringRadius2 = 28 + (int)(progress * 44);
+            }
+
+            g.setColor(new Color(255, 245, 220, Math.max(0, (int)(120 * inv))));
+            g.drawOval(impactX - ringRadius2, impactY - ringRadius2, ringRadius2 * 2, ringRadius2 * 2);
+        }
+
+        // ===== SPARKS =====
+        int sparkCount = 6 + boostBurstLevel * 3;
+        for (int i = 0; i < sparkCount; i++) {
+            double angle = (Math.PI * 2 / sparkCount) * i + (boostBurstTimer * 0.15);
+            int dist = 10 + (int)(progress * 50) + (i % 3) * 4;
+
+            int sx = impactX + (int)(Math.cos(angle) * dist);
+            int sy = impactY + (int)(Math.sin(angle) * dist);
+
+            int size = (boostBurstLevel == 3) ? 5 : 4;
+            g.setColor(new Color(255, 255, 255, Math.max(0, (int)(180 * inv))));
+            g.fillOval(sx, sy, size, size);
+        }
+
+        g.dispose();
+    }
+
+    public void updateBoostBurstEffect() {
+        if (boostBurstTimer < boostBurstDuration) {
+            boostBurstTimer++;
+        }
+
+        if (screenShakeTimer > 0) {
+            screenShakeTimer--;
+        }
+    }
+
+    public void drawMiniBoostIndicator(Graphics2D g2, int x, int y, int boostLevel) {
+        for (int i = 0; i < 3; i++) {
+            if (i < boostLevel) {
+                g2.setColor(new Color(255, 80, 40));
+                g2.fillOval(x + i * 14, y, 10, 10);
+                g2.setColor(new Color(255, 200, 160));
+                g2.drawOval(x + i * 14, y, 10, 10);
+            } else {
+                g2.setColor(new Color(70, 70, 70));
+                g2.fillOval(x + i * 14, y, 10, 10);
+                g2.setColor(new Color(120, 120, 120));
+                g2.drawOval(x + i * 14, y, 10, 10);
+            }
+        }
+    }
+
+    public void drawBoostAura(Graphics2D g2, int centerX, int footY, int boostLevel) {
+        if (boostLevel <= 0) return;
+
+        Graphics2D g = (Graphics2D) g2.create();
+
+        double t = System.currentTimeMillis() * 0.006;
+        double spin = System.currentTimeMillis() * 0.0035;
+
+        Color mainColor;
+        Color glowColor;
+        int baseRadius;
+        int ringCount;
+        int swirlHeight;
+
+        if (boostLevel == 1) {
+            mainColor = new Color(255, 70, 70, 120);      // κόκκινο
+            glowColor = new Color(255, 120, 120, 70);
+            baseRadius = 86;
+            ringCount = 2;
+            swirlHeight = 18;
+        } else if (boostLevel == 2) {
+            mainColor = new Color(255, 220, 70, 140);     // κίτρινο
+            glowColor = new Color(255, 240, 140, 80);
+            baseRadius = 114;
+            ringCount = 3;
+            swirlHeight = 24;
+        } else {
+            mainColor = new Color(80, 170, 255, 160);     // μπλε
+            glowColor = new Color(150, 220, 255, 90);
+            baseRadius = 144;
+            ringCount = 4;
+            swirlHeight = 30;
+        }
+
+        float pulse = (float)(Math.sin(t) * 0.5 + 0.5f);
+
+        // ===== soft ground glow =====
+        int groundW = baseRadius * 2 + (int)(pulse * 10);
+        int groundH = baseRadius / 2 + 8;
+        g.setColor(new Color(glowColor.getRed(), glowColor.getGreen(), glowColor.getBlue(), 55));
+        g.fillOval(centerX - groundW / 2, footY - groundH / 2, groundW, groundH);
+
+        // ===== cyclone rings =====
+        g.setStroke(new BasicStroke(2f));
+
+        for (int i = 0; i < ringCount; i++) {
+            double phase = spin + i * 0.9;
+            int ringRadius = baseRadius + i * 10 + (int)(pulse * 4);
+            int yOffset = i * (swirlHeight / ringCount);
+
+            int rx = centerX - ringRadius / 2 + (int)(Math.sin(phase) * 10);
+            int ry = footY - yOffset - 8;
+
+            int rw = ringRadius;
+            int rh = Math.max(10, ringRadius / 3);
+
+            int alpha = 110 - i * 18;
+            if (alpha < 30) alpha = 30;
+
+            g.setColor(new Color(mainColor.getRed(), mainColor.getGreen(), mainColor.getBlue(), alpha));
+            g.drawArc(rx, ry, rw, rh, 0, 300);
+
+            g.setColor(new Color(glowColor.getRed(), glowColor.getGreen(), glowColor.getBlue(), alpha / 2));
+            g.drawArc(rx - 3, ry - 2, rw + 6, rh + 4, 30, 260);
+        }
+
+        // ===== rising sparks =====
+        int sparkCount = 6 + boostLevel * 2;
+        for (int i = 0; i < sparkCount; i++) {
+            double ang = spin * 2 + (i * (Math.PI * 2 / sparkCount));
+            int radius = baseRadius / 2 + (i % 3) * 6;
+            int sx = centerX + (int)(Math.cos(ang) * radius);
+            int sy = footY - 8 - (int)(Math.abs(Math.sin(ang * 1.3)) * swirlHeight);
+
+            int size = (boostLevel == 3) ? 4 : 3;
+            g.setColor(new Color(255, 255, 255, 120));
+            g.fillOval(sx, sy, size, size);
+        }
+
+        // ===== vertical energy wisps =====
+        for (int i = 0; i < boostLevel + 1; i++) {
+            double phase = spin * 1.5 + i * 1.7;
+            int wx = centerX + (int)(Math.sin(phase) * (baseRadius / 3));
+            int wy = footY - 10 - i * 8;
+            int wh = 14 + i * 6;
+
+            g.setColor(new Color(glowColor.getRed(), glowColor.getGreen(), glowColor.getBlue(), 70));
+            g.drawArc(wx - 8, wy - wh / 2, 16, wh, 90, 180);
+        }
+
+        g.dispose();
     }
 
     public int calculateAttackDamage(BattleEntity attacker, BattleEntity target, int boostUsed) {
@@ -4010,15 +4332,26 @@ public class GamePanel extends JPanel implements Runnable {
 
     // ========== Μέθοδος για μάχη ==========
     public void drawBattleScreen(Graphics2D g2) {
+        Graphics2D g = (Graphics2D) g2.create();
+
+        int shakeX = 0;
+        int shakeY = 0;
+        if (screenShakeTimer > 0) {
+            shakeX = (int)((Math.random() * (screenShakeStrength * 2 + 1)) - screenShakeStrength);
+            shakeY = (int)((Math.random() * (screenShakeStrength * 2 + 1)) - screenShakeStrength);
+        }
+
+        g.translate(shakeX, shakeY);
+
         // Σκούρο φόντο
-        g2.setColor(new Color(0, 0, 0, 200));
-        g2.fillRect(0, 0, screenWidth, screenHeight);
-        
+        g.setColor(new Color(0, 0, 0, 200));
+        g.fillRect(0, 0, screenWidth, screenHeight);
+
         // Ζωγράφισε το background
         if (battleBackground != null) {
-            g2.drawImage(battleBackground, 0, 0, screenWidth, screenHeight, null);
+            g.drawImage(battleBackground, 0, 0, screenWidth, screenHeight, null);
         }
-        
+
         // ========== ΠΛΑΤΦΟΡΜΑ ==========
         if (groundImage != null) {
             int groundScreenX = groundX;
@@ -4042,61 +4375,55 @@ public class GamePanel extends JPanel implements Runnable {
                 groundScreenY + gh
             };
 
-            java.awt.Shape oldClip = g2.getClip();
+            java.awt.Shape oldClip = g.getClip();
             java.awt.Polygon groundPolygon = new java.awt.Polygon(xPoints, yPoints, 4);
-            g2.setClip(groundPolygon);
-            
-            g2.drawImage(groundImage, 
+            g.setClip(groundPolygon);
+
+            g.drawImage(groundImage,
                 groundScreenX - leftExtension - 100,
                 groundScreenY - 50,
                 gw + leftExtension + rightExtension + 200,
                 gh + 100,
                 null);
-            
-            g2.setClip(oldClip);
-            
+
+            g.setClip(oldClip);
+
             // Σκιά
-            g2.setColor(new Color(0, 0, 0, 70));
+            g.setColor(new Color(0, 0, 0, 70));
             int[] shadowX = {
-                groundScreenX - leftExtension + 20, 
-                groundScreenX + gw + rightExtension - 20, 
-                groundScreenX + gw + rightExtension, 
+                groundScreenX - leftExtension + 20,
+                groundScreenX + gw + rightExtension - 20,
+                groundScreenX + gw + rightExtension,
                 groundScreenX - leftExtension
             };
             int[] shadowY = {
-                groundScreenY + gh, 
-                groundScreenY + gh, 
-                groundScreenY + gh + 15, 
+                groundScreenY + gh,
+                groundScreenY + gh,
+                groundScreenY + gh + 15,
                 groundScreenY + gh + 15
             };
-            g2.fillPolygon(shadowX, shadowY, 4);
+            g.fillPolygon(shadowX, shadowY, 4);
         }
-        
+
         // ========== ΕΧΘΡΟΙ (ΣΕ ΣΧΗΜΑ ΚΩΝΟΥ) ==========
-        int enemySpriteSize = tileSize * 8; // Λίγο μικρότεροι για να χωράνε
-        int baseSize = tileSize * 2;
-        
+        int enemySpriteSize = tileSize * 8;
         int numEnemies = battleEnemies.size();
-        int startX = screenWidth / 2 - (numEnemies * 100) / 2; // Κεντράρισμα
-        
+
         for (int i = 0; i < numEnemies; i++) {
             BattleEnemy be = battleEnemies.get(i);
             BattleEntity enemyEntity = (i < battleParty.enemies.size()) ? battleParty.enemies.get(i) : null;
-            
+
             if (enemyEntity != null && !enemyEntity.isAlive() && gameState == battleVictoryState) {
                 continue;
             }
-            
-            // Υπολόγισε θέση σε σχήμα κώνου
+
             int drawX;
             int drawY;
-            
+
             if (numEnemies == 1) {
-                // 1 εχθρός: κέντρο
                 drawX = screenWidth / 2 - enemySpriteSize - 40;
                 drawY = groundY - enemySpriteSize + (tileSize * 2) - 50;
             } else if (numEnemies == 2) {
-                // 2 εχθροί: δεξιά-αριστερά
                 if (i == 0) {
                     drawX = screenWidth / 2 - enemySpriteSize - 40;
                     drawY = groundY - enemySpriteSize + (tileSize * 2) - 70;
@@ -4105,180 +4432,200 @@ public class GamePanel extends JPanel implements Runnable {
                     drawY = groundY - enemySpriteSize + (tileSize * 2) - 30;
                 }
             } else {
-                // 3+ εχθροί: σχήμα κώνου
-                double angle = (i - (numEnemies-1)/2.0) * 0.3; // Γωνία απόκλισης
+                double angle = (i - (numEnemies - 1) / 2.0) * 0.3;
                 drawX = screenWidth / 2 - enemySpriteSize + (int)(Math.sin(angle) * 200);
                 drawY = groundY - enemySpriteSize + (tileSize * 2) - (int)(Math.abs(angle) * 50) - 50;
             }
-            
+
             // Σκιά εχθρού
-            g2.setColor(new Color(0, 0, 0, 100));
-            g2.fillOval(drawX + enemySpriteSize/3, drawY + enemySpriteSize - 10, 
-                    enemySpriteSize/4, enemySpriteSize/8);
-            
+            g.setColor(new Color(0, 0, 0, 100));
+            g.fillOval(drawX + enemySpriteSize / 3, drawY + enemySpriteSize - 10,
+                    enemySpriteSize / 4, enemySpriteSize / 8);
+
             // Εχθρός
-            g2.drawImage(be.getCurrentImage(), drawX, drawY, enemySpriteSize, enemySpriteSize, null);
-            
+            g.drawImage(be.getCurrentImage(), drawX, drawY, enemySpriteSize, enemySpriteSize, null);
+
             // HP Bar πάνω από τον εχθρό
             if (enemyEntity != null) {
                 int barWidth = 120;
                 int barHeight = 10;
-                int barX = drawX + enemySpriteSize/2 - barWidth/2;
+                int barX = drawX + enemySpriteSize / 2 - barWidth / 2;
                 int barY = drawY - 20;
-                
-                g2.setColor(Color.black);
-                g2.fillRect(barX, barY, barWidth, barHeight);
-                g2.setColor(Color.red);
-                double hpPercentage = (double)enemyEntity.hp / enemyEntity.maxHp;
-                int hpWidth = (int)(barWidth * hpPercentage);
-                g2.fillRect(barX, barY, hpWidth, barHeight);
+
+                g.setColor(Color.black);
+                g.fillRect(barX, barY, barWidth, barHeight);
+                g.setColor(Color.red);
+                double hpPercentage = (double) enemyEntity.hp / enemyEntity.maxHp;
+                int hpWidth = (int) (barWidth * hpPercentage);
+                g.fillRect(barX, barY, hpWidth, barHeight);
             }
-            
+
             // Animation ζημιάς
             if (enemyEntity != null && enemyEntity.isTakingDamage) {
                 enemyEntity.damageTimer--;
                 if (enemyEntity.damageTimer <= 0) {
                     enemyEntity.isTakingDamage = false;
                 }
-                
-                g2.setFont(new Font("Arial", Font.BOLD, 24));
-                g2.setColor(Color.red);
-                int offsetY = - (enemyEntity.DAMAGE_DURATION - enemyEntity.damageTimer) / 2;
+
+                g.setFont(new Font("Arial", Font.BOLD, 24));
+                g.setColor(Color.red);
+                int offsetY = -(enemyEntity.DAMAGE_DURATION - enemyEntity.damageTimer) / 2;
                 String damageText = "-" + enemyEntity.damageNumber;
-                int textWidth = g2.getFontMetrics().stringWidth(damageText);
-                int textX = drawX + enemySpriteSize/2 - textWidth/2;
+                int textWidth = g.getFontMetrics().stringWidth(damageText);
+                int textX = drawX + enemySpriteSize / 2 - textWidth / 2;
                 int textY = drawY - 40 - offsetY;
-                g2.drawString(damageText, textX, textY);
+                g.drawString(damageText, textX, textY);
             }
         }
-        
+
         // ========== ΠΑΙΚΤΕΣ (ΣΕ ΔΙΑΓΩΝΙΑ ΣΤΟΙΧΙΣΗ) ==========
         int playerSpriteSize = tileSize * 4;
-        int totalPlayers = 1 + battlePartyMembers.size(); // Hero + άλλα μέλη
-        
-        // Υπολόγισε κεντρική θέση για τους παίκτες (αριστερά)
         int basePlayerX = 600;
         int basePlayerY = groundY - playerSpriteSize + 100;
-        
-        // 1. ΖΩΓΡΑΦΙΣΕ ΠΡΩΤΑ ΤΟΝ ΚΕΝΤΡΙΚΟ ΗΡΩΑ (πιο μπροστά)
+
+        BattleEntity currentTurn = battleParty.getCurrentTurn();
+
+        // 1. HERO
         if (!battlePlayers.isEmpty()) {
             BattlePlayer bp = battlePlayers.get(0);
             int drawX = basePlayerX;
             int drawY = basePlayerY;
-            
+
             // Σκιά ήρωα
-            g2.setColor(new Color(0, 0, 0, 100));
-            g2.fillOval(drawX + playerSpriteSize/4, drawY + playerSpriteSize - 10, 
-                    playerSpriteSize/2, playerSpriteSize/8);
-            
+            g.setColor(new Color(0, 0, 0, 100));
+            g.fillOval(drawX + playerSpriteSize / 4, drawY + playerSpriteSize - 10,
+                    playerSpriteSize / 2, playerSpriteSize / 8);
+
+            if (currentTurn != null && currentTurn.isPlayer &&
+                currentTurn.name.equals("Hero") &&
+                selectedBoost > 0 &&
+                !actionInProgress) {
+
+                int auraCenterX = drawX + playerSpriteSize / 2;
+                int auraFootY = drawY + playerSpriteSize - 10;
+                drawBoostAura(g, auraCenterX, auraFootY, selectedBoost);
+            }
+
             BufferedImage playerImg = bp.getCurrentImage();
             if (playerImg != null) {
-                g2.drawImage(playerImg, drawX, drawY, playerSpriteSize, playerSpriteSize, null);
+                g.drawImage(playerImg, drawX, drawY, playerSpriteSize, playerSpriteSize, null);
             }
         }
-        
-        // 2. ΖΩΓΡΑΦΙΣΕ ΜΕΤΑ ΤΑ ΑΛΛΑ ΜΕΛΗ (σε διαγώνια στοίχιση)
+
+        // 2. PARTY MEMBERS
         for (int i = 0; i < battlePartyMembers.size(); i++) {
             BattlePartyMember bpm = battlePartyMembers.get(i);
-            
-            // Διαγώνια στοίχιση: κάθε επόμενο μέλος πιο πάνω και δεξιά
+
             int offsetX = -80 - (i * 60);
             int offsetY = -40 - (i * 40);
-            
+
             int drawX = basePlayerX + offsetX;
             int drawY = basePlayerY + offsetY;
-            
+
             // Σκιά
-            g2.setColor(new Color(0, 0, 0, 100));
-            g2.fillOval(drawX + playerSpriteSize/4, drawY + playerSpriteSize - 10, 
-                    playerSpriteSize/2, playerSpriteSize/8);
-            
+            g.setColor(new Color(0, 0, 0, 100));
+            g.fillOval(drawX + playerSpriteSize / 4, drawY + playerSpriteSize - 10,
+                    playerSpriteSize / 2, playerSpriteSize / 8);
+
+            if (currentTurn != null && currentTurn.isPlayer &&
+                currentTurn.name.equals(bpm.member.className) &&
+                selectedBoost > 0 &&
+                !actionInProgress) {
+
+                int auraCenterX = drawX + playerSpriteSize / 2;
+                int auraFootY = drawY + playerSpriteSize - 10;
+                drawBoostAura(g, auraCenterX, auraFootY, selectedBoost);
+            }
+
             BufferedImage memberImg = bpm.getCurrentImage();
             if (memberImg != null) {
-                g2.drawImage(memberImg, drawX, drawY, playerSpriteSize, playerSpriteSize, null);
+                g.drawImage(memberImg, drawX, drawY, playerSpriteSize, playerSpriteSize, null);
             }
         }
-        
+
+        // ===== BOOST BURST EFFECT ΠΑΝΩ ΑΠΟ ΤΑ SPRITES, ΠΡΙΝ ΤΟ UI =====
+        drawBoostBurstEffect(g);
+
         // ========== ΜΕΝΟΥ ΜΑΧΗΣ ==========
         if (!battleEntering) {
             // Status party
-            drawPartyStatus(g2);
-            
+            drawPartyStatus(g);
+
             // Μήνυμα ενέργειας
             if (actionMessageTimer > 0) {
                 actionMessageTimer--;
-                
+
                 int msgWidth = 250;
                 int msgHeight = 30;
-                int msgX = screenWidth/2 - msgWidth/2;
+                int msgX = screenWidth / 2 - msgWidth / 2;
                 int msgY = 80;
-                
-                g2.setColor(new Color(0, 0, 0, 180));
-                g2.fillRoundRect(msgX, msgY, msgWidth, msgHeight, 10, 10);
-                g2.setColor(Color.white);
-                g2.setStroke(new BasicStroke(1));
-                g2.drawRoundRect(msgX, msgY, msgWidth, msgHeight, 10, 10);
-                
-                g2.setFont(maruMonicaSmall.deriveFont(12f));
-                g2.setColor(Color.white);
-                int textX = getXforCenteredText(lastAction, g2);
-                g2.drawString(lastAction, textX, msgY + 20);
+
+                g.setColor(new Color(0, 0, 0, 180));
+                g.fillRoundRect(msgX, msgY, msgWidth, msgHeight, 10, 10);
+                g.setColor(Color.white);
+                g.setStroke(new BasicStroke(1));
+                g.drawRoundRect(msgX, msgY, msgWidth, msgHeight, 10, 10);
+
+                g.setFont(maruMonicaSmall.deriveFont(12f));
+                g.setColor(Color.white);
+                int textX = getXforCenteredText(lastAction, g);
+                g.drawString(lastAction, textX, msgY + 20);
             }
 
             // Μήνυμα νίκης
             if (gameState == battleVictoryState) {
-                g2.setColor(new Color(0, 0, 0, 150));
-                g2.fillRect(0, 0, screenWidth, screenHeight);
-                
-                g2.setFont(maruMonicaLarge);
-                g2.setColor(Color.yellow);
+                g.setColor(new Color(0, 0, 0, 150));
+                g.fillRect(0, 0, screenWidth, screenHeight);
+
+                g.setFont(maruMonicaLarge);
+                g.setColor(Color.yellow);
                 String victory = "VICTORY!";
-                int x = getXforCenteredText(victory, g2);
-                g2.drawString(victory, x, screenHeight/2 - 50);
-                
-                g2.setFont(maruMonicaBold);
-                g2.setColor(Color.white);
+                int x = getXforCenteredText(victory, g);
+                g.drawString(victory, x, screenHeight / 2 - 50);
+
+                g.setFont(maruMonicaBold);
+                g.setColor(Color.white);
                 String expText = "+" + victoryExp + " EXP";
                 String goldText = "+" + victoryGold + " Gold";
-                
-                x = getXforCenteredText(expText, g2);
-                g2.drawString(expText, x, screenHeight/2);
-                
-                x = getXforCenteredText(goldText, g2);
-                g2.drawString(goldText, x, screenHeight/2 + 40);
+
+                x = getXforCenteredText(expText, g);
+                g.drawString(expText, x, screenHeight / 2);
+
+                x = getXforCenteredText(goldText, g);
+                g.drawString(goldText, x, screenHeight / 2 + 40);
 
                 victoryTimer++;
                 if ((victoryTimer / 30) % 2 == 0) {
-                    g2.setFont(maruMonicaSmall);
-                    g2.setColor(Color.lightGray);
+                    g.setFont(maruMonicaSmall);
+                    g.setColor(Color.lightGray);
                     String cont = "Press ENTER to continue";
-                    x = getXforCenteredText(cont, g2);
-                    g2.drawString(cont, x, screenHeight/2 + 70);
+                    x = getXforCenteredText(cont, g);
+                    g.drawString(cont, x, screenHeight / 2 + 70);
                 }
             }
-            
+
             // Σειρά σειράς
-            drawBattleTurnOrder(g2);
-            
+            drawBattleTurnOrder(g);
+
             // Κύριο μενού
             int menuX = 0;
             int menuY = screenHeight - tileSize * 3;
             int menuWidth = screenWidth;
             int menuHeight = tileSize * 3;
-            
-            drawPanel(g2, menuX, menuY, menuWidth, menuHeight, new Color(0, 0, 0, 220), Color.white);
-            
+
+            drawPanel(g, menuX, menuY, menuWidth, menuHeight, new Color(0, 0, 0, 220), Color.white);
+
             // Τίτλος σειράς
-            g2.setFont(maruMonicaBold);
-            g2.setColor(Color.yellow);
+            g.setFont(maruMonicaBold);
+            g.setColor(Color.yellow);
             BattleEntity current = battleParty.getCurrentTurn();
             String turnText = (current != null && current.isPlayer) ? "YOUR TURN" : "ENEMY TURN";
-            int turnX = getXforCenteredText(turnText, g2);
-            g2.drawString(turnText, turnX, menuY + 25);
-            
+            int turnX = getXforCenteredText(turnText, g);
+            g.drawString(turnText, turnX, menuY + 25);
+
             // Μενού επιλογών (μόνο για παίκτη)
             if (battleParty.isPlayerTurn() && !selectingTarget && !actionInProgress && !commandLocked) {
-                g2.setFont(maruMonica);
+                g.setFont(maruMonica);
                 int optionSpacing = menuWidth / battleMenuOptions.length;
 
                 for (int i = 0; i < battleMenuOptions.length; i++) {
@@ -4291,46 +4638,47 @@ public class GamePanel extends JPanel implements Runnable {
                     }
 
                     if (i == battleMenuOption) {
-                        g2.setFont(maruMonicaBold);
-                        g2.setColor(Color.yellow);
-                        g2.drawString("▶", optionX - 15, optionY);
+                        g.setFont(maruMonicaBold);
+                        g.setColor(Color.yellow);
+                        g.drawString("▶", optionX - 15, optionY);
 
                         if (i == 0) {
                             BufferedImage weaponImg = getWeaponImage();
                             if (weaponImg != null) {
-                                g2.drawImage(weaponImg, optionX + 85, optionY - 20, 20, 20, null);
+                                g.drawImage(weaponImg, optionX + 85, optionY - 20, 20, 20, null);
                             }
                         }
 
-                        g2.drawString(optionText, optionX, optionY);
+                        g.drawString(optionText, optionX, optionY);
 
-                        g2.setFont(maruMonicaSmall);
-                        g2.setColor(Color.lightGray);
+                        g.setFont(maruMonicaSmall);
+                        g.setColor(Color.lightGray);
                         String desc = getBattleOptionDescription(i);
-                        int descX = getXforCenteredText(desc, g2);
-                        g2.drawString(desc, descX, menuY + 100);
+                        int descX = getXforCenteredText(desc, g);
+                        g.drawString(desc, descX, menuY + 100);
 
-                        g2.setColor(Color.white);
-                        g2.drawString("B: Boost Up   C: Boost Down", menuX + 25, menuY + 120);
-                        g2.drawString("Current Boost: " + selectedBoost, menuX + 25, menuY + 138);
+                        g.setColor(Color.white);
+                        g.drawString("B: Boost Up   C: Boost Down", menuX + 25, menuY + 120);
+                        g.drawString("Current Boost: " + selectedBoost, menuX + 25, menuY + 138);
+                        drawMiniBoostIndicator(g, menuX + 145, menuY + 128, selectedBoost);
 
-                        g2.setFont(maruMonica);
+                        g.setFont(maruMonica);
                     } else {
-                        g2.setColor(Color.white);
-                        g2.drawString(optionText, optionX, optionY);
+                        g.setColor(Color.white);
+                        g.drawString(optionText, optionX, optionY);
                     }
                 }
 
             } else if (selectingTarget) {
                 // Μενού επιλογής στόχου
-                g2.setFont(maruMonicaBold);
-                g2.setColor(Color.yellow);
-                g2.drawString("Select target:", menuX + 50, menuY + 70);
+                g.setFont(maruMonicaBold);
+                g.setColor(Color.yellow);
+                g.drawString("Select target:", menuX + 50, menuY + 70);
 
-                g2.setFont(maruMonicaSmall);
-                g2.setColor(Color.lightGray);
-                g2.drawString("ENTER=Confirm   ESC=Back", menuX + 50, menuY + 92);
-                g2.drawString("Boost: " + selectedBoost, menuX + 260, menuY + 92);
+                g.setFont(maruMonicaSmall);
+                g.setColor(Color.lightGray);
+                g.drawString("ENTER=Confirm   ESC=Back", menuX + 50, menuY + 92);
+                g.drawString("Boost: " + selectedBoost, menuX + 260, menuY + 92);
 
                 int targetY = menuY + 110;
                 for (int i = 0; i < battleParty.enemies.size(); i++) {
@@ -4338,28 +4686,29 @@ public class GamePanel extends JPanel implements Runnable {
                     int x = menuX + 100 + (i * 150);
 
                     if (i == selectedTarget) {
-                        g2.setColor(Color.yellow);
-                        g2.drawString("▶ " + enemy.name, x, targetY);
+                        g.setColor(Color.yellow);
+                        g.drawString("▶ " + enemy.name, x, targetY);
                     } else {
-                        g2.setColor(Color.white);
-                        g2.drawString(enemy.name, x + 15, targetY);
+                        g.setColor(Color.white);
+                        g.drawString(enemy.name, x + 15, targetY);
                     }
 
-                    // HP bar
                     int barWidth = 100;
                     int barHeight = 8;
                     int barX = x;
                     int barY = targetY + 10;
 
-                    g2.setColor(Color.black);
-                    g2.fillRect(barX, barY, barWidth, barHeight);
-                    g2.setColor(Color.green);
+                    g.setColor(Color.black);
+                    g.fillRect(barX, barY, barWidth, barHeight);
+                    g.setColor(Color.green);
                     double hpPercentage = (double) enemy.hp / enemy.maxHp;
                     int hpWidth = (int) (barWidth * hpPercentage);
-                    g2.fillRect(barX, barY, hpWidth, barHeight);
+                    g.fillRect(barX, barY, hpWidth, barHeight);
                 }
             }
         }
+
+        g.dispose();
     }
 
     public void drawPartyStatus(Graphics2D g2) {
