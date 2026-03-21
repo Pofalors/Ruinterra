@@ -229,6 +229,7 @@ public class GamePanel extends JPanel implements Runnable {
     public int hitFlashTimer = 0;
     public int hitFlashDuration = 0;
     public int hitFlashLevel = 0;
+    public double boostSlashAngle = -0.65; // βασική διαγώνια φορά
 
     public int screenShakeTimer = 0;
     public int screenShakeDuration = 0;
@@ -3289,6 +3290,83 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
+    public void drawImpactSlashLines(Graphics2D g2) {
+        if (boostBurstTimer >= boostBurstDuration || boostBurstLevel <= 0) return;
+
+        Graphics2D g = (Graphics2D) g2.create();
+
+        float progress = (float) boostBurstTimer / boostBurstDuration;
+        float inv = 1.0f - progress;
+
+        // ίδιο offset με το burst
+        int impactX = boostBurstX - 15;
+        int impactY = boostBurstY + 120;
+
+        // χρώματα
+        Color mainSlash = new Color(255, 245, 220, Math.max(0, (int)(210 * inv)));
+        Color glowSlash = new Color(255, 190, 120, Math.max(0, (int)(130 * inv)));
+
+        // μήκος/πάχος ανά boost
+        int mainLength;
+        float mainThickness;
+
+        if (boostBurstLevel == 1) {
+            mainLength = 55;
+            mainThickness = 3f;
+        } else if (boostBurstLevel == 2) {
+            mainLength = 75;
+            mainThickness = 5f;
+        } else {
+            mainLength = 95;
+            mainThickness = 7f;
+        }
+
+        double angle = boostSlashAngle;
+
+        int dx = (int)(Math.cos(angle) * mainLength);
+        int dy = (int)(Math.sin(angle) * mainLength);
+
+        int x1 = impactX - dx / 2;
+        int y1 = impactY - dy / 2;
+        int x2 = impactX + dx / 2;
+        int y2 = impactY + dy / 2;
+
+        // ===== glow κάτω από το main slash =====
+        g.setStroke(new BasicStroke(mainThickness + 4, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.setColor(glowSlash);
+        g.drawLine(x1, y1, x2, y2);
+
+        // ===== main slash =====
+        g.setStroke(new BasicStroke(mainThickness, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.setColor(mainSlash);
+        g.drawLine(x1, y1, x2, y2);
+
+        // ===== δευτερεύουσες streaks =====
+        int streakCount = 1 + boostBurstLevel; // 2,3,4 συνολικά περίπου
+        for (int i = 0; i < streakCount; i++) {
+            double offsetFactor = (i - streakCount / 2.0) * 12.0;
+            double perpAngle = angle + Math.PI / 2.0;
+
+            int ox = (int)(Math.cos(perpAngle) * offsetFactor);
+            int oy = (int)(Math.sin(perpAngle) * offsetFactor);
+
+            int streakLength = (int)(mainLength * (0.45 + i * 0.08));
+            int sdx = (int)(Math.cos(angle) * streakLength);
+            int sdy = (int)(Math.sin(angle) * streakLength);
+
+            int sx1 = impactX + ox - sdx / 2;
+            int sy1 = impactY + oy - sdy / 2;
+            int sx2 = impactX + ox + sdx / 2;
+            int sy2 = impactY + oy + sdy / 2;
+
+            g.setStroke(new BasicStroke(Math.max(1.5f, mainThickness - 2f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g.setColor(new Color(255, 255, 255, Math.max(0, (int)(140 * inv))));
+            g.drawLine(sx1, sy1, sx2, sy2);
+        }
+
+        g.dispose();
+    }
+
     public void drawBPDots(Graphics2D g2, BattleEntity entity, int startX, int y) {
         int dotSpacing = 14;
         int dotSize = 8;
@@ -4599,6 +4677,7 @@ public class GamePanel extends JPanel implements Runnable {
 
         // ===== BOOST BURST EFFECT ΠΑΝΩ ΑΠΟ ΤΑ SPRITES, ΠΡΙΝ ΤΟ UI =====
         drawBoostBurstEffect(g);
+        drawImpactSlashLines(g);
         drawHitFlashOverlay(g);
 
         // ========== ΜΕΝΟΥ ΜΑΧΗΣ ==========
