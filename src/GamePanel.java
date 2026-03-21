@@ -1508,6 +1508,7 @@ public class GamePanel extends JPanel implements Runnable {
                     updateBattleVisuals();
                     updateBattleAction();
                     updateBoostBurstEffect();
+                    updateHitReactions();
                     // Έλεγξε αν τελείωσε η μάχη
                     if (battleParty.battleEnded) {
                         if (battleParty.party.isEmpty()) {
@@ -3136,6 +3137,9 @@ public class GamePanel extends JPanel implements Runnable {
                     triggerHitFlash(actor.boostUsed);
                 }
 
+                int reactStrength = (actor.boostUsed > 0) ? actor.boostUsed : 1;
+                actor.queuedTarget.triggerHitReact(reactStrength);
+
                 int damage = calculateAttackDamage(actor, actor.queuedTarget, actor.boostUsed);
                 actor.queuedTarget.takeDamage(damage);
 
@@ -3219,6 +3223,7 @@ public class GamePanel extends JPanel implements Runnable {
         if (actor.state == CombatState.ATTACKING) {
             if (!actor.strikeTriggered && actor.queuedTarget != null && isActorOnStrikeFrame(actor)) {
                 actor.strikeTriggered = true;
+                actor.queuedTarget.triggerHitReact(1);
 
                 playEnemyAttackSound(actor);
 
@@ -3362,6 +3367,99 @@ public class GamePanel extends JPanel implements Runnable {
             g.setStroke(new BasicStroke(Math.max(1.5f, mainThickness - 2f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
             g.setColor(new Color(255, 255, 255, Math.max(0, (int)(140 * inv))));
             g.drawLine(sx1, sy1, sx2, sy2);
+        }
+
+        g.dispose();
+    }
+
+    public int getHitRecoilDrawOffsetX(BattleEntity entity, boolean targetIsEnemy) {
+        if (entity == null || entity.hitRecoilTimer <= 0) return 0;
+
+        float progress = (float) entity.hitRecoilTimer / entity.hitRecoilDuration;
+        int amount = (int)(entity.hitRecoilOffsetX * progress);
+
+        // Αν είναι enemy, τίναγμα προς τα δεξιά.
+        // Αν είναι player, τίναγμα προς τα αριστερά.
+        return targetIsEnemy ? amount : -amount;
+    }
+
+    public int getHitRecoilDrawOffsetY(BattleEntity entity) {
+        if (entity == null || entity.hitRecoilTimer <= 0) return 0;
+
+        float progress = (float) entity.hitRecoilTimer / entity.hitRecoilDuration;
+        return (int)(entity.hitRecoilOffsetY * progress);
+    }
+
+    public void updateHitReactions() {
+        // enemies
+        for (BattleEntity entity : battleParty.enemies) {
+            if (entity.hitRecoilTimer > 0) entity.hitRecoilTimer--;
+            if (entity.hitOutlineTimer > 0) entity.hitOutlineTimer--;
+            if (entity.dustTimer > 0) entity.dustTimer--;
+        }
+        // party members
+        for (BattleEntity entity : battleParty.party) {
+            if (entity.hitRecoilTimer > 0) entity.hitRecoilTimer--;
+            if (entity.hitOutlineTimer > 0) entity.hitOutlineTimer--;
+            if (entity.dustTimer > 0) entity.dustTimer--;
+        }
+    }
+
+    public void drawImpactDust(Graphics2D g2, BattleEntity entity, int centerX, int footY, int strength) {
+        if (entity == null || entity.dustTimer <= 0) return;
+
+        Graphics2D g = (Graphics2D) g2.create();
+
+        float progress = (float) entity.dustTimer / entity.dustDuration;
+        float inv = 1.0f - progress;
+
+        // ===== ΠΕΡΙΣΣΟΤΕΡΑ PARTICLES =====
+        int puffCount = 10 + strength * 6; // ΠΡΙΝ: 4-10 → ΤΩΡΑ: 16-28+
+
+        for (int i = 0; i < puffCount; i++) {
+
+            // ===== SPREAD (πιο wide explosion) =====
+            double angle = Math.PI + ((Math.random() - 0.5) * 1.4); // πιο chaotic
+            int dist = 10 + (int)(inv * (40 + strength * 10)) + (int)(Math.random() * 10);
+
+            int px = centerX + (int)(Math.cos(angle) * dist);
+            int py = footY - 5 + (int)(Math.sin(angle) * 15);
+
+            // ===== SIZE VARIATION =====
+            int size = 6 + (int)(inv * (18 + strength * 4)) + (int)(Math.random() * 6);
+
+            // ===== ALPHA =====
+            int alpha = Math.max(0, (int)(140 * progress));
+
+            // ===== BASE DUST (σκούρο) =====
+            g.setColor(new Color(60, 50, 40, alpha));
+            g.fillOval(px - size / 2, py - size / 2, size, size);
+
+            // ===== LIGHT DUST OVERLAY =====
+            g.setColor(new Color(170, 150, 120, Math.max(0, alpha - 40)));
+            g.fillOval(px - size / 3, py - size / 3, size - 4, size - 4);
+        }
+
+        // ===== EXTRA HEAVY PUFFS (βάση explosion) =====
+        int heavyCount = 4 + strength * 2;
+
+        for (int i = 0; i < heavyCount; i++) {
+            int offset = (i - heavyCount / 2) * (10 + strength * 2);
+
+            int px = centerX + offset;
+            int py = footY + 2;
+
+            int size = 14 + (int)(inv * (20 + strength * 6));
+
+            int alpha = Math.max(0, (int)(160 * progress));
+
+            // σκούρα βάση
+            g.setColor(new Color(50, 45, 40, alpha));
+            g.fillOval(px - size / 2, py - size / 2, size, size);
+
+            // πιο ανοιχτή πάνω
+            g.setColor(new Color(180, 160, 130, Math.max(0, alpha - 50)));
+            g.fillOval(px - size / 3, py - size / 3, size - 5, size - 5);
         }
 
         g.dispose();
@@ -4575,7 +4673,17 @@ public class GamePanel extends JPanel implements Runnable {
                     enemySpriteSize / 4, enemySpriteSize / 8);
 
             // Εχθρός
-            g.drawImage(be.getCurrentImage(), drawX, drawY, enemySpriteSize, enemySpriteSize, null);
+            int recoilX = getHitRecoilDrawOffsetX(enemyEntity, true);
+            int recoilY = getHitRecoilDrawOffsetY(enemyEntity);
+
+            // sprite
+            g.drawImage(be.getCurrentImage(), drawX + recoilX, drawY + recoilY, enemySpriteSize, enemySpriteSize, null);
+
+            // dust στα πόδια
+            drawImpactDust(g, enemyEntity,
+                    drawX + recoilX + enemySpriteSize / 2,
+                    drawY + recoilY + enemySpriteSize - 10,
+                    boostBurstLevel > 0 ? boostBurstLevel : 1);
 
             // HP Bar πάνω από τον εχθρό
             if (enemyEntity != null) {
@@ -4638,9 +4746,24 @@ public class GamePanel extends JPanel implements Runnable {
                 drawBoostAura(g, auraCenterX, auraFootY, selectedBoost);
             }
 
+            BattleEntity heroEntity = null;
+            for (BattleEntity entity : battleParty.party) {
+                if (entity.name.equals("Hero")) {
+                    heroEntity = entity;
+                    break;
+                }
+            }
+
+            int recoilX = getHitRecoilDrawOffsetX(heroEntity, false);
+            int recoilY = getHitRecoilDrawOffsetY(heroEntity);
+
             BufferedImage playerImg = bp.getCurrentImage();
             if (playerImg != null) {
-                g.drawImage(playerImg, drawX, drawY, playerSpriteSize, playerSpriteSize, null);
+                g.drawImage(playerImg, drawX + recoilX, drawY + recoilY, playerSpriteSize, playerSpriteSize, null);
+                drawImpactDust(g, heroEntity,
+                        drawX + recoilX + playerSpriteSize / 2,
+                        drawY + recoilY + playerSpriteSize - 10,
+                        1);
             }
         }
 
@@ -4669,9 +4792,24 @@ public class GamePanel extends JPanel implements Runnable {
                 drawBoostAura(g, auraCenterX, auraFootY, selectedBoost);
             }
 
+            BattleEntity memberEntity = null;
+            for (BattleEntity entity : battleParty.party) {
+                if (entity.name.equals(bpm.member.className)) {
+                    memberEntity = entity;
+                    break;
+                }
+            }
+
+            int recoilX = getHitRecoilDrawOffsetX(memberEntity, false);
+            int recoilY = getHitRecoilDrawOffsetY(memberEntity);
+
             BufferedImage memberImg = bpm.getCurrentImage();
             if (memberImg != null) {
-                g.drawImage(memberImg, drawX, drawY, playerSpriteSize, playerSpriteSize, null);
+                g.drawImage(memberImg, drawX + recoilX, drawY + recoilY, playerSpriteSize, playerSpriteSize, null);
+                drawImpactDust(g, memberEntity,
+                        drawX + recoilX + playerSpriteSize / 2,
+                        drawY + recoilY + playerSpriteSize - 10,
+                        1);
             }
         }
 

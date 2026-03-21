@@ -32,6 +32,20 @@ public class BattleEntity {
     public boolean actionFinished = false;
     public boolean defending = false;
 
+    // Recoil etc.
+    public int hitBlinkTimer = 0;
+    public int hitBlinkDuration = 0;
+
+    public int hitRecoilTimer = 0;
+    public int hitRecoilDuration = 0;
+    public int hitRecoilOffsetX = 0;
+    public int hitRecoilOffsetY = 0;
+    public int hitOutlineTimer = 0;
+    public int hitOutlineDuration = 0;
+
+    public int dustTimer = 0;
+    public int dustDuration = 0;
+
     // Enemy constructor
     public BattleEntity(Enemy enemy, BufferedImage img) {
         this.name = enemy.getClass().getSimpleName();
@@ -137,5 +151,24 @@ public class BattleEntity {
 
     public boolean canAct() {
         return isAlive() && state != CombatState.DEAD;
+    }
+
+    public void triggerHitReact(int strength) {
+        if (strength < 1) strength = 1;
+
+        hitBlinkDuration = 0;
+        hitBlinkTimer = 0;
+
+        hitRecoilDuration = 6 + strength * 2;
+        hitRecoilTimer = hitRecoilDuration;
+
+        hitRecoilOffsetX = 6 + strength * 3;
+        hitRecoilOffsetY = -2 - strength;
+
+        hitOutlineDuration = 6 + strength * 2;
+        hitOutlineTimer = hitOutlineDuration;
+
+        dustDuration = 10 + strength * 2;
+        dustTimer = dustDuration;
     }
 }
