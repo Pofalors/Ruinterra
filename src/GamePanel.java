@@ -234,6 +234,22 @@ public class GamePanel extends JPanel implements Runnable {
     public int screenShakeTimer = 0;
     public int screenShakeDuration = 0;
     public int screenShakeStrength = 0;
+    // camera zoom
+    public int zoomPopTimer = 0;
+    public int zoomPopDuration = 0;
+    public float zoomPopScale = 1.0f;
+    public float zoomPopMaxScale = 1.0f;
+    // lunge
+    public int lungeTimer = 0;
+    public int lungeDuration = 0;
+    public int lungeDistance = 0;
+    public BattleEntity lungingActor = null;
+    public int afterimageCount = 0;
+    // swing attack trail
+    public BattleEntity swingTrailActor = null;
+    public int swingTrailTimer = 0;
+    public int swingTrailDuration = 0;
+    public int swingTrailLevel = 0;
 
     public int hitPauseTimer = 0;
     public final int HIT_PAUSE_DURATION = 8;
@@ -1509,6 +1525,9 @@ public class GamePanel extends JPanel implements Runnable {
                     updateBattleAction();
                     updateBoostBurstEffect();
                     updateHitReactions();
+                    updateZoomPop();
+                    updateLunge();
+                    updateSwingTrail();
                     // Έλεγξε αν τελείωσε η μάχη
                     if (battleParty.battleEnded) {
                         if (battleParty.party.isEmpty()) {
@@ -3131,10 +3150,13 @@ public class GamePanel extends JPanel implements Runnable {
                 actor.strikeTriggered = true;
 
                 playPlayerAttackSound(actor);
+                triggerLunge(actor, actor.boostUsed);
+                triggerSwingTrail(actor, actor.boostUsed);
 
                 if (actor.boostUsed > 0) {
                     triggerBoostBurst(actor.queuedTarget, actor.boostUsed);
                     triggerHitFlash(actor.boostUsed);
+                    triggerZoomPop(actor.boostUsed);
                 }
 
                 int reactStrength = (actor.boostUsed > 0) ? actor.boostUsed : 1;
@@ -3154,11 +3176,11 @@ public class GamePanel extends JPanel implements Runnable {
                 }
 
                 if (actor.boostUsed == 1) {
-                    hitPauseTimer = HIT_PAUSE_DURATION + 2;
+                    hitPauseTimer = HIT_PAUSE_DURATION + 3;
                 } else if (actor.boostUsed == 2) {
-                    hitPauseTimer = HIT_PAUSE_DURATION + 4;
+                    hitPauseTimer = HIT_PAUSE_DURATION + 5;
                 } else if (actor.boostUsed >= 3) {
-                    hitPauseTimer = HIT_PAUSE_DURATION + 6;
+                    hitPauseTimer = HIT_PAUSE_DURATION + 7;
                 } else {
                     hitPauseTimer = HIT_PAUSE_DURATION;
                 }
@@ -3465,6 +3487,231 @@ public class GamePanel extends JPanel implements Runnable {
         g.dispose();
     }
 
+    public void triggerZoomPop(int boostLevel) {
+        if (boostLevel <= 0) return;
+
+        if (boostLevel == 1) {
+            zoomPopDuration = 6;
+            zoomPopMaxScale = 1.03f;
+        } else if (boostLevel == 2) {
+            zoomPopDuration = 8;
+            zoomPopMaxScale = 1.05f;
+        } else {
+            zoomPopDuration = 10;
+            zoomPopMaxScale = 1.07f;
+        }
+
+        zoomPopTimer = zoomPopDuration;
+    }
+
+    public void updateZoomPop() {
+        if (zoomPopTimer > 0) {
+            float progress = (float) zoomPopTimer / zoomPopDuration;
+
+            // snap-in γρήγορα, μετά ομαλή επιστροφή
+            zoomPopScale = 1.0f + ((zoomPopMaxScale - 1.0f) * progress);
+
+            zoomPopTimer--;
+            if (zoomPopTimer <= 0) {
+                zoomPopScale = 1.0f;
+            }
+        } else {
+            zoomPopScale = 1.0f;
+        }
+    }
+
+    public void triggerLunge(BattleEntity actor, int boostLevel) {
+        if (actor == null) return;
+
+        lungingActor = actor;
+
+        if (boostLevel <= 0) {
+            lungeDuration = 6;
+            lungeDistance = 18;
+            afterimageCount = 0;
+        } else if (boostLevel == 1) {
+            lungeDuration = 8;
+            lungeDistance = 28;
+            afterimageCount = 2;
+        } else if (boostLevel == 2) {
+            lungeDuration = 10;
+            lungeDistance = 40;
+            afterimageCount = 3;
+        } else {
+            lungeDuration = 12;
+            lungeDistance = 54;
+            afterimageCount = 4;
+        }
+
+        lungeTimer = lungeDuration;
+    }
+
+    public void updateLunge() {
+        if (lungeTimer > 0) {
+            lungeTimer--;
+            if (lungeTimer <= 0) {
+                lungingActor = null;
+                afterimageCount = 0;
+            }
+        }
+    }
+
+    public int getLungeOffsetX(BattleEntity actor) {
+        if (actor == null || lungingActor == null || actor != lungingActor || lungeTimer <= 0) {
+            return 0;
+        }
+
+        float progress = (float) lungeTimer / lungeDuration;
+
+        // snap forward και επιστροφή
+        float curve = (float)Math.sin(progress * Math.PI);
+
+        int amount = (int)(lungeDistance * curve);
+
+        // Players πάνε δεξιά προς τους εχθρούς
+        if (actor.isPlayer) {
+            return amount;
+        }
+
+        // Enemies πάνε αριστερά προς τους players
+        return -amount;
+    }
+
+    public int getLungeOffsetY(BattleEntity actor) {
+        if (actor == null || lungingActor == null || actor != lungingActor || lungeTimer <= 0) {
+            return 0;
+        }
+
+        float progress = (float) lungeTimer / lungeDuration;
+        float curve = (float)Math.sin(progress * Math.PI);
+
+        return -(int)(6 * curve);
+    }
+
+    public void triggerSwingTrail(BattleEntity actor, int boostLevel) {
+        if (actor == null) return;
+
+        swingTrailActor = actor;
+        swingTrailLevel = boostLevel;
+
+        if (boostLevel <= 0) {
+            swingTrailDuration = 5;
+        } else if (boostLevel == 1) {
+            swingTrailDuration = 6;
+        } else if (boostLevel == 2) {
+            swingTrailDuration = 8;
+        } else {
+            swingTrailDuration = 10;
+        }
+
+        swingTrailTimer = swingTrailDuration;
+    }
+
+    public void updateSwingTrail() {
+        if (swingTrailTimer > 0) {
+            swingTrailTimer--;
+            if (swingTrailTimer <= 0) {
+                swingTrailActor = null;
+                swingTrailLevel = 0;
+            }
+        }
+    }
+
+    public void drawSwingTrail(Graphics2D g2, BattleEntity actor, int centerX, int centerY) {
+        if (actor == null || swingTrailActor == null || actor != swingTrailActor) return;
+        if (swingTrailTimer <= 0) return;
+
+        Graphics2D g = (Graphics2D) g2.create();
+
+        float progress = (float) swingTrailTimer / swingTrailDuration;
+        float inv = 1.0f - progress;
+
+        Color trailColor;
+        int arcSize;
+        float strokeSize;
+
+        if (swingTrailLevel <= 0) {
+            trailColor = new Color(255, 255, 255, Math.max(0, (int)(120 * progress)));
+            arcSize = 46;
+            strokeSize = 3f;
+        } else if (swingTrailLevel == 1) {
+            trailColor = new Color(255, 140, 100, Math.max(0, (int)(150 * progress)));
+            arcSize = 56;
+            strokeSize = 4f;
+        } else if (swingTrailLevel == 2) {
+            trailColor = new Color(255, 220, 120, Math.max(0, (int)(180 * progress)));
+            arcSize = 68;
+            strokeSize = 5f;
+        } else {
+            trailColor = new Color(120, 200, 255, Math.max(0, (int)(210 * progress)));
+            arcSize = 82;
+            strokeSize = 6f;
+        }
+
+        int x = centerX - arcSize / 2;
+        int y = centerY - arcSize / 2;
+
+        // glow layer
+        g.setStroke(new BasicStroke(strokeSize + 3f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.setColor(new Color(trailColor.getRed(), trailColor.getGreen(), trailColor.getBlue(),
+                Math.max(0, (int)(70 * progress))));
+        g.drawArc(x, y, arcSize, arcSize, -40, 140);
+
+        // main arc
+        g.setStroke(new BasicStroke(strokeSize, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.setColor(trailColor);
+        g.drawArc(x, y, arcSize, arcSize, -40, 140);
+
+        // secondary inner arc για boosted hits
+        if (swingTrailLevel >= 2) {
+            int inner = arcSize - 14;
+            g.setColor(new Color(255, 255, 255, Math.max(0, (int)(130 * progress))));
+            g.setStroke(new BasicStroke(Math.max(2f, strokeSize - 2f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g.drawArc(centerX - inner / 2, centerY - inner / 2, inner, inner, -20, 115);
+        }
+
+        // spark points πάνω στο arc
+        int sparkCount = 3 + Math.max(0, swingTrailLevel);
+        for (int i = 0; i < sparkCount; i++) {
+            double ang = Math.toRadians(-40 + (140.0 / Math.max(1, sparkCount - 1)) * i);
+            int radius = arcSize / 2;
+            int sx = centerX + (int)(Math.cos(ang) * radius);
+            int sy = centerY + (int)(Math.sin(ang) * radius);
+
+            int size = (swingTrailLevel >= 3) ? 4 : 3;
+            g.setColor(new Color(255, 255, 255, Math.max(0, (int)(150 * progress))));
+            g.fillOval(sx - size / 2, sy - size / 2, size, size);
+        }
+
+        g.dispose();
+    }
+
+    public void drawAfterimageTrail(Graphics2D g2, BufferedImage img, BattleEntity actor,
+                                    int drawX, int drawY, int width, int height) {
+        if (img == null || actor == null || lungingActor == null || actor != lungingActor) return;
+        if (lungeTimer <= 0 || afterimageCount <= 0) return;
+
+        Graphics2D g = (Graphics2D) g2.create();
+
+        int direction = actor.isPlayer ? -1 : 1; // afterimages πίσω από την κίνηση
+        int baseSpacing = 10;
+
+        for (int i = 1; i <= afterimageCount; i++) {
+            int alpha = Math.max(20, 110 - (i * 22));
+
+            int offsetX = direction * i * baseSpacing;
+            int offsetY = i * 1;
+
+            g.setComposite(java.awt.AlphaComposite.getInstance(java.awt.AlphaComposite.SRC_OVER, alpha / 255f));
+
+            // ελαφρύ color tint
+            g.drawImage(img, drawX + offsetX, drawY + offsetY, width, height, null);
+        }
+
+        g.setComposite(java.awt.AlphaComposite.getInstance(java.awt.AlphaComposite.SRC_OVER, 1f));
+        g.dispose();
+    }
+
     public void drawBPDots(Graphics2D g2, BattleEntity entity, int startX, int y) {
         int dotSpacing = 14;
         int dotSize = 8;
@@ -3701,89 +3948,123 @@ public class GamePanel extends JPanel implements Runnable {
 
         Graphics2D g = (Graphics2D) g2.create();
 
-        double t = System.currentTimeMillis() * 0.006;
-        double spin = System.currentTimeMillis() * 0.0035;
+        double time = System.currentTimeMillis() * 0.006;
+        double spin = System.currentTimeMillis() * 0.0042;
+        float pulse = (float)(Math.sin(time) * 0.5 + 0.5f);
 
         Color mainColor;
         Color glowColor;
+        Color particleColor;
         int baseRadius;
+        int coneHeight;
         int ringCount;
-        int swirlHeight;
+        int particleCount;
 
         if (boostLevel == 1) {
-            mainColor = new Color(255, 70, 70, 120);      // κόκκινο
-            glowColor = new Color(255, 120, 120, 70);
+            mainColor = new Color(255, 80, 80, 150);
+            glowColor = new Color(255, 140, 140, 85);
+            particleColor = new Color(255, 220, 220, 170);
             baseRadius = 86;
-            ringCount = 2;
-            swirlHeight = 18;
-        } else if (boostLevel == 2) {
-            mainColor = new Color(255, 220, 70, 140);     // κίτρινο
-            glowColor = new Color(255, 240, 140, 80);
-            baseRadius = 114;
-            ringCount = 3;
-            swirlHeight = 24;
-        } else {
-            mainColor = new Color(80, 170, 255, 160);     // μπλε
-            glowColor = new Color(150, 220, 255, 90);
-            baseRadius = 144;
+            coneHeight = 88;
             ringCount = 4;
-            swirlHeight = 30;
+            particleCount = 10;
+        } else if (boostLevel == 2) {
+            mainColor = new Color(255, 220, 90, 165);
+            glowColor = new Color(255, 245, 170, 95);
+            particleColor = new Color(255, 248, 220, 180);
+            baseRadius = 108;
+            coneHeight = 122;
+            ringCount = 5;
+            particleCount = 14;
+        } else {
+            mainColor = new Color(95, 175, 255, 185);
+            glowColor = new Color(170, 225, 255, 110);
+            particleColor = new Color(235, 245, 255, 190);
+            baseRadius = 132;
+            coneHeight = 162;
+            ringCount = 6;
+            particleCount = 18;
         }
-
-        float pulse = (float)(Math.sin(t) * 0.5 + 0.5f);
 
         // ===== soft ground glow =====
-        int groundW = baseRadius * 2 + (int)(pulse * 10);
-        int groundH = baseRadius / 2 + 8;
-        g.setColor(new Color(glowColor.getRed(), glowColor.getGreen(), glowColor.getBlue(), 55));
+        int groundW = baseRadius * 2 + (int)(pulse * 14);
+        int groundH = baseRadius / 2 + 12;
+        g.setColor(new Color(glowColor.getRed(), glowColor.getGreen(), glowColor.getBlue(), 60));
         g.fillOval(centerX - groundW / 2, footY - groundH / 2, groundW, groundH);
 
-        // ===== cyclone rings =====
-        g.setStroke(new BasicStroke(2f));
+        // ===== dense cyclone layers =====
+        g.setStroke(new BasicStroke(2.4f));
 
         for (int i = 0; i < ringCount; i++) {
-            double phase = spin + i * 0.9;
-            int ringRadius = baseRadius + i * 10 + (int)(pulse * 4);
-            int yOffset = i * (swirlHeight / ringCount);
+            float layer = i / (float)Math.max(1, ringCount - 1);
 
-            int rx = centerX - ringRadius / 2 + (int)(Math.sin(phase) * 10);
-            int ry = footY - yOffset - 8;
+            int width = baseRadius - (int)(layer * (baseRadius * 0.48f)) + (int)(pulse * 6);
+            int height = Math.max(18, width / 3);
 
-            int rw = ringRadius;
-            int rh = Math.max(10, ringRadius / 3);
+            int y = footY - (int)(layer * coneHeight);
 
-            int alpha = 110 - i * 18;
-            if (alpha < 30) alpha = 30;
+            double phase = spin + i * 0.72;
+            int sway = (int)(Math.sin(phase) * (10 + i * 2));
 
+            int x = centerX - width / 2 + sway;
+
+            int alpha = 135 - i * 15;
+            if (alpha < 38) alpha = 38;
+
+            // main band
             g.setColor(new Color(mainColor.getRed(), mainColor.getGreen(), mainColor.getBlue(), alpha));
-            g.drawArc(rx, ry, rw, rh, 0, 300);
+            g.drawArc(x, y - 10, width, height, 0, 310);
 
+            // outer glow band
             g.setColor(new Color(glowColor.getRed(), glowColor.getGreen(), glowColor.getBlue(), alpha / 2));
-            g.drawArc(rx - 3, ry - 2, rw + 6, rh + 4, 30, 260);
+            g.drawArc(x - 5, y - 12, width + 10, height + 6, 16, 275);
+
+            // inner bright band στα μεγαλύτερα boost
+            if (boostLevel >= 2 && i < ringCount - 1) {
+                g.setColor(new Color(255, 255, 255, Math.max(20, alpha / 3)));
+                g.drawArc(x + 4, y - 8, width - 8, Math.max(10, height - 4), 24, 240);
+            }
         }
 
-        // ===== rising sparks =====
-        int sparkCount = 6 + boostLevel * 2;
-        for (int i = 0; i < sparkCount; i++) {
-            double ang = spin * 2 + (i * (Math.PI * 2 / sparkCount));
-            int radius = baseRadius / 2 + (i % 3) * 6;
-            int sx = centerX + (int)(Math.cos(ang) * radius);
-            int sy = footY - 8 - (int)(Math.abs(Math.sin(ang * 1.3)) * swirlHeight);
+        // ===== upward inner wisps =====
+        for (int i = 0; i < boostLevel + 4; i++) {
+            double phase = spin * 1.6 + i * 1.15;
+            int sway = (int)(Math.sin(phase) * (10 + boostLevel * 3));
 
-            int size = (boostLevel == 3) ? 4 : 3;
-            g.setColor(new Color(255, 255, 255, 120));
-            g.fillOval(sx, sy, size, size);
+            int wx = centerX + sway;
+            int wy = footY - 18 - i * 16;
+            int wh = 26 + i * 11;
+
+            g.setColor(new Color(glowColor.getRed(), glowColor.getGreen(), glowColor.getBlue(), 75));
+            g.drawArc(wx - 10, wy - wh / 2, 20, wh, 95, 170);
         }
 
-        // ===== vertical energy wisps =====
-        for (int i = 0; i < boostLevel + 1; i++) {
-            double phase = spin * 1.5 + i * 1.7;
-            int wx = centerX + (int)(Math.sin(phase) * (baseRadius / 3));
-            int wy = footY - 10 - i * 8;
-            int wh = 14 + i * 6;
+        // ===== circular energy particles instead of lightning =====
+        for (int i = 0; i < particleCount; i++) {
+            double ang = spin * 1.8 + i * (Math.PI * 2 / particleCount);
+            int radius = 18 + (i % 5) * 9 + (int)(pulse * 4);
 
-            g.setColor(new Color(glowColor.getRed(), glowColor.getGreen(), glowColor.getBlue(), 70));
-            g.drawArc(wx - 8, wy - wh / 2, 16, wh, 90, 180);
+            int px = centerX + (int)(Math.cos(ang) * radius);
+            int py = footY - 12 - (int)(Math.abs(Math.sin(ang * 1.15)) * (coneHeight * 0.78));
+
+            int size = 3 + (i % 3);
+            if (boostLevel == 3 && i % 4 == 0) size += 1;
+
+            g.setColor(new Color(particleColor.getRed(), particleColor.getGreen(), particleColor.getBlue(), 150));
+            g.fillOval(px - size / 2, py - size / 2, size, size);
+
+            g.setColor(new Color(255, 255, 255, 110));
+            g.fillOval(px, py, Math.max(1, size - 2), Math.max(1, size - 2));
+        }
+
+        // ===== top mist / release cloud =====
+        for (int i = 0; i < 5 + boostLevel; i++) {
+            int size = 14 + i * 4 + (int)(pulse * 3);
+            int px = centerX - baseRadius / 4 + i * (baseRadius / 7);
+            int py = footY - coneHeight + 10 - i * 5;
+
+            g.setColor(new Color(glowColor.getRed(), glowColor.getGreen(), glowColor.getBlue(), 35));
+            g.fillOval(px - size / 2, py - size / 2, size, size);
         }
 
         g.dispose();
@@ -4571,6 +4852,12 @@ public class GamePanel extends JPanel implements Runnable {
             shakeY = (int)((Math.random() * (screenShakeStrength * 2 + 1)) - screenShakeStrength);
         }
 
+        // Zoom από το κέντρο της οθόνης
+        g.translate(screenWidth / 2, screenHeight / 2);
+        g.scale(zoomPopScale, zoomPopScale);
+        g.translate(-screenWidth / 2, -screenHeight / 2);
+
+        // Μετά πρόσθεσε shake
         g.translate(shakeX, shakeY);
 
         // Σκούρο φόντο
@@ -4756,14 +5043,20 @@ public class GamePanel extends JPanel implements Runnable {
 
             int recoilX = getHitRecoilDrawOffsetX(heroEntity, false);
             int recoilY = getHitRecoilDrawOffsetY(heroEntity);
+            int lungeX = getLungeOffsetX(heroEntity);
+            int lungeY = getLungeOffsetY(heroEntity);
 
             BufferedImage playerImg = bp.getCurrentImage();
             if (playerImg != null) {
-                g.drawImage(playerImg, drawX + recoilX, drawY + recoilY, playerSpriteSize, playerSpriteSize, null);
-                drawImpactDust(g, heroEntity,
-                        drawX + recoilX + playerSpriteSize / 2,
-                        drawY + recoilY + playerSpriteSize - 10,
-                        1);
+                drawAfterimageTrail(g, playerImg, heroEntity,
+                        drawX + recoilX + lungeX,
+                        drawY + recoilY + lungeY,
+                        playerSpriteSize, playerSpriteSize);
+                drawSwingTrail(g, heroEntity,
+                        drawX + recoilX + lungeX + playerSpriteSize / 2,
+                        drawY + recoilY + lungeY + playerSpriteSize / 2);
+                g.drawImage(playerImg, drawX + recoilX + lungeX, drawY + recoilY + lungeY, playerSpriteSize, playerSpriteSize, null);
+                drawImpactDust(g, heroEntity, drawX + recoilX + playerSpriteSize / 2, drawY + recoilY + playerSpriteSize - 10,1);
             }
         }
 
@@ -4802,14 +5095,20 @@ public class GamePanel extends JPanel implements Runnable {
 
             int recoilX = getHitRecoilDrawOffsetX(memberEntity, false);
             int recoilY = getHitRecoilDrawOffsetY(memberEntity);
+            int lungeX = getLungeOffsetX(memberEntity);
+            int lungeY = getLungeOffsetY(memberEntity);
 
             BufferedImage memberImg = bpm.getCurrentImage();
             if (memberImg != null) {
-                g.drawImage(memberImg, drawX + recoilX, drawY + recoilY, playerSpriteSize, playerSpriteSize, null);
-                drawImpactDust(g, memberEntity,
-                        drawX + recoilX + playerSpriteSize / 2,
-                        drawY + recoilY + playerSpriteSize - 10,
-                        1);
+                drawAfterimageTrail(g, memberImg, memberEntity,
+                        drawX + recoilX + lungeX,
+                        drawY + recoilY + lungeY,
+                        playerSpriteSize, playerSpriteSize);
+                drawSwingTrail(g, memberEntity,
+                        drawX + recoilX + lungeX + playerSpriteSize / 2,
+                        drawY + recoilY + lungeY + playerSpriteSize / 2);
+                g.drawImage(memberImg, drawX + recoilX + lungeX, drawY + recoilY + lungeY, playerSpriteSize, playerSpriteSize, null);
+                drawImpactDust(g, memberEntity, drawX + recoilX + playerSpriteSize / 2, drawY + recoilY + playerSpriteSize - 10,1);
             }
         }
 
