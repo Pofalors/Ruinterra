@@ -55,7 +55,7 @@ public class GamePanel extends JPanel implements Runnable {
 
     // Πολλαπλοί χάρτες
     public int currentMap = 0;
-    public final int maxMaps = 6;
+    public int maxMaps = 0;
 
     // Θέσεις spawn για κάθε χάρτη
     public int[][] spawnPoints = {
@@ -688,6 +688,35 @@ public class GamePanel extends JPanel implements Runnable {
         portals.add(new Portal(2, 12 * tileSize, 13 * tileSize, 0, 10 * tileSize, 40 * tileSize)); // Merchant House -> Overworld
         portals.add(new Portal(0, 41 * tileSize, 7 * tileSize, 3, 4 * tileSize, 22 * tileSize)); // Overworld -> Town
         portals.add(new Portal(3, 3 * tileSize, 22 * tileSize, 0, 41 * tileSize, 8 * tileSize)); // Town -> Overworld
+        // ===== REGION 1 PORTALS =====
+        portals.add(new Portal(3, 40 * tileSize, 30 * tileSize, 6, 32 * tileSize, 30 * tileSize)); // Town (map 3) -> region1
+        // Route -> Town
+        portals.add(new Portal(6, 31 * tileSize, 5 * tileSize, 7, 18 * tileSize, 27 * tileSize));
+
+        // Town -> Route
+        portals.add(new Portal(7, 18 * tileSize, 29 * tileSize, 6, 31 * tileSize, 7 * tileSize));
+
+        // Town -> Inn
+        portals.add(new Portal(7, 7 * tileSize, 12 * tileSize, 8, 8 * tileSize, 11 * tileSize));
+
+        // Inn -> Town
+        portals.add(new Portal(8, 8 * tileSize, 13 * tileSize, 7, 7 * tileSize, 14 * tileSize));
+
+        // Town -> Shop
+        portals.add(new Portal(7, 27 * tileSize, 12 * tileSize, 9, 8 * tileSize, 11 * tileSize));
+
+        // Shop -> Town
+        portals.add(new Portal(9, 8 * tileSize, 13 * tileSize, 7, 27 * tileSize, 14 * tileSize));
+
+        // Route -> Cave
+        portals.add(new Portal(6, 53 * tileSize, 12 * tileSize, 10, 6 * tileSize, 24 * tileSize));
+        portals.add(new Portal(6, 54 * tileSize, 12 * tileSize, 10, 6 * tileSize, 24 * tileSize));
+
+        // Cave -> Route
+        portals.add(new Portal(10, 4 * tileSize, 27 * tileSize, 6, 54 * tileSize, 10 * tileSize));
+        portals.add(new Portal(10, 5 * tileSize, 27 * tileSize, 6, 54 * tileSize, 10 * tileSize));
+        portals.add(new Portal(10, 6 * tileSize, 27 * tileSize, 6, 54 * tileSize, 10 * tileSize));
+        portals.add(new Portal(10, 7 * tileSize, 27 * tileSize, 6, 54 * tileSize, 10 * tileSize));
 
         //ΞΕΚΙΝΑΩ ΜΕ TITLE
         gameState = titleState;
@@ -972,7 +1001,7 @@ public class GamePanel extends JPanel implements Runnable {
                             // Έλεγξε αν το tile μπροστά είναι τραπέζι (035)
                             if (checkRow >= 0 && checkRow < maxWorldRow && 
                                 checkCol >= 0 && checkCol < maxWorldCol) {
-                                int tileNum = tileM.mapTileNum[currentMap][checkRow][checkCol];
+                                int tileNum = tileM.getTileNum(currentMap, checkRow, checkCol);
                                 String tileName = tileM.fileNames.get(tileNum);
                                 
                                 if (tileName.equals("035.png")) { // Το τραπέζι
@@ -2435,6 +2464,7 @@ public class GamePanel extends JPanel implements Runnable {
                         
                         if (distanceX < tileSize && distanceY < tileSize) {
                             currentMap = portal.targetMap;
+                            tileM.applyMapSizeToGamePanel(currentMap);
                             player.worldX = portal.targetX;
                             player.worldY = portal.targetY;
                             
@@ -4355,7 +4385,7 @@ public class GamePanel extends JPanel implements Runnable {
         int rightX = nextWorldX + tileSize - 1;
         int topY = nextWorldY;
         int bottomY = nextWorldY + tileSize - 1;
-        
+
         int topLeftCol = leftX / tileSize;
         int topLeftRow = topY / tileSize;
         int topRightCol = rightX / tileSize;
@@ -4364,22 +4394,22 @@ public class GamePanel extends JPanel implements Runnable {
         int bottomLeftRow = bottomY / tileSize;
         int bottomRightCol = rightX / tileSize;
         int bottomRightRow = bottomY / tileSize;
-        
+
         boolean collision = false;
-        
-        if (isValidWorldTile(topLeftRow, topLeftCol)) {
-            collision = tileM.tile[tileM.mapTileNum[currentMap][topLeftRow][topLeftCol]].collision;
+
+        if (tileM.isValidTile(currentMap, topLeftRow, topLeftCol)) {
+            collision = tileM.isTileCollision(currentMap, topLeftRow, topLeftCol);
         }
-        if (!collision && isValidWorldTile(topRightRow, topRightCol)) {
-            collision = tileM.tile[tileM.mapTileNum[currentMap][topRightRow][topRightCol]].collision;
+        if (!collision && tileM.isValidTile(currentMap, topRightRow, topRightCol)) {
+            collision = tileM.isTileCollision(currentMap, topRightRow, topRightCol);
         }
-        if (!collision && isValidWorldTile(bottomLeftRow, bottomLeftCol)) {
-            collision = tileM.tile[tileM.mapTileNum[currentMap][bottomLeftRow][bottomLeftCol]].collision;
+        if (!collision && tileM.isValidTile(currentMap, bottomLeftRow, bottomLeftCol)) {
+            collision = tileM.isTileCollision(currentMap, bottomLeftRow, bottomLeftCol);
         }
-        if (!collision && isValidWorldTile(bottomRightRow, bottomRightCol)) {
-            collision = tileM.tile[tileM.mapTileNum[currentMap][bottomRightRow][bottomRightCol]].collision;
+        if (!collision && tileM.isValidTile(currentMap, bottomRightRow, bottomRightCol)) {
+            collision = tileM.isTileCollision(currentMap, bottomRightRow, bottomRightCol);
         }
-        
+
         return collision;
     }
 
@@ -4391,7 +4421,7 @@ public class GamePanel extends JPanel implements Runnable {
 
     // Βοηθητική μέθοδος για έλεγχο ορίων
     public boolean isValidWorldTile(int row, int col) {
-        return row >= 0 && row < maxWorldRow && col >= 0 && col < maxWorldCol;
+        return tileM.isValidTile(currentMap, row, col);
     }
 
     // Έλεγχος σύγκρουσης μεταξύ δύο οντοτήτων (π.χ. ήρωας και NPC)
@@ -5924,7 +5954,7 @@ public class GamePanel extends JPanel implements Runnable {
         // Ζωγράφισε τον κόσμο (tiles) - ΧΡΗΣΙΜΟΠΟΙΩΝΤΑΣ ΤΙΣ ΠΡΑΓΜΑΤΙΚΕΣ ΕΙΚΟΝΕΣ
         for (int row = 0; row < maxWorldRow; row++) {
             for (int col = 0; col < maxWorldCol; col++) {
-                int tileNum = tileM.mapTileNum[currentMap][row][col];
+                int tileNum = tileM.getTileNum(currentMap, row, col);
                 
                 // Πάρε την εικόνα του tile από τον TileManager
                 BufferedImage tileImage = tileM.tile[tileNum].image;
