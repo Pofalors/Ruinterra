@@ -1,5 +1,6 @@
 public class MapLayer {
     public String name;
+    public String atlasName;
     public int rows;
     public int cols;
     public int[][] tiles;
@@ -10,5 +11,6 @@ public class MapLayer {
         this.rows = rows;
         this.cols = cols;
         this.tiles = new int[rows][cols];
+        this.atlasName = "";
     }
 }

@@ -41,7 +41,8 @@ public class AtlasManifest {
             hasTile(prefix + "_R") &&
             hasTile(prefix + "_BL") &&
             hasTile(prefix + "_B") &&
-            hasTile(prefix + "_BR");
+            hasTile(prefix + "_BR") &&
+            hasTile(prefix + "_FILL");
     }
 
     public boolean hasBottom3x3(String prefix) {

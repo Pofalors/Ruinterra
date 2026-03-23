@@ -99,6 +99,7 @@ public class TileManager {
 
     public void loadManifests() {
         loadManifest("basic_terrain", "res/tilesets/basic_terrain_manifest.txt");
+        loadManifest("water", "res/tilesets/water_manifest.txt");
     }
 
     public void loadManifest(String atlasName, String filePath) {
@@ -146,7 +147,7 @@ public class TileManager {
         addAdvancedMapFromFile("res/maps/test_region_01.frmap");
         addAdvancedMapFromFile("res/maps/basic_terrain_index_test.frmap");
 
-        addAdvancedGeneratedTestMap();
+        addWaterManifestShowcaseMap();
     }
 
     public void addLegacyMap(String name, String filePath) {
@@ -204,14 +205,19 @@ public class TileManager {
         }
     }
 
-    public void addAdvancedGeneratedTestMap() {
-        AdvancedMapData map = new AdvancedMapData("GeneratedTerrainTest", 20, 15);
+    public void addWaterManifestShowcaseMap() {
+        AdvancedMapData map = new AdvancedMapData("WaterManifestShowcase", 36, 36);
         map.legacy = false;
-        map.tilesetName = "basic_terrain";
+        map.tilesetName = "water";
 
-        MapLayer ground = new MapLayer("ground", 15, 20);
-        MapLayer decor = new MapLayer("decor", 15, 20);
-        MapLayer collision = new MapLayer("collision", 15, 20);
+        MapLayer ground = new MapLayer("ground", 36, 36);
+        ground.atlasName = "basic_terrain";
+
+        MapLayer decor = new MapLayer("decor", 36, 36);
+        decor.atlasName = "water";
+
+        MapLayer collision = new MapLayer("collision", 36, 36);
+        collision.atlasName = "";
 
         clearLayer(ground);
         clearLayer(decor);
@@ -222,30 +228,80 @@ public class TileManager {
             }
         }
 
-        AtlasManifest manifest = getManifest("basic_terrain");
-        if (manifest == null) {
-            System.out.println("No manifest found for basic_terrain");
+        // Βάση γης
+        fillRectangleWithNamedTile(ground, "basic_terrain", "DIRT_FILL", 0, 0, map.cols, map.rows);
+
+        // -------------------------------------------------
+        // 1) GRASS/WATER family
+        // -------------------------------------------------
+        placeTerrain3x3(decor, "water", "GWATER", 2, 2);
+        placeTerrain3x3(decor, "water", "WGRASS", 6, 2);
+
+        // -------------------------------------------------
+        // 2) SAND/WATER family
+        // -------------------------------------------------
+        placeTerrain3x3(decor, "water", "SWATER", 2, 6);
+        placeTerrain3x3(decor, "water", "WSAND", 6, 6);
+
+        // -------------------------------------------------
+        // 3) SNOW/WATER family
+        // -------------------------------------------------
+        placeTerrain3x3(decor, "water", "SNWATER", 2, 10);
+        placeTerrain3x3(decor, "water", "WSNOW", 6, 10);
+
+        AtlasManifest waterManifest = getManifest("water");
+        if (waterManifest == null) {
+            System.out.println("No water manifest loaded.");
             return;
         }
 
-        // Βάλε βασικό grass background αν υπάρχει
-        //if (manifest.hasTile("GRASS_FILL")) {
-            //fillLayer(ground, manifest.getRequiredTileId("GRASS_FILL"));
-        //}
+        // -------------------------------------------------
+        // 4) Waves row
+        // -------------------------------------------------
+        if (waterManifest.hasTile("WAVES_1")) setLayerTile(decor, 14, 2, waterManifest.getRequiredTileId("WAVES_1"));
+        if (waterManifest.hasTile("WAVES_2")) setLayerTile(decor, 15, 2, waterManifest.getRequiredTileId("WAVES_2"));
+        if (waterManifest.hasTile("WAVES_3")) setLayerTile(decor, 16, 2, waterManifest.getRequiredTileId("WAVES_3"));
+        if (waterManifest.hasTile("WAVES_4")) setLayerTile(decor, 17, 2, waterManifest.getRequiredTileId("WAVES_4"));
+        if (waterManifest.hasTile("WAVES_5")) setLayerTile(decor, 18, 2, waterManifest.getRequiredTileId("WAVES_5"));
 
-        paintTerrainRectangle(ground, decor, "basic_terrain", "DIRT", "GRASS", 1, 1, 6, 5);
-        paintTerrainRectangle(ground, decor, "basic_terrain", "GRASS", "DIRT", 8, 1, 6, 5);
-        paintTerrainRectangle(ground, decor, "basic_terrain", "DIRT", "SAND", 1, 8, 6, 5);
-        paintTerrainRectangle(ground, decor, "basic_terrain", "DIRT", "SNOW", 8, 8, 6, 5);
+        // Single water tile
+        if (waterManifest.hasTile("WATER_TILE")) setLayerTile(decor, 20, 2, waterManifest.getRequiredTileId("WATER_TILE"));
 
-        // 2x2 variants
-        placeVariant2x2(decor, "basic_terrain", "GRASS_PATH", 2, 6);
-        placeVariant2x2(decor, "basic_terrain", "FLOWER_PATH", 5, 6);
-        placeVariant2x2(decor, "basic_terrain", "DIRT_PATH", 8, 6);
-        placeVariant2x2(decor, "basic_terrain", "SNOW_PATH", 11, 6);
-        placeVariant2x2(decor, "basic_terrain", "SAND_PATH", 14, 6);
+        // Rocks
+        if (waterManifest.hasTile("WATER_ROCKS_1")) setLayerTile(decor, 22, 2, waterManifest.getRequiredTileId("WATER_ROCKS_1"));
+        if (waterManifest.hasTile("WATER_ROCKS_2")) setLayerTile(decor, 23, 2, waterManifest.getRequiredTileId("WATER_ROCKS_2"));
 
-        // Περιμετρικό collision wall
+        // -------------------------------------------------
+        // 5) Water rock path 2x2
+        // -------------------------------------------------
+        placeVariant2x2(decor, "water", "WATER_ROCK_PATH", 14, 6);
+
+        // 6) Water snow path 2x2
+        placeVariant2x2(decor, "water", "WATER_SNOW_PATH", 18, 6);
+
+        // -------------------------------------------------
+        // 7) Big waterfall 4x5
+        // -------------------------------------------------
+        placeExplicitBlock4x5(decor, "water",
+                new String[][]{
+                        {"WATERFALL_BIG_TLL", "WATERFALL_BIG_TL", "WATERFALL_BIG_TR", "WATERFALL_BIG_TRR"},
+                        {"WATERFALL_BIG_MTLL", "WATERFALL_BIG_MTL", "WATERFALL_BIG_MTR", "WATERFALL_BIG_MTRR"},
+                        {"WATERFALL_BIG_MLL", "WATERFALL_BIG_ML", "WATERFALL_BIG_MR", "WATERFALL_BIG_MRR"},
+                        {"WATERFALL_BIG_MBLL", "WATERFALL_BIG_MBL", "WATERFALL_BIG_MBR", "WATERFALL_BIG_MBRR"},
+                        {"WATERFALL_BIG_BLL", "WATERFALL_BIG_BL", "WATERFALL_BIG_BR", "WATERFALL_BIG_BRR"}
+                }, 14, 12);
+
+        // -------------------------------------------------
+        // 8) Small waterfall 4x3
+        // -------------------------------------------------
+        placeExplicitBlock4x3(decor, "water",
+                new String[][]{
+                        {"WATERFALL_SMALL_TLL", "WATERFALL_SMALL_TL", "WATERFALL_SMALL_TR", "WATERFALL_SMALL_TRR"},
+                        {"WATERFALL_SMALL_MLL", "WATERFALL_SMALL_ML", "WATERFALL_SMALL_MR", "WATERFALL_SMALL_MRR"},
+                        {"WATERFALL_SMALL_BLL", "WATERFALL_SMALL_BL", "WATERFALL_SMALL_BR", "WATERFALL_SMALL_BRR"}
+                }, 20, 12);
+
+        // Border collision μόνο
         for (int col = 0; col < map.cols; col++) {
             collision.tiles[0][col] = 1;
             collision.tiles[map.rows - 1][col] = 1;
@@ -261,7 +317,7 @@ public class TileManager {
 
         addAdvancedMap(map);
 
-        System.out.println("Generated advanced terrain test map added.");
+        System.out.println("Water manifest showcase map added.");
     }
 
     // =========================================================
@@ -468,6 +524,20 @@ public class TileManager {
         placeTerrainFrame3x3(decorLayer, atlasName, topPrefix, startCol, startRow);
     }
 
+    public void placePaintedWater3x3(MapLayer layer, String prefix, int startCol, int startRow) {
+        placeTerrain3x3(layer, "water", prefix, startCol, startRow);
+    }
+
+    public void fillRectangleWithNamedTile(MapLayer layer, String atlasName, String tileName,
+                                        int startCol, int startRow, int width, int height) {
+        AtlasManifest manifest = getManifest(atlasName);
+        if (manifest == null) return;
+        if (!manifest.hasTile(tileName)) return;
+
+        int tileId = manifest.getRequiredTileId(tileName);
+        fillRectangleWithTile(layer, startCol, startRow, width, height, tileId);
+    }
+
     public void fillRectangleWithTile(MapLayer layer, int startCol, int startRow, int width, int height, int tileId) {
         if (layer == null) return;
 
@@ -550,6 +620,131 @@ public class TileManager {
         placeTerrainRectangleFrame(decorLayer, atlasName, topPrefix, startCol, startRow, width, height);
     }
 
+    public void placeExplicitBlock4x5(MapLayer layer, String atlasName, String[][] names, int startCol, int startRow) {
+        AtlasManifest manifest = getManifest(atlasName);
+        if (layer == null || manifest == null) return;
+
+        for (int row = 0; row < 5; row++) {
+            for (int col = 0; col < 4; col++) {
+                String tileName = names[row][col];
+                if (manifest.hasTile(tileName)) {
+                    setLayerTile(layer, startCol + col, startRow + row, manifest.getRequiredTileId(tileName));
+                }
+            }
+        }
+    }
+
+    public void placeExplicitBlock4x3(MapLayer layer, String atlasName, String[][] names, int startCol, int startRow) {
+        AtlasManifest manifest = getManifest(atlasName);
+        if (layer == null || manifest == null) return;
+
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 4; col++) {
+                String tileName = names[row][col];
+                if (manifest.hasTile(tileName)) {
+                    setLayerTile(layer, startCol + col, startRow + row, manifest.getRequiredTileId(tileName));
+                }
+            }
+        }
+    }
+
+    public void paintVariantRectangle(MapLayer layer, String atlasName, String prefix,
+                                    int startCol, int startRow, int width, int height) {
+        AtlasManifest manifest = getManifest(atlasName);
+        if (manifest == null) return;
+        if (!manifest.hasVariant2x2(prefix)) return;
+        if (width < 2 || height < 2) return;
+
+        int t1 = manifest.getRequiredTileId(prefix + "_1");
+        int t2 = manifest.getRequiredTileId(prefix + "_2");
+        int t3 = manifest.getRequiredTileId(prefix + "_3");
+        int t4 = manifest.getRequiredTileId(prefix + "_4");
+
+        for (int row = 0; row < height; row++) {
+            for (int col = 0; col < width; col++) {
+                int targetCol = startCol + col;
+                int targetRow = startRow + row;
+
+                int modCol = col % 2;
+                int modRow = row % 2;
+
+                int tileId;
+                if (modRow == 0 && modCol == 0) {
+                    tileId = t1;
+                } else if (modRow == 0 && modCol == 1) {
+                    tileId = t2;
+                } else if (modRow == 1 && modCol == 0) {
+                    tileId = t3;
+                } else {
+                    tileId = t4;
+                }
+
+                setLayerTile(layer, targetCol, targetRow, tileId);
+            }
+        }
+    }
+
+    public void paintHorizontalPath(MapLayer layer, String atlasName, String prefix,
+                                    int startCol, int row, int length) {
+        AtlasManifest manifest = getManifest(atlasName);
+        if (manifest == null) return;
+        if (!manifest.hasVariant2x2(prefix)) return;
+        if (length < 2) return;
+
+        int t1 = manifest.getRequiredTileId(prefix + "_1");
+        int t2 = manifest.getRequiredTileId(prefix + "_2");
+        int t3 = manifest.getRequiredTileId(prefix + "_3");
+        int t4 = manifest.getRequiredTileId(prefix + "_4");
+
+        for (int col = 0; col < length; col++) {
+            int targetCol = startCol + col;
+
+            if (col % 2 == 0) {
+                setLayerTile(layer, targetCol, row, t1);
+                setLayerTile(layer, targetCol, row + 1, t3);
+            } else {
+                setLayerTile(layer, targetCol, row, t2);
+                setLayerTile(layer, targetCol, row + 1, t4);
+            }
+        }
+    }
+
+    public void paintVerticalPath(MapLayer layer, String atlasName, String prefix,
+                                int col, int startRow, int length) {
+        AtlasManifest manifest = getManifest(atlasName);
+        if (manifest == null) return;
+        if (!manifest.hasVariant2x2(prefix)) return;
+        if (length < 2) return;
+
+        int t1 = manifest.getRequiredTileId(prefix + "_1");
+        int t2 = manifest.getRequiredTileId(prefix + "_2");
+        int t3 = manifest.getRequiredTileId(prefix + "_3");
+        int t4 = manifest.getRequiredTileId(prefix + "_4");
+
+        for (int row = 0; row < length; row++) {
+            int targetRow = startRow + row;
+
+            if (row % 2 == 0) {
+                setLayerTile(layer, col, targetRow, t1);
+                setLayerTile(layer, col + 1, targetRow, t2);
+            } else {
+                setLayerTile(layer, col, targetRow, t3);
+                setLayerTile(layer, col + 1, targetRow, t4);
+            }
+        }
+    }
+
+    public void paintWaterBlockRectangle(MapLayer layer, String prefix,
+                                        int startCol, int startRow, int blockCols, int blockRows) {
+        for (int by = 0; by < blockRows; by++) {
+            for (int bx = 0; bx < blockCols; bx++) {
+                int col = startCol + (bx * 3);
+                int row = startRow + (by * 3);
+                placePaintedWater3x3(layer, prefix, col, row);
+            }
+        }
+    }
+
     // =========================================================
     // DRAW
     // =========================================================
@@ -595,14 +790,15 @@ public class TileManager {
     }
 
     private void drawAdvancedMap(Graphics2D g2, AdvancedMapData currentMap) {
-        TilesetAtlas atlas = getAtlas(currentMap.tilesetName);
-
-        drawAtlasLayer(g2, currentMap.getLayer("ground"), atlas);
-        drawAtlasLayer(g2, currentMap.getLayer("decor"), atlas);
+        drawAtlasLayer(g2, currentMap.getLayer("ground"));
+        drawAtlasLayer(g2, currentMap.getLayer("decor"));
     }
 
-    private void drawAtlasLayer(Graphics2D g2, MapLayer layer, TilesetAtlas atlas) {
-        if (layer == null || !layer.visible || atlas == null) return;
+    private void drawAtlasLayer(Graphics2D g2, MapLayer layer) {
+        if (layer == null || !layer.visible) return;
+
+        TilesetAtlas atlas = getAtlas(layer.atlasName);
+        if (atlas == null) return;
 
         for (int row = 0; row < layer.rows; row++) {
             for (int col = 0; col < layer.cols; col++) {
