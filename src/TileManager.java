@@ -148,7 +148,7 @@ public class TileManager {
         addAdvancedMapFromFile("res/maps/basic_terrain_index_test.frmap");
 
         addWaterManifestShowcaseMap();
-        addGeneratedBiomeMap();
+        addGeneratedRegionMap();
     }
 
     public void addLegacyMap(String name, String filePath) {
@@ -321,11 +321,16 @@ public class TileManager {
         System.out.println("Water manifest showcase map added.");
     }
 
-    public void addGeneratedBiomeMap() {
-        BiomeGenerator generator = new BiomeGenerator();
-        BiomeMap biomeMap = generator.generatePlainsTestMap(36, 24);
+    public void addGeneratedRegionMap() {
+        int cols = 36;
+        int rows = 24;
 
-        AdvancedMapData map = new AdvancedMapData("GeneratedBiomeMap", biomeMap.cols, biomeMap.rows);
+        RegionTemplate template = RegionTemplate.createPlainsTemplate(cols, rows);
+
+        BiomeGenerator generator = new BiomeGenerator();
+        BiomeMap biomeMap = generator.generateFromTemplate(cols, rows, template);
+
+        AdvancedMapData map = new AdvancedMapData("GeneratedRegionMap", biomeMap.cols, biomeMap.rows);
         map.legacy = false;
         map.tilesetName = "basic_terrain";
 
@@ -351,10 +356,8 @@ public class TileManager {
             }
         }
 
-        // Βάση όλου του χάρτη = dirt κάτω
         fillRectangleWithNamedTile(ground, "basic_terrain", "DIRT_FILL", 0, 0, biomeMap.cols, biomeMap.rows);
 
-        // Πέρνα όλο το biome grid και χτίσε blocks
         for (int row = 1; row < biomeMap.rows - 2; row += 3) {
             for (int col = 1; col < biomeMap.cols - 2; col += 3) {
                 BiomeType biome = biomeMap.get(col, row);
@@ -382,7 +385,9 @@ public class TileManager {
 
                         for (int r = row; r < row + 3; r++) {
                             for (int c = col; c < col + 3; c++) {
-                                collision.tiles[r][c] = 1;
+                                if (r >= 0 && r < collision.rows && c >= 0 && c < collision.cols) {
+                                    collision.tiles[r][c] = 1;
+                                }
                             }
                         }
                         break;
@@ -392,13 +397,31 @@ public class TileManager {
 
                         for (int r = row; r < row + 3; r++) {
                             for (int c = col; c < col + 3; c++) {
-                                collision.tiles[r][c] = 1;
+                                if (r >= 0 && r < collision.rows && c >= 0 && c < collision.cols) {
+                                    collision.tiles[r][c] = 1;
+                                }
                             }
                         }
                         break;
 
                     default:
                         break;
+                }
+            }
+        }
+
+        // Water decor extra polish
+        AtlasManifest waterManifest = getManifest("water");
+        if (waterManifest != null) {
+            if (waterManifest.hasTile("WAVES_1")) {
+                for (int row = 1; row < biomeMap.rows - 1; row++) {
+                    for (int col = 1; col < biomeMap.cols - 1; col++) {
+                        if (biomeMap.get(col, row) == BiomeType.WATER) {
+                            if ((col + row) % 5 == 0) {
+                                setLayerTile(waterDecor, col, row, waterManifest.getRequiredTileId("WAVES_1"));
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -420,7 +443,7 @@ public class TileManager {
 
         addAdvancedMap(map);
 
-        System.out.println("Generated biome map added.");
+        System.out.println("Generated region map added.");
     }
 
     // =========================================================
