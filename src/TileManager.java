@@ -148,6 +148,7 @@ public class TileManager {
         addAdvancedMapFromFile("res/maps/basic_terrain_index_test.frmap");
 
         addWaterManifestShowcaseMap();
+        addGeneratedBiomeMap();
     }
 
     public void addLegacyMap(String name, String filePath) {
@@ -320,8 +321,110 @@ public class TileManager {
         System.out.println("Water manifest showcase map added.");
     }
 
+    public void addGeneratedBiomeMap() {
+        BiomeGenerator generator = new BiomeGenerator();
+        BiomeMap biomeMap = generator.generatePlainsTestMap(36, 24);
+
+        AdvancedMapData map = new AdvancedMapData("GeneratedBiomeMap", biomeMap.cols, biomeMap.rows);
+        map.legacy = false;
+        map.tilesetName = "basic_terrain";
+
+        MapLayer ground = new MapLayer("ground", biomeMap.rows, biomeMap.cols);
+        ground.atlasName = "basic_terrain";
+
+        MapLayer decor = new MapLayer("decor", biomeMap.rows, biomeMap.cols);
+        decor.atlasName = "basic_terrain";
+
+        MapLayer waterDecor = new MapLayer("water_decor", biomeMap.rows, biomeMap.cols);
+        waterDecor.atlasName = "water";
+
+        MapLayer collision = new MapLayer("collision", biomeMap.rows, biomeMap.cols);
+        collision.atlasName = "";
+
+        clearLayer(ground);
+        clearLayer(decor);
+        clearLayer(waterDecor);
+
+        for (int row = 0; row < collision.rows; row++) {
+            for (int col = 0; col < collision.cols; col++) {
+                collision.tiles[row][col] = 0;
+            }
+        }
+
+        // Βάση όλου του χάρτη = dirt κάτω
+        fillRectangleWithNamedTile(ground, "basic_terrain", "DIRT_FILL", 0, 0, biomeMap.cols, biomeMap.rows);
+
+        // Πέρνα όλο το biome grid και χτίσε blocks
+        for (int row = 1; row < biomeMap.rows - 2; row += 3) {
+            for (int col = 1; col < biomeMap.cols - 2; col += 3) {
+                BiomeType biome = biomeMap.get(col, row);
+
+                switch (biome) {
+                    case GRASS:
+                        placeTerrainStack3x3(ground, decor, "basic_terrain", "DIRT", "GRASS", col, row);
+                        break;
+
+                    case DIRT:
+                        placeTerrainStack3x3(ground, decor, "basic_terrain", "GRASS", "DIRT", col, row);
+                        break;
+
+                    case SAND:
+                        placeTerrainStack3x3(ground, decor, "basic_terrain", "DIRT", "SAND", col, row);
+                        break;
+
+                    case SNOW:
+                        placeTerrainStack3x3(ground, decor, "basic_terrain", "DIRT", "SNOW", col, row);
+                        break;
+
+                    case WATER:
+                        placeTerrainStack3x3(ground, decor, "basic_terrain", "DIRT", "GRASS", col, row);
+                        placePaintedWater3x3(waterDecor, "GWATER", col, row);
+
+                        for (int r = row; r < row + 3; r++) {
+                            for (int c = col; c < col + 3; c++) {
+                                collision.tiles[r][c] = 1;
+                            }
+                        }
+                        break;
+
+                    case MOUNTAIN:
+                        fillRectangleWithNamedTile(ground, "basic_terrain", "DIRT_FILL", col, row, 3, 3);
+
+                        for (int r = row; r < row + 3; r++) {
+                            for (int c = col; c < col + 3; c++) {
+                                collision.tiles[r][c] = 1;
+                            }
+                        }
+                        break;
+
+                    default:
+                        break;
+                }
+            }
+        }
+
+        // Border collision
+        for (int col = 0; col < biomeMap.cols; col++) {
+            collision.tiles[0][col] = 1;
+            collision.tiles[biomeMap.rows - 1][col] = 1;
+        }
+        for (int row = 0; row < biomeMap.rows; row++) {
+            collision.tiles[row][0] = 1;
+            collision.tiles[row][biomeMap.cols - 1] = 1;
+        }
+
+        map.layers.add(ground);
+        map.layers.add(decor);
+        map.layers.add(waterDecor);
+        map.layers.add(collision);
+
+        addAdvancedMap(map);
+
+        System.out.println("Generated biome map added.");
+    }
+
     // =========================================================
-    // ADVANCED MAP PLACEHOLDER (για αργότερα)
+    // ADVANCED MAP PLACEHOLDER
     // =========================================================
     public void addAdvancedMap(AdvancedMapData map) {
         if (map != null) {
@@ -792,6 +895,7 @@ public class TileManager {
     private void drawAdvancedMap(Graphics2D g2, AdvancedMapData currentMap) {
         drawAtlasLayer(g2, currentMap.getLayer("ground"));
         drawAtlasLayer(g2, currentMap.getLayer("decor"));
+        drawAtlasLayer(g2, currentMap.getLayer("water_decor"));
     }
 
     private void drawAtlasLayer(Graphics2D g2, MapLayer layer) {

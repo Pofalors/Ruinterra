@@ -690,7 +690,7 @@ public class GamePanel extends JPanel implements Runnable {
         portals.add(new Portal(3, 3 * tileSize, 22 * tileSize, 0, 41 * tileSize, 8 * tileSize)); // Town -> Overworld
 
         portals.add(new Portal(3, 40 * tileSize, 30 * tileSize, 6, 8 * tileSize, 8 * tileSize)); // Town -> region
-        portals.add(new Portal(3, 40 * tileSize, 28 * tileSize, 8, 2 * tileSize, 12 * tileSize)); // Town -> basic
+        portals.add(new Portal(3, 40 * tileSize, 28 * tileSize, 9, 4 * tileSize, 4 * tileSize)); // Town -> testmaps
 
         //ΞΕΚΙΝΑΩ ΜΕ TITLE
         gameState = titleState;
