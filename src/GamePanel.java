@@ -31,7 +31,7 @@ import java.awt.RenderingHints;
 
 public class GamePanel extends JPanel implements Runnable {
     // Ρυθμίσεις οθόνης
-    final int originalTileSize = 16; // 16x16 pixels το κάθε πλακάκι (στο πρωτότυπο)
+    public final int originalTileSize = 16; // 16x16 pixels το κάθε πλακάκι (στο πρωτότυπο)
     final int scale = 3; // Για να τα βλέπουμε, τα μεγαλώνουμε 3 φορές
     // Για fullscreen
     private JFrame window;
@@ -688,35 +688,9 @@ public class GamePanel extends JPanel implements Runnable {
         portals.add(new Portal(2, 12 * tileSize, 13 * tileSize, 0, 10 * tileSize, 40 * tileSize)); // Merchant House -> Overworld
         portals.add(new Portal(0, 41 * tileSize, 7 * tileSize, 3, 4 * tileSize, 22 * tileSize)); // Overworld -> Town
         portals.add(new Portal(3, 3 * tileSize, 22 * tileSize, 0, 41 * tileSize, 8 * tileSize)); // Town -> Overworld
-        // ===== REGION 1 PORTALS =====
-        portals.add(new Portal(3, 40 * tileSize, 30 * tileSize, 6, 32 * tileSize, 30 * tileSize)); // Town (map 3) -> region1
-        // Route -> Town
-        portals.add(new Portal(6, 31 * tileSize, 5 * tileSize, 7, 18 * tileSize, 27 * tileSize));
 
-        // Town -> Route
-        portals.add(new Portal(7, 18 * tileSize, 29 * tileSize, 6, 31 * tileSize, 7 * tileSize));
-
-        // Town -> Inn
-        portals.add(new Portal(7, 7 * tileSize, 12 * tileSize, 8, 8 * tileSize, 11 * tileSize));
-
-        // Inn -> Town
-        portals.add(new Portal(8, 8 * tileSize, 13 * tileSize, 7, 7 * tileSize, 14 * tileSize));
-
-        // Town -> Shop
-        portals.add(new Portal(7, 27 * tileSize, 12 * tileSize, 9, 8 * tileSize, 11 * tileSize));
-
-        // Shop -> Town
-        portals.add(new Portal(9, 8 * tileSize, 13 * tileSize, 7, 27 * tileSize, 14 * tileSize));
-
-        // Route -> Cave
-        portals.add(new Portal(6, 53 * tileSize, 12 * tileSize, 10, 6 * tileSize, 24 * tileSize));
-        portals.add(new Portal(6, 54 * tileSize, 12 * tileSize, 10, 6 * tileSize, 24 * tileSize));
-
-        // Cave -> Route
-        portals.add(new Portal(10, 4 * tileSize, 27 * tileSize, 6, 54 * tileSize, 10 * tileSize));
-        portals.add(new Portal(10, 5 * tileSize, 27 * tileSize, 6, 54 * tileSize, 10 * tileSize));
-        portals.add(new Portal(10, 6 * tileSize, 27 * tileSize, 6, 54 * tileSize, 10 * tileSize));
-        portals.add(new Portal(10, 7 * tileSize, 27 * tileSize, 6, 54 * tileSize, 10 * tileSize));
+        portals.add(new Portal(3, 40 * tileSize, 30 * tileSize, 6, 8 * tileSize, 8 * tileSize)); // Town -> region
+        portals.add(new Portal(3, 40 * tileSize, 28 * tileSize, 8, 3 * tileSize, 3 * tileSize)); // Town -> basic
 
         //ΞΕΚΙΝΑΩ ΜΕ TITLE
         gameState = titleState;

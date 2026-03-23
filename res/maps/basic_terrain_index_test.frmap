@@ -1,0 +1,7 @@
+name=BasicTerrainIndexTest
+cols=12
+rows=44
+tileset=basic_terrain
+ground=basic_terrain_index_test_ground.txt
+decor=basic_terrain_index_test_decor.txt
+collision=basic_terrain_index_test_collision.txt
