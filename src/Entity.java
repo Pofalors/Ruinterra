@@ -5,6 +5,8 @@ public class Entity {
     public GamePanel gp;
 
     public String name = "Entity";
+    public String dialogueId = "";
+    public String npcType = "normal";
     
     // Θέση και κίνηση
     public int worldX, worldY;

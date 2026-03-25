@@ -151,22 +151,13 @@ public class TileManager {
         // =========================
         // LEGACY MAPS (τα παλιά σου)
         // =========================
-        addLegacyMap("Overworld", "res/maps/worldmap.txt");
-        addLegacyMap("Dungeon01", "res/maps/dungeon01.txt");
-        addLegacyMap("MerchantHouse", "res/maps/interior01.txt");
-        addLegacyMap("Town", "res/maps/town.txt");
-        addLegacyMap("BigHouse", "res/maps/interior01.txt");
-        addLegacyMap("SmallHouse", "res/maps/interior01.txt");
+        // addLegacyMap("Overworld", "res/maps/worldmap.txt");
+        // addLegacyMap("Dungeon01", "res/maps/dungeon01.txt");
+        // addLegacyMap("MerchantHouse", "res/maps/interior01.txt");
+        // addLegacyMap("Town", "res/maps/town.txt");
+        // addLegacyMap("BigHouse", "res/maps/interior01.txt");
+        // addLegacyMap("SmallHouse", "res/maps/interior01.txt");
 
-        // ======================================================
-        // ΑΡΓΟΤΕΡΑ ΕΔΩ θα μπουν advanced maps / atlas maps
-        // π.χ. addAdvancedMap(...)
-        // ======================================================
-        //addAdvancedMapFromFile("res/maps/test_region_01.frmap");
-        //addAdvancedMapFromFile("res/maps/basic_terrain_index_test.frmap");
-
-        //addWaterManifestShowcaseMap();
-        //addGeneratedRegionMap();
 
         addTiledMapFromTMX("MyFirstTiledMap", "res/maps/map1.tmx");
     }
@@ -589,6 +580,10 @@ public class TileManager {
             if (collision != null) map.layers.add(collision);
             map.objects.addAll(loadTMXObjects(doc, "spawns"));
             map.objects.addAll(loadTMXObjects(doc, "portals"));
+            map.objects.addAll(loadTMXObjects(doc, "npcs"));
+            map.objects.addAll(loadTMXObjects(doc, "chests"));
+            map.objects.addAll(loadTMXObjects(doc, "encounters"));
+            
 
             addAdvancedMap(map);
 

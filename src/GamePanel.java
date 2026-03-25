@@ -147,8 +147,6 @@ public class GamePanel extends JPanel implements Runnable {
     public ArrayList<ArrayList<Decoration>> decorations = new ArrayList<>();
     public ArrayList<House> houses = new ArrayList<>();
 
-    // Portals
-    public ArrayList<Portal> portals = new ArrayList<>();
 
     // Game states
     public int gameState = 0;
@@ -325,6 +323,7 @@ public class GamePanel extends JPanel implements Runnable {
 
         tileM = new TileManager(this); // Δώσε του access στο GamePanel  
         
+        // npc
         for (int i = 0; i < maxMaps; i++) {
             npcs.add(new ArrayList<>());
             itemsOnGround.add(new ArrayList<>());
@@ -334,7 +333,7 @@ public class GamePanel extends JPanel implements Runnable {
         player = new Entity(this);
         // player.worldX = 23 * tileSize;  // ή όποιο spawn point θες
         // player.worldY = 21 * tileSize;
-        currentMap = tileM.maps.size() - 1;
+        currentMap = 0;
         tileM.applyMapSizeToGamePanel(currentMap);
 
         TiledObjectData spawn = tileM.findMapObjectByName(currentMap, "player_spawn");
@@ -351,6 +350,11 @@ public class GamePanel extends JPanel implements Runnable {
         player.speed = 4;
         player.direction = "down";
 
+        // NPCS NEW
+        spawnTiledNPCs(currentMap);
+        // ITEMS ON GROUND NEW
+        spawnTiledChestLoot(currentMap);
+
         // ========== Δημιουργία των άλλων μελών της ομάδας ==========
         PartyMember assassin = new PartyMember(this, "assassin", "Assassin");
         assassin.worldX = player.worldX - tileSize; // Δίπλα στον κεντρικό ήρωα
@@ -363,26 +367,7 @@ public class GamePanel extends JPanel implements Runnable {
         // Πρόσθεσέ τα στη λίστα
         partyMembers.add(assassin);
         partyMembers.add(mage);
-
-        // ========== Δημιουργία NPC OldMan και προσθήκη στον χάρτη 0 ==========
-        NPC_OldMan oldMan = new NPC_OldMan(this);
-        oldMan.worldX = 38 * tileSize;
-        oldMan.worldY = 10 * tileSize;
-        npcs.get(0).add(oldMan);
-
-        // ========== ΝΕΟ: Δημιουργία NPC Guard και προσθήκη στον χάρτη 0 ==========
-        NPC_Guard guard = new NPC_Guard(this);
-        guard.worldX = 21 * tileSize; // Συντεταγμένες που θες
-        guard.worldY = 19 * tileSize;
-        npcs.get(0).add(guard); // Στον ίδιο χάρτη με τον oldMan
-
-        // ========== Δημιουργία NPC Merchant και προσθήκη στον χάρτη 2 ==========
-
-        NPC_Merchant merchant = new NPC_Merchant(this);
-        merchant.worldX = 12 * tileSize; // Συντεταγμένες που θες
-        merchant.worldY = 7 * tileSize;
-        npcs.get(2).add(merchant);
-
+        
         // ========== Δημιουργία λίστας εχθρών ==========
         for (int i = 0; i < maxMaps; i++) {
             enemies.add(new ArrayList<>());
@@ -477,15 +462,6 @@ public class GamePanel extends JPanel implements Runnable {
             inventory.addItem(lantern); // Αυτόματα θα πάει στα key items
             
             System.out.println("Lantern created successfully!");
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        // Για δοκιμή, μπορείς να το βάλεις και στο έδαφος:
-        try {
-            BufferedImage lanternImage = lantern.image;
-            itemsOnGround.get(0).add(new ItemOnGround("Lantern", lanternImage, 
-                                                15 * tileSize, 10 * tileSize, lantern));
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -592,103 +568,35 @@ public class GamePanel extends JPanel implements Runnable {
         }
 
         // Προσθήκη δειγματικών decorations (στον overworld - χάρτης 0)
-        loadHouses();
-        try {
-            // Statue - θέλουμε 2 tiles ύψος (96 pixels)
-            BufferedImage originalStatue = ImageIO.read(new File("res/decorations/statue.png"));
-            BufferedImage scaledStatue = scaleDecoration(originalStatue, tileSize * 2); // 96px
+        // loadHouses();
+        // try {
+        //     // Statue - θέλουμε 2 tiles ύψος (96 pixels)
+        //     BufferedImage originalStatue = ImageIO.read(new File("res/decorations/statue.png"));
+        //     BufferedImage scaledStatue = scaleDecoration(originalStatue, tileSize * 2); // 96px
             
-            decorations.get(3).add(new Decoration("Statue", scaledStatue, 
-                                                9 * tileSize, 19 * tileSize, 
-                                                scaledStatue.getWidth(), scaledStatue.getHeight(), true));
+        //     decorations.get(3).add(new Decoration("Statue", scaledStatue, 
+        //                                         9 * tileSize, 19 * tileSize, 
+        //                                         scaledStatue.getWidth(), scaledStatue.getHeight(), true));
             
-            // Stand - 1.5 tiles ύψος (72 pixels)
-            BufferedImage originalStand = ImageIO.read(new File("res/decorations/stand.png"));
-            BufferedImage scaledStand = scaleDecoration(originalStand, (int)(tileSize * 1.5));
+        //     // Stand - 1.5 tiles ύψος (72 pixels)
+        //     BufferedImage originalStand = ImageIO.read(new File("res/decorations/stand.png"));
+        //     BufferedImage scaledStand = scaleDecoration(originalStand, (int)(tileSize * 1.5));
             
-            decorations.get(3).add(new Decoration("Stand", scaledStand, 
-                                                18 * tileSize, 19 * tileSize,
-                                                scaledStand.getWidth(), scaledStand.getHeight(), true));
+        //     decorations.get(3).add(new Decoration("Stand", scaledStand, 
+        //                                         18 * tileSize, 19 * tileSize,
+        //                                         scaledStand.getWidth(), scaledStand.getHeight(), true));
 
-            // house - 1.5 tiles ύψος (72 pixels)
-            //BufferedImage originalHouse = ImageIO.read(new File("res/decorations/house_1.png"));
-            //BufferedImage scaledHouse = scaleDecoration(originalHouse, (int)(tileSize * 6));
+        //     // house - 1.5 tiles ύψος (72 pixels)
+        //     //BufferedImage originalHouse = ImageIO.read(new File("res/decorations/house_1.png"));
+        //     //BufferedImage scaledHouse = scaleDecoration(originalHouse, (int)(tileSize * 6));
             
-            //decorations.get(3).add(new Decoration("House", scaledHouse, 
-                                                //10 * tileSize, 9 * tileSize,
-                                                //scaledHouse.getWidth(), scaledHouse.getHeight(), true));
+        //     //decorations.get(3).add(new Decoration("House", scaledHouse, 
+        //                                         //10 * tileSize, 9 * tileSize,
+        //                                         //scaledHouse.getWidth(), scaledHouse.getHeight(), true));
             
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        // ========== Items για Overworld (χάρτης 0) ==========
-        try {
-            Item healthPotion = new Item("Health Potion");
-            healthPotion.stackable = true;
-            healthPotion.healAmount = 20;
-            healthPotion.price = 50;
-            healthPotion.loadImage("res/items/health_potion.png");
-            
-            BufferedImage potionImage = healthPotion.image;
-            itemsOnGround.get(0).add(new ItemOnGround("Health Potion", potionImage, 
-                                                25 * tileSize, 21 * tileSize, healthPotion));
-            
-            Item ironSword = new Item("Iron Sword");
-            ironSword.attackBonus = 5;
-            ironSword.price = 200;
-            ironSword.loadImage("res/items/iron_sword.png");
-            
-            BufferedImage swordImage = ironSword.image;
-            itemsOnGround.get(0).add(new ItemOnGround("Iron Sword", swordImage, 
-                                                21 * tileSize, 21 * tileSize, ironSword));
-
-            System.out.println("Items στο έδαφος (Overworld) προστέθηκαν!");
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        // ========== ΝΕΟ: Items για Dungeon (χάρτης 1) ==========
-        try {
-            Item magicPotion = new Item("Magic Potion");
-            magicPotion.stackable = true;
-            magicPotion.healAmount = 30;
-            magicPotion.loadImage("res/items/potion_blue.png");
-            
-            BufferedImage potionImage = magicPotion.image;
-            itemsOnGround.get(1).add(new ItemOnGround("Magic Potion", potionImage, 
-                                                18 * tileSize, 38 * tileSize, magicPotion));
-            
-            System.out.println("Items στο έδαφος (Dungeon) προστέθηκαν!");
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        // ========== ΝΕΟ: Goblin Ears για το quest ==========
-        try {
-            Item goblinEar = new Item("Goblin Ear");
-            goblinEar.stackable = true;
-            goblinEar.amount = 1; // Θα βάλουμε μερικά για δοκιμή            
-            goblinEar.loadImage("res/items/goblin_ear.png");
-            
-            BufferedImage earImage = goblinEar.image;
-            
-            // Βάλε 5 αυτιά σε διάφορα σημεία (ή ένα με amount=5)
-            itemsOnGround.get(0).add(new ItemOnGround("Goblin Ear", earImage, 
-                                                18 * tileSize, 40 * tileSize, goblinEar));
-            itemsOnGround.get(0).add(new ItemOnGround("Goblin Ear", earImage, 
-                                                19 * tileSize, 40 * tileSize, goblinEar));
-            itemsOnGround.get(0).add(new ItemOnGround("Goblin Ear", earImage, 
-                                                20 * tileSize, 40 * tileSize, goblinEar));
-            itemsOnGround.get(0).add(new ItemOnGround("Goblin Ear", earImage, 
-                                                21 * tileSize, 40 * tileSize, goblinEar));
-            itemsOnGround.get(0).add(new ItemOnGround("Goblin Ear", earImage, 
-                                                22 * tileSize, 40 * tileSize, goblinEar));
-            
-            System.out.println("Goblin Ears προστέθηκαν!");
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        // } catch (Exception e) {
+        //     e.printStackTrace();
+        // }
 
         Item mapItem = new Item("World Map");
         mapItem.isKeyItem = true;
@@ -872,140 +780,7 @@ public class GamePanel extends JPanel implements Runnable {
                         }
                     }
                     if (!enteredHouse) {
-                        for (Entity npc : currentMapNPCs) {
-                            int distanceX = Math.abs(player.worldX - npc.worldX);
-                            int distanceY = Math.abs(player.worldY - npc.worldY);
-                            
-                            if (distanceX <= tileSize && distanceY <= tileSize) {
-                                // ========== ΝΕΟ: Ανάλογα με τον τύπο NPC, διαφορετικός διάλογος ==========
-                                if (npc instanceof NPC_OldMan) {
-                                    // Διάλογος για τον γέρο
-                                    gameState = dialogueState;
-                                    startDialogue("Γεια σου, ταξιδιώτη!...\nΚαλώς ήρθες στο πρώτο μου RPG!");
-                                    
-                                    // Γύρνα τον NPC να κοιτάει τον παίκτη
-                                    if (player.worldX < npc.worldX) {
-                                        npc.direction = "left";
-                                        ((NPC_OldMan) npc).currentImage = ((NPC_OldMan) npc).left1;
-                                    }
-                                    else if (player.worldX > npc.worldX) {
-                                        npc.direction = "right";
-                                        ((NPC_OldMan) npc).currentImage = ((NPC_OldMan) npc).right1;
-                                    }
-                                    else if (player.worldY < npc.worldY) {
-                                        npc.direction = "up";
-                                        ((NPC_OldMan) npc).currentImage = ((NPC_OldMan) npc).up1;
-                                    }
-                                    else if (player.worldY > npc.worldY) {
-                                        npc.direction = "down";
-                                        ((NPC_OldMan) npc).currentImage = ((NPC_OldMan) npc).down1;
-                                    }
-                                }
-                                else if (npc instanceof NPC_Guard) {
-                                    boolean hasQuest = false;
-                                    boolean questCompleted = false;
-                                    
-                                    for (Quest q : player.quests) {
-                                        if (q.name.equals("Καθάρισμα τεράτων")) {
-                                            hasQuest = true;
-                                            questCompleted = q.completed;
-                                            break;
-                                        }
-                                    }
-                                    
-                                    if (!hasQuest) {
-                                        gameState = dialogueOptionsState;
-                                        startDialogue("Φύλακας: Χρειάζομαι βοήθεια! Τα goblin έχουν γίνει μάστιγα!\nΤι λες;");
-                                        dialogueOptions[0] = "(1) Αναλαμβάνω την αποστολή";
-                                        dialogueOptions[1] = "(2) Δεν έχω χρόνο τώρα";
-                                        dialogueOptions[2] = null;
-                                        selectedOption = 0;
-                                    } 
-                                    else if (!questCompleted) {
-                                        gameState = dialogueOptionsState;
-                                        startDialogue("Φύλακας: Πώς πάει η αποστολή; Έφερες τα 5 αυτιά;");
-                                        dialogueOptions[0] = "(1) Ναι, ορίστε!";
-                                        dialogueOptions[1] = "(2) Όχι ακόμα...";
-                                        dialogueOptions[2] = null;
-                                        selectedOption = 0;
-                                    } 
-                                    else {
-                                        gameState = dialogueState;
-                                        startDialogue("Φύλακας: Σε ευχαριστώ για τη βοήθεια! Οι χωρικοί είναι ασφαλείς.");
-                                    }
-                                    
-                                    // Γύρνα τον guard να κοιτάει τον παίκτη
-                                    if (player.worldX < npc.worldX) {
-                                        npc.direction = "left";
-                                        ((NPC_Guard) npc).currentImage = ((NPC_Guard) npc).left1;
-                                    }
-                                    else if (player.worldX > npc.worldX) {
-                                        npc.direction = "right";
-                                        ((NPC_Guard) npc).currentImage = ((NPC_Guard) npc).right1;
-                                    }
-                                    else if (player.worldY < npc.worldY) {
-                                        npc.direction = "up";
-                                        ((NPC_Guard) npc).currentImage = ((NPC_Guard) npc).up1;
-                                    }
-                                    else if (player.worldY > npc.worldY) {
-                                        npc.direction = "down";
-                                        ((NPC_Guard) npc).currentImage = ((NPC_Guard) npc).down1;
-                                    }
-                                    break;
-                                } else if (npc instanceof NPC_Merchant) {
-                                    gameState = dialogueState;
-                                    ((NPC_Merchant) npc).setDirectionTowardsPlayer();
-                                    ((NPC_Merchant) npc).speak();
-                                    talkingToMerchant = true;
-                                    break;
-                                }
-                            }
-                        }
-                        // Αν δεν βρήκε NPC, έλεγξε για τραπέζι (tile 035)
-                        if (!talkingToMerchant) {
-                            // Υπολόγισε σε ποιο tile είναι ο παίκτης
-                            int playerCol = player.worldX / tileSize;
-                            int playerRow = player.worldY / tileSize;
-                            
-                            // Έλεγξε μπροστά από τον παίκτη
-                            int checkCol = playerCol;
-                            int checkRow = playerRow;
-                            
-                            switch(direction) {
-                                case 0: // down
-                                    checkRow++;
-                                    break;
-                                case 1: // left
-                                    checkCol--;
-                                    break;
-                                case 2: // right
-                                    checkCol++;
-                                    break;
-                                case 3: // up
-                                    checkRow--;
-                                    break;
-                            }
-                            
-                            // Έλεγξε αν το tile μπροστά είναι τραπέζι (035)
-                            if (checkRow >= 0 && checkRow < maxWorldRow && 
-                                checkCol >= 0 && checkCol < maxWorldCol) {
-                                int tileNum = tileM.getTileNum(currentMap, checkRow, checkCol);
-                                String tileName = tileM.fileNames.get(tileNum);
-                                
-                                if (tileName.equals("035.png")) { // Το τραπέζι
-                                    // Βρες τον merchant στον χάρτη
-                                    for (Entity npc : currentMapNPCs) {
-                                        if (npc instanceof NPC_Merchant) {
-                                            gameState = dialogueState;
-                                            ((NPC_Merchant) npc).setDirectionTowardsPlayer();
-                                            ((NPC_Merchant) npc).speak();
-                                            talkingToMerchant = true;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        handleNPCInteraction(currentMapNPCs);
                     }
                     keyH.enterPressed = false;
                 } 
@@ -2131,50 +1906,31 @@ public class GamePanel extends JPanel implements Runnable {
                         moving = true;
 
                         // ========== ΕΛΕΓΧΟΣ ΠΕΡΙΟΧΗΣ ΜΕ ΒΑΣΗ ΤΟΝ ΧΑΡΤΗ ==========
-                        if (currentMap == 0) { // Overworld
-                            // Στον overworld, έλεγξε με βάση συντεταγμένες
-                            if (player.worldX > 25 * tileSize && player.worldX < 40 * tileSize &&
-                                player.worldY > 27 * tileSize && player.worldY < 43 * tileSize) {
-                                currentArea = "overworld";
-                            }
-                            else {
-                                currentArea = "safe";
-                            }
-                        } 
-                        else if (currentMap == 1) { // Dungeon
-                            if (player.worldX > 15 * tileSize && player.worldX < 45 * tileSize &&
-                                player.worldY > 20 * tileSize && player.worldY < 40 * tileSize) {
-                                currentArea = "dungeon";
-                            }
-                            else {
-                                currentArea = "safe";
-                            }
-                        }
-                        else if (currentMap == 2) { // Merchant Village
-                            // Στο merchant village, καμία μάχη
-                            currentArea = "safe";
-                        } 
-                        else {
+                        TiledObjectData encounterZone = getCurrentEncounterZone();
+
+                        if (encounterZone != null) {
+                            currentArea = encounterZone.getProperty("areaType");
+                        } else {
                             currentArea = "safe";
                         }
                         
                         // ========== RANDOM ENCOUNTER CHECK ==========
                         encounterStepCounter++;
+
                         if (encounterStepCounter >= encounterRate) {
                             encounterStepCounter = 0;
-                            
+
                             double chance = Math.random();
                             double encounterChance = 0;
-                            
-                            // Διαφορετικές πιθανότητες ανά περιοχή
-                            if (currentArea.equals("overworld")) {
-                                encounterChance = 0.2; // 20%
-                            } else if (currentArea.equals("dungeon")) {
-                                encounterChance = 0.4; // 40%
-                            } else {
-                                encounterChance = 0; // Ασφαλής περιοχή
+
+                            if (encounterZone != null) {
+                                try {
+                                    encounterChance = Double.parseDouble(encounterZone.getProperty("rate"));
+                                } catch (Exception e) {
+                                    encounterChance = 0.2;
+                                }
                             }
-                            
+
                             if (chance < encounterChance) {
                                 startRandomEncounter();
                             }
@@ -2219,50 +1975,31 @@ public class GamePanel extends JPanel implements Runnable {
                         moving = true;
 
                         // ========== ΕΛΕΓΧΟΣ ΠΕΡΙΟΧΗΣ ΜΕ ΒΑΣΗ ΤΟΝ ΧΑΡΤΗ ==========
-                        if (currentMap == 0) { // Overworld
-                            // Στον overworld, έλεγξε με βάση συντεταγμένες
-                            if (player.worldX > 25 * tileSize && player.worldX < 40 * tileSize &&
-                                player.worldY > 27 * tileSize && player.worldY < 43 * tileSize) {
-                                currentArea = "overworld";
-                            }
-                            else {
-                                currentArea = "safe";
-                            }
-                        } 
-                        else if (currentMap == 1) { // Dungeon
-                            if (player.worldX > 15 * tileSize && player.worldX < 45 * tileSize &&
-                                player.worldY > 20 * tileSize && player.worldY < 40 * tileSize) {
-                                currentArea = "dungeon";
-                            }
-                            else {
-                                currentArea = "safe";
-                            }
-                        }
-                        else if (currentMap == 2) { // Merchant Village
-                            // Στο merchant village, καμία μάχη
-                            currentArea = "safe";
-                        }
-                        else {
+                        TiledObjectData encounterZone = getCurrentEncounterZone();
+
+                        if (encounterZone != null) {
+                            currentArea = encounterZone.getProperty("areaType");
+                        } else {
                             currentArea = "safe";
                         }
                         
                         // ========== RANDOM ENCOUNTER CHECK ==========
                         encounterStepCounter++;
+
                         if (encounterStepCounter >= encounterRate) {
                             encounterStepCounter = 0;
-                            
+
                             double chance = Math.random();
                             double encounterChance = 0;
-                            
-                            // Διαφορετικές πιθανότητες ανά περιοχή
-                            if (currentArea.equals("overworld")) {
-                                encounterChance = 0.2; // 20%
-                            } else if (currentArea.equals("dungeon")) {
-                                encounterChance = 0.4; // 40%
-                            } else {
-                                encounterChance = 0; // Ασφαλής περιοχή
+
+                            if (encounterZone != null) {
+                                try {
+                                    encounterChance = Double.parseDouble(encounterZone.getProperty("rate"));
+                                } catch (Exception e) {
+                                    encounterChance = 0.2;
+                                }
                             }
-                            
+
                             if (chance < encounterChance) {
                                 startRandomEncounter();
                             }
@@ -2309,50 +2046,31 @@ public class GamePanel extends JPanel implements Runnable {
                         moving = true;
 
                         // ========== ΕΛΕΓΧΟΣ ΠΕΡΙΟΧΗΣ ΜΕ ΒΑΣΗ ΤΟΝ ΧΑΡΤΗ ==========
-                        if (currentMap == 0) { // Overworld
-                            // Στον overworld, έλεγξε με βάση συντεταγμένες
-                            if (player.worldX > 25 * tileSize && player.worldX < 40 * tileSize &&
-                                player.worldY > 27 * tileSize && player.worldY < 43 * tileSize) {
-                                currentArea = "overworld";
-                            }
-                            else {
-                                currentArea = "safe";
-                            }
-                        } 
-                        else if (currentMap == 1) { // Dungeon
-                            if (player.worldX > 15 * tileSize && player.worldX < 45 * tileSize &&
-                                player.worldY > 20 * tileSize && player.worldY < 40 * tileSize) {
-                                currentArea = "dungeon";
-                            }
-                            else {
-                                currentArea = "safe";
-                            }
-                        }
-                        else if (currentMap == 2) { // Merchant Village
-                            // Στο merchant village, καμία μάχη
-                            currentArea = "safe";
-                        }
-                        else {
+                        TiledObjectData encounterZone = getCurrentEncounterZone();
+
+                        if (encounterZone != null) {
+                            currentArea = encounterZone.getProperty("areaType");
+                        } else {
                             currentArea = "safe";
                         }
                         
                         // ========== RANDOM ENCOUNTER CHECK ==========
                         encounterStepCounter++;
+
                         if (encounterStepCounter >= encounterRate) {
                             encounterStepCounter = 0;
-                            
+
                             double chance = Math.random();
                             double encounterChance = 0;
-                            
-                            // Διαφορετικές πιθανότητες ανά περιοχή
-                            if (currentArea.equals("overworld")) {
-                                encounterChance = 0.2; // 20%
-                            } else if (currentArea.equals("dungeon")) {
-                                encounterChance = 0.4; // 40%
-                            } else {
-                                encounterChance = 0; // Ασφαλής περιοχή
+
+                            if (encounterZone != null) {
+                                try {
+                                    encounterChance = Double.parseDouble(encounterZone.getProperty("rate"));
+                                } catch (Exception e) {
+                                    encounterChance = 0.2;
+                                }
                             }
-                            
+
                             if (chance < encounterChance) {
                                 startRandomEncounter();
                             }
@@ -2398,50 +2116,31 @@ public class GamePanel extends JPanel implements Runnable {
                         moving = true;
 
                         // ========== ΕΛΕΓΧΟΣ ΠΕΡΙΟΧΗΣ ΜΕ ΒΑΣΗ ΤΟΝ ΧΑΡΤΗ ==========
-                        if (currentMap == 0) { // Overworld
-                            // Στον overworld, έλεγξε με βάση συντεταγμένες
-                            if (player.worldX > 25 * tileSize && player.worldX < 40 * tileSize &&
-                                player.worldY > 27 * tileSize && player.worldY < 43 * tileSize) {
-                                currentArea = "overworld";
-                            }
-                            else {
-                                currentArea = "safe";
-                            }
-                        } 
-                        else if (currentMap == 1) { // Dungeon
-                            if (player.worldX > 15 * tileSize && player.worldX < 45 * tileSize &&
-                                player.worldY > 20 * tileSize && player.worldY < 40 * tileSize) {
-                                currentArea = "dungeon";
-                            }
-                            else {
-                                currentArea = "safe";
-                            }
-                        }
-                        else if (currentMap == 2) { // Merchant Village
-                            // Στο merchant village, καμία μάχη
-                            currentArea = "safe";
-                        }
-                        else {
+                        TiledObjectData encounterZone = getCurrentEncounterZone();
+
+                        if (encounterZone != null) {
+                            currentArea = encounterZone.getProperty("areaType");
+                        } else {
                             currentArea = "safe";
                         }
                         
                         // ========== RANDOM ENCOUNTER CHECK ==========
                         encounterStepCounter++;
+
                         if (encounterStepCounter >= encounterRate) {
                             encounterStepCounter = 0;
-                            
+
                             double chance = Math.random();
                             double encounterChance = 0;
-                            
-                            // Διαφορετικές πιθανότητες ανά περιοχή
-                            if (currentArea.equals("overworld")) {
-                                encounterChance = 0.2; // 20%
-                            } else if (currentArea.equals("dungeon")) {
-                                encounterChance = 0.4; // 40%
-                            } else {
-                                encounterChance = 0; // Ασφαλής περιοχή
+
+                            if (encounterZone != null) {
+                                try {
+                                    encounterChance = Double.parseDouble(encounterZone.getProperty("rate"));
+                                } catch (Exception e) {
+                                    encounterChance = 0.2;
+                                }
                             }
-                            
+
                             if (chance < encounterChance) {
                                 startRandomEncounter();
                             }
@@ -2829,6 +2528,300 @@ public class GamePanel extends JPanel implements Runnable {
             e.printStackTrace();
         }
     }
+
+    // ============================
+    //  HELPERS FOR TILED
+    // ============================
+    private void spawnTiledNPCs(int mapIndex) {
+        ArrayList<TiledObjectData> npcObjects = tileM.getMapObjectsByLayer(mapIndex, "npcs");
+
+        for (TiledObjectData obj : npcObjects) {
+            int col = (int)(obj.x / originalTileSize);
+            int row = (int)(obj.y / originalTileSize) - 1;
+
+            int worldX = col * tileSize;
+            int worldY = row * tileSize;
+
+            String npcId = obj.getProperty("npcId");
+            String direction = obj.getProperty("direction");
+            String dialogueId = obj.getProperty("dialogue");
+            String npcType = obj.getProperty("type");
+
+            Entity npc = null;
+
+            if (npcId.equalsIgnoreCase("old_man")) {
+                npc = new NPC_OldMan(this);
+            } else if (npcId.equalsIgnoreCase("guard")) {
+                npc = new NPC_Guard(this);
+            } else if (npcId.equalsIgnoreCase("merchant")) {
+                npc = new NPC_Merchant(this);
+            }
+
+            if (npc != null) {
+                npc.worldX = worldX;
+                npc.worldY = worldY;
+
+                if (direction != null && !direction.isEmpty()) {
+                    npc.direction = direction;
+                }
+
+                npc.dialogueId = dialogueId;
+                npc.npcType = npcType;
+
+                npcs.get(mapIndex).add(npc);
+            }
+        }
+    }
+
+    public String[] getDialogue(String id) {
+
+        if (id == null) return new String[]{"..."};
+
+        switch (id) {
+
+            case "old_man_intro":
+                return new String[]{
+                    "Καλώς ήρθες ταξιδιώτη...",
+                    "Ο κόσμος έξω είναι επικίνδυνος."
+                };
+
+            case "guard_warning":
+                return new String[]{
+                    "Μην πλησιάζεις το dungeon!",
+                    "Είναι γεμάτο τέρατα."
+                };
+
+            case "merchant_shop":
+                return new String[]{
+                    "Καλώς ήρθες στο μαγαζί μου!",
+                    "Θες να αγοράσεις κάτι;"
+                };
+
+            default:
+                return new String[]{
+                    "..."
+                };
+        }
+    }
+
+    private void spawnTiledChestLoot(int mapIndex) {
+        ArrayList<TiledObjectData> chestObjects = tileM.getMapObjectsByLayer(mapIndex, "chests");
+
+        for (TiledObjectData obj : chestObjects) {
+            int col = (int)(obj.x / originalTileSize);
+            int row = (int)(obj.y / originalTileSize) - 1;
+
+            int worldX = col * tileSize;
+            int worldY = row * tileSize;
+
+            String itemId = obj.getProperty("item");
+            int amount = obj.getPropertyInt("amount", 1);
+
+            try {
+                Item item = createItemFromId(itemId);
+                if (item == null) continue;
+
+                item.amount = amount;
+
+                BufferedImage itemImage = item.image;
+
+                itemsOnGround.get(mapIndex).add(
+                        new ItemOnGround(item.name, itemImage, worldX, worldY, item)
+                );
+
+                System.out.println("Spawned chest loot " + itemId + " x" + amount +
+                        " at map " + mapIndex + " (" + worldX + "," + worldY + ")");
+            } catch (Exception e) {
+                System.out.println("Failed to spawn chest loot: " + itemId);
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private Item createItemFromId(String itemId) throws Exception {
+        if (itemId == null || itemId.isEmpty()) return null;
+
+        if (itemId.equalsIgnoreCase("health_potion")) {
+            Item item = new Item("Health Potion");
+            item.stackable = true;
+            item.healAmount = 20;
+            item.price = 50;
+            item.loadImage("res/items/health_potion.png");
+            return item;
+        }
+
+        if (itemId.equalsIgnoreCase("mana_potion")) {
+            Item item = new Item("Mana Potion");
+            item.stackable = true;
+            item.mpBonus = 20;
+            item.price = 40;
+            item.loadImage("res/items/potion_blue.png");
+            return item;
+        }
+
+        if (itemId.equalsIgnoreCase("iron_sword")) {
+            Item item = new Item("Iron Sword");
+            item.attackBonus = 5;
+            item.price = 200;
+            item.loadImage("res/items/iron_sword.png");
+            return item;
+        }
+
+        if (itemId.equalsIgnoreCase("goblin_ear")) {
+            Item item = new Item("Goblin Ear");
+            item.stackable = true;
+            item.loadImage("res/items/goblin_ear.png");
+            return item;
+        }
+
+        if (itemId.equalsIgnoreCase("lantern")) {
+            Item item = new Item("Lantern");
+            item.isKeyItem = true;
+            item.loadImage("res/items/lantern.png");
+            return item;
+        }
+
+        return null;
+    }
+
+    private void handleNPCInteraction(ArrayList<Entity> currentMapNPCs) {
+        for (Entity npc : currentMapNPCs) {
+            int distanceX = Math.abs(player.worldX - npc.worldX);
+            int distanceY = Math.abs(player.worldY - npc.worldY);
+
+            if (distanceX <= tileSize && distanceY <= tileSize) {
+
+                faceNPCToPlayer(npc);
+
+                // ΝΕΟΣ ΤΡΟΠΟΣ: αν έχει dialogueId από Tiled, χρησιμοποίησέ το
+                if (npc.dialogueId != null && !npc.dialogueId.isEmpty()) {
+
+                    if ("shop".equalsIgnoreCase(npc.npcType)) {
+                        gameState = dialogueState;
+                        String[] dialogueLines = getDialogue(npc.dialogueId);
+                        startDialogue(String.join("\n", dialogueLines));
+                        talkingToMerchant = true;
+                        return;
+                    }
+
+                    if ("guard".equalsIgnoreCase(npc.npcType)) {
+                        gameState = dialogueState;
+                        String[] dialogueLines = getDialogue(npc.dialogueId);
+                        startDialogue(String.join("\n", dialogueLines));
+                        return;
+                    }
+
+                    gameState = dialogueState;
+                    String[] dialogueLines = getDialogue(npc.dialogueId);
+                    startDialogue(String.join("\n", dialogueLines));
+                    return;
+                }
+
+                // FALLBACK για τα παλιά hardcoded NPCs
+                if (npc instanceof NPC_OldMan) {
+                    gameState = dialogueState;
+                    startDialogue("Γεια σου, ταξιδιώτη!...\nΚαλώς ήρθες στο πρώτο μου RPG!");
+                    return;
+                }
+
+                if (npc instanceof NPC_Guard) {
+                    boolean hasQuest = false;
+                    boolean questCompleted = false;
+
+                    for (Quest q : player.quests) {
+                        if (q.name.equals("Καθάρισμα τεράτων")) {
+                            hasQuest = true;
+                            questCompleted = q.completed;
+                            break;
+                        }
+                    }
+
+                    if (!hasQuest) {
+                        gameState = dialogueOptionsState;
+                        startDialogue("Φύλακας: Χρειάζομαι βοήθεια! Τα goblin έχουν γίνει μάστιγα!\nΤι λες;");
+                        dialogueOptions[0] = "(1) Αναλαμβάνω την αποστολή";
+                        dialogueOptions[1] = "(2) Δεν έχω χρόνο τώρα";
+                        dialogueOptions[2] = null;
+                        selectedOption = 0;
+                    } 
+                    else if (!questCompleted) {
+                        gameState = dialogueOptionsState;
+                        startDialogue("Φύλακας: Πώς πάει η αποστολή; Έφερες τα 5 αυτιά;");
+                        dialogueOptions[0] = "(1) Ναι, ορίστε!";
+                        dialogueOptions[1] = "(2) Όχι ακόμα...";
+                        dialogueOptions[2] = null;
+                        selectedOption = 0;
+                    } 
+                    else {
+                        gameState = dialogueState;
+                        startDialogue("Φύλακας: Σε ευχαριστώ για τη βοήθεια! Οι χωρικοί είναι ασφαλείς.");
+                    }
+                    return;
+                }
+
+                if (npc instanceof NPC_Merchant) {
+                    gameState = dialogueState;
+                    ((NPC_Merchant) npc).setDirectionTowardsPlayer();
+                    ((NPC_Merchant) npc).speak();
+                    talkingToMerchant = true;
+                    return;
+                }
+            }
+        }
+    }
+
+    private void faceNPCToPlayer(Entity npc) {
+        if (player.worldX < npc.worldX) {
+            npc.direction = "left";
+            if (npc instanceof NPC_OldMan) ((NPC_OldMan) npc).currentImage = ((NPC_OldMan) npc).left1;
+            if (npc instanceof NPC_Guard) ((NPC_Guard) npc).currentImage = ((NPC_Guard) npc).left1;
+        }
+        else if (player.worldX > npc.worldX) {
+            npc.direction = "right";
+            if (npc instanceof NPC_OldMan) ((NPC_OldMan) npc).currentImage = ((NPC_OldMan) npc).right1;
+            if (npc instanceof NPC_Guard) ((NPC_Guard) npc).currentImage = ((NPC_Guard) npc).right1;
+        }
+        else if (player.worldY < npc.worldY) {
+            npc.direction = "up";
+            if (npc instanceof NPC_OldMan) ((NPC_OldMan) npc).currentImage = ((NPC_OldMan) npc).up1;
+            if (npc instanceof NPC_Guard) ((NPC_Guard) npc).currentImage = ((NPC_Guard) npc).up1;
+        }
+        else if (player.worldY > npc.worldY) {
+            npc.direction = "down";
+            if (npc instanceof NPC_OldMan) ((NPC_OldMan) npc).currentImage = ((NPC_OldMan) npc).down1;
+            if (npc instanceof NPC_Guard) ((NPC_Guard) npc).currentImage = ((NPC_Guard) npc).down1;
+        }
+    }
+
+    private TiledObjectData getCurrentEncounterZone() {
+        ArrayList<TiledObjectData> encounterObjects = tileM.getMapObjectsByLayer(currentMap, "encounters");
+
+        for (TiledObjectData obj : encounterObjects) {
+            int zoneX = (int)(obj.x / originalTileSize) * tileSize;
+            int zoneY = (int)(obj.y / originalTileSize) * tileSize;
+
+            int zoneWidthTiles = Math.max(1, obj.width / originalTileSize);
+            int zoneHeightTiles = Math.max(1, obj.height / originalTileSize);
+
+            int zoneWidthWorld = zoneWidthTiles * tileSize;
+            int zoneHeightWorld = zoneHeightTiles * tileSize;
+
+            boolean insideZone =
+                    player.worldX + tileSize > zoneX &&
+                    player.worldX < zoneX + zoneWidthWorld &&
+                    player.worldY + tileSize > zoneY &&
+                    player.worldY < zoneY + zoneHeightWorld;
+
+            if (insideZone) {
+                return obj;
+            }
+        }
+
+        return null;
+    }
+    // =============================
+    //  END OF HELPERS FOR TILED
+    // ============================
 
     public void startRandomEncounter() {
         // Επέλεξε τυχαίο τέρας ανάλογα με την περιοχή
@@ -4508,125 +4501,125 @@ public class GamePanel extends JPanel implements Runnable {
         return scaled;
     }
 
-    public void loadHouses() {
-        try {
-            // ========== ΜΕΓΑΛΟ ΣΠΙΤΙ (6x6) ==========
-            BufferedImage originalHouse = ImageIO.read(new File("res/decorations/house_1.png"));
-            BufferedImage scaledHouse = scaleDecoration(originalHouse, tileSize * 6);
+    // public void loadHouses() {
+    //     try {
+    //         // ========== ΜΕΓΑΛΟ ΣΠΙΤΙ (6x6) ==========
+    //         BufferedImage originalHouse = ImageIO.read(new File("res/decorations/house_1.png"));
+    //         BufferedImage scaledHouse = scaleDecoration(originalHouse, tileSize * 6);
             
-            // Δημιούργησε τον πίνακα collision 6x6
-            // true = δεν περνάς, false = περνάς
-            boolean[][] bigHouseCollision = {
-                {true,  true,  true,  true,  true,  true,  true,  true,  true},  // Πάνω σειρά
-                {true,  true,  true,  true,  true,  true,  true,  true,  true},
-                {true,  true,  true,  true,  true,  true,  true,  true,  true},
-                {true,  true,  true,  true,  true,  true,  true,  true,  true},
-                {false,  false,  false,  true,  true,  true,  true,  false,  false}  // Κάτω σειρά - η πόρτα στη μέση
-            };
+    //         // Δημιούργησε τον πίνακα collision 6x6
+    //         // true = δεν περνάς, false = περνάς
+    //         boolean[][] bigHouseCollision = {
+    //             {true,  true,  true,  true,  true,  true,  true,  true,  true},  // Πάνω σειρά
+    //             {true,  true,  true,  true,  true,  true,  true,  true,  true},
+    //             {true,  true,  true,  true,  true,  true,  true,  true,  true},
+    //             {true,  true,  true,  true,  true,  true,  true,  true,  true},
+    //             {false,  false,  false,  true,  true,  true,  true,  false,  false}  // Κάτω σειρά - η πόρτα στη μέση
+    //         };
             
-            // Δημιούργησε το decoration (χωρίς collision ακόμα)
-            Decoration houseExt = new Decoration("Big House", scaledHouse,
-                                                10 * tileSize, 9 * tileSize,
-                                                scaledHouse.getWidth(), scaledHouse.getHeight(),
-                                                new ArrayList<Rectangle>()); // Κενό collision
+    //         // Δημιούργησε το decoration (χωρίς collision ακόμα)
+    //         Decoration houseExt = new Decoration("Big House", scaledHouse,
+    //                                             10 * tileSize, 9 * tileSize,
+    //                                             scaledHouse.getWidth(), scaledHouse.getHeight(),
+    //                                             new ArrayList<Rectangle>()); // Κενό collision
             
-            decorations.get(3).add(houseExt);
+    //         decorations.get(3).add(houseExt);
             
-            // Δημιούργησε το house object
-            Rectangle doorArea = new Rectangle(
-                14 * tileSize - tileSize/2,      // 14*48 - 24 = 648 pixels (λίγο πιο αριστερά)
-                13 * tileSize - tileSize/2,      // 13*48 - 24 = 600 pixels (λίγο πιο πάνω)
-                tileSize * 2,                    // 96 pixels πλάτος (2 tiles)
-                tileSize * 2                      // 96 pixels ύψος (2 tiles)
-            );
+    //         // Δημιούργησε το house object
+    //         Rectangle doorArea = new Rectangle(
+    //             14 * tileSize - tileSize/2,      // 14*48 - 24 = 648 pixels (λίγο πιο αριστερά)
+    //             13 * tileSize - tileSize/2,      // 13*48 - 24 = 600 pixels (λίγο πιο πάνω)
+    //             tileSize * 2,                    // 96 pixels πλάτος (2 tiles)
+    //             tileSize * 2                      // 96 pixels ύψος (2 tiles)
+    //         );
 
-            House bigHouse = new House("Big House", 3, houseExt, doorArea,
-                                4,                       // interiorMap = 4
-                                12 * tileSize,            // spawnX = 672
-                                13 * tileSize,            // spawnY = 624
-                                14 * tileSize,            // exitX = 1200
-                                14 * tileSize,            // exitY = 1200
-                                this);
+    //         House bigHouse = new House("Big House", 3, houseExt, doorArea,
+    //                             4,                       // interiorMap = 4
+    //                             12 * tileSize,            // spawnX = 672
+    //                             13 * tileSize,            // spawnY = 624
+    //                             14 * tileSize,            // exitX = 1200
+    //                             14 * tileSize,            // exitY = 1200
+    //                             this);
             
-            // Πέρασε τον πίνακα collision
-            bigHouse.setCollisionMap(bigHouseCollision);
+    //         // Πέρασε τον πίνακα collision
+    //         bigHouse.setCollisionMap(bigHouseCollision);
             
-            // ========== Φόρτωσε animated door για το μεγάλο σπίτι ==========
-            AnimatedDoor bigHouseDoor = new AnimatedDoor();
-            bigHouseDoor.loadFrames("res/decorations/door_big/", "house", 6); // 5 frames
-            bigHouse.setAnimatedDoor(bigHouseDoor, 2, 6); // Η πόρτα είναι στο col 2, row 5 (0-based)
+    //         // ========== Φόρτωσε animated door για το μεγάλο σπίτι ==========
+    //         AnimatedDoor bigHouseDoor = new AnimatedDoor();
+    //         bigHouseDoor.loadFrames("res/decorations/door_big/", "house", 6); // 5 frames
+    //         bigHouse.setAnimatedDoor(bigHouseDoor, 2, 6); // Η πόρτα είναι στο col 2, row 5 (0-based)
             
-            houses.add(bigHouse);
+    //         houses.add(bigHouse);
             
-            // ========== ΜΙΚΡΟ ΣΠΙΤΙ (4x4) ==========
-            BufferedImage originalSmallHouse = ImageIO.read(new File("res/decorations/house_2.png"));
-            BufferedImage scaledSmallHouse = scaleDecoration(originalSmallHouse, tileSize * 5);
+    //         // ========== ΜΙΚΡΟ ΣΠΙΤΙ (4x4) ==========
+    //         BufferedImage originalSmallHouse = ImageIO.read(new File("res/decorations/house_2.png"));
+    //         BufferedImage scaledSmallHouse = scaleDecoration(originalSmallHouse, tileSize * 5);
             
-            // Πίνακας collision 4x4 - όλα true εκτός από την πόρτα
-            boolean[][] smallHouseCollision = {
-                {true,  true,  true,  true,  true,  true},  // Πάνω σειρά
-                {true,  true,  true,  true,  true,  true},
-                {true,  true,  true,  true,  true,  true},
-                {true,  true,  true,  true,  true,  true},
-                {true,  true,  true,  true,  true,  true},
-                {true,  true,  true, true,  true,  true}   // Κάτω σειρά - η πόρτα στη μέση
-            };
+    //         // Πίνακας collision 4x4 - όλα true εκτός από την πόρτα
+    //         boolean[][] smallHouseCollision = {
+    //             {true,  true,  true,  true,  true,  true},  // Πάνω σειρά
+    //             {true,  true,  true,  true,  true,  true},
+    //             {true,  true,  true,  true,  true,  true},
+    //             {true,  true,  true,  true,  true,  true},
+    //             {true,  true,  true,  true,  true,  true},
+    //             {true,  true,  true, true,  true,  true}   // Κάτω σειρά - η πόρτα στη μέση
+    //         };
             
-            Decoration smallHouseExt = new Decoration("Small House", scaledSmallHouse,
-                                                    29 * tileSize, 9 * tileSize,
-                                                    scaledSmallHouse.getWidth(), scaledSmallHouse.getHeight(),
-                                                    new ArrayList<Rectangle>());
+    //         Decoration smallHouseExt = new Decoration("Small House", scaledSmallHouse,
+    //                                                 29 * tileSize, 9 * tileSize,
+    //                                                 scaledSmallHouse.getWidth(), scaledSmallHouse.getHeight(),
+    //                                                 new ArrayList<Rectangle>());
             
-            decorations.get(3).add(smallHouseExt);
+    //         decorations.get(3).add(smallHouseExt);
             
-            Rectangle smallDoorArea = new Rectangle(
-                29 * tileSize - tileSize,      // 31*48 - 24 = 1464 pixels
-                14 * tileSize - tileSize,      // 14*48 - 24 = 648 pixels
-                tileSize * 3,                    // 144 pixels πλάτος
-                tileSize * 3                      // 144 pixels ύψος
-            );
+    //         Rectangle smallDoorArea = new Rectangle(
+    //             29 * tileSize - tileSize,      // 31*48 - 24 = 1464 pixels
+    //             14 * tileSize - tileSize,      // 14*48 - 24 = 648 pixels
+    //             tileSize * 3,                    // 144 pixels πλάτος
+    //             tileSize * 3                      // 144 pixels ύψος
+    //         );
             
-            House smallHouse = new House("Small House", 3, smallHouseExt, smallDoorArea,
-                                5,                       // interiorMap = 5
-                                12 * tileSize,            // spawnX = 672
-                                13 * tileSize,            // spawnY = 624
-                                31 * tileSize,            // exitX = 1200
-                                14 * tileSize,            // exitY = 1200
-                                this);
+    //         House smallHouse = new House("Small House", 3, smallHouseExt, smallDoorArea,
+    //                             5,                       // interiorMap = 5
+    //                             12 * tileSize,            // spawnX = 672
+    //                             13 * tileSize,            // spawnY = 624
+    //                             31 * tileSize,            // exitX = 1200
+    //                             14 * tileSize,            // exitY = 1200
+    //                             this);
             
-            smallHouse.setCollisionMap(smallHouseCollision);
+    //         smallHouse.setCollisionMap(smallHouseCollision);
             
-            // Προαιρετικά animated door για το μικρό σπίτι
-            AnimatedDoor smallHouseDoor = new AnimatedDoor();
-            smallHouseDoor.loadFrames("res/decorations/door_small/", "door", 6);
-            smallHouse.setAnimatedDoor(smallHouseDoor, 1, 3);
+    //         // Προαιρετικά animated door για το μικρό σπίτι
+    //         AnimatedDoor smallHouseDoor = new AnimatedDoor();
+    //         smallHouseDoor.loadFrames("res/decorations/door_small/", "door", 6);
+    //         smallHouse.setAnimatedDoor(smallHouseDoor, 1, 3);
             
-            houses.add(smallHouse);
+    //         houses.add(smallHouse);
             
-            System.out.println("Houses loaded successfully!");
+    //         System.out.println("Houses loaded successfully!");
             
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
+    //     } catch (Exception e) {
+    //         e.printStackTrace();
+    //     }
+    // }
 
-    // Μέθοδος για έξοδο από το σπίτι (π.χ. όταν πατάς Enter μπροστά από την πόρτα από μέσα)
-        public void exitHouse(House house) {
-            currentMap = house.exteriorMap;
-            player.worldX = house.exitX;
-            player.worldY = house.exitY;
+    // // Μέθοδος για έξοδο από το σπίτι (π.χ. όταν πατάς Enter μπροστά από την πόρτα από μέσα)
+    //     public void exitHouse(House house) {
+    //         currentMap = house.exteriorMap;
+    //         player.worldX = house.exitX;
+    //         player.worldY = house.exitY;
             
-            // Επανάφερε την εξωτερική μουσική
-            if (currentMap == 3) { // town
-                if (dayTime == 0 || dayTime == 3) {
-                    sound.playMusic("town_day");
-                } else {
-                    sound.playMusic("town_night");
-                }
-            }
+    //         // Επανάφερε την εξωτερική μουσική
+    //         if (currentMap == 3) { // town
+    //             if (dayTime == 0 || dayTime == 3) {
+    //                 sound.playMusic("town_day");
+    //             } else {
+    //                 sound.playMusic("town_night");
+    //             }
+    //         }
             
-            playSound("door_close");
-        }
+    //         playSound("door_close");
+    //     }
 
     @Override
     public void paintComponent(Graphics g) {

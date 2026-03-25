@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="50" height="50" tilewidth="16" tileheight="16" infinite="0" nextlayerid="8" nextobjectid="4">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="50" height="50" tilewidth="16" tileheight="16" infinite="0" nextlayerid="11" nextobjectid="9">
  <editorsettings>
   <export target="map1.csv" format="csv"/>
  </editorsettings>
@@ -276,6 +276,14 @@
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 </data>
  </layer>
+ <objectgroup id="10" name="encounters">
+  <object id="8" name="encounter_1" x="211" y="170" width="91" height="99.6667">
+   <properties>
+    <property name="areaType" value="overworld"/>
+    <property name="rate" type="float" value="0.05"/>
+   </properties>
+  </object>
+ </objectgroup>
  <objectgroup id="7" name="portals">
   <object id="3" name="portal" x="320" y="0.333333" width="47.6667" height="15">
    <properties>
@@ -287,6 +295,44 @@
  </objectgroup>
  <objectgroup id="6" name="spawns">
   <object id="1" name="player_spawn" x="455.625" y="441.75">
+   <point/>
+  </object>
+ </objectgroup>
+ <objectgroup id="8" name="npcs">
+  <object id="4" name="old_man" x="106" y="105">
+   <properties>
+    <property name="dialogue" value="old_man_intro"/>
+    <property name="direction" value="down"/>
+    <property name="npcId" value="old_man"/>
+    <property name="type" value="normal"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="6" name="merchant" x="375.5" y="278.25">
+   <properties>
+    <property name="dialogue" value="merchant_shop"/>
+    <property name="direction" value="down"/>
+    <property name="npcId" value="merchant"/>
+    <property name="type" value="shop"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="7" name="guard" x="393" y="23">
+   <properties>
+    <property name="dialogue" value="guard_warning"/>
+    <property name="direction" value="down"/>
+    <property name="npcId" value="guard"/>
+    <property name="type" value="guard"/>
+   </properties>
+   <point/>
+  </object>
+ </objectgroup>
+ <objectgroup id="9" name="chests">
+  <object id="5" name="chest1" x="459.25" y="280">
+   <properties>
+    <property name="amount" type="int" value="3"/>
+    <property name="item" value="health_potion"/>
+   </properties>
    <point/>
   </object>
  </objectgroup>
