@@ -1,19 +1,19 @@
-public class MapLayer {
+public class AtlasLayer {
     public String name;
     public int rows;
     public int cols;
     public LayerTile[][] tiles;
     public boolean visible = true;
 
-    public MapLayer(String name, int rows, int cols) {
+    public AtlasLayer(String name, int rows, int cols) {
         this.name = name;
         this.rows = rows;
         this.cols = cols;
         this.tiles = new LayerTile[rows][cols];
 
-        for (int row = 0; row < rows; row++) {
-            for (int col = 0; col < cols; col++) {
-                this.tiles[row][col] = new LayerTile();
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                tiles[r][c] = new LayerTile();
             }
         }
     }

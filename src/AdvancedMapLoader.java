@@ -1,8 +1,10 @@
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
 
 public class AdvancedMapLoader {
+    public ArrayList<AtlasLayer> atlasLayers = new ArrayList<>();
 
     public static AdvancedMapData loadAdvancedMap(String metadataPath) {
         String name = "";
@@ -97,9 +99,15 @@ public class AdvancedMapLoader {
 
                 for (int col = 0; col < cols; col++) {
                     if (col < numbers.length) {
-                        layer.tiles[row][col] = Integer.parseInt(numbers[col]);
+                        int val = Integer.parseInt(numbers[col]);
+
+                        if (val == -1) {
+                            layer.tiles[row][col] = new LayerTile("", -1);
+                        } else {
+                            layer.tiles[row][col] = new LayerTile("basic_terrain", val);
+                        }
                     } else {
-                        layer.tiles[row][col] = -1;
+                        layer.tiles[row][col] = new LayerTile("", -1);
                     }
                 }
 

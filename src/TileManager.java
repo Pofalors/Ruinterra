@@ -32,6 +32,18 @@ public class TileManager {
         return manifests.get(atlasName);
     }
 
+    private static class TilesetRange {
+        public int firstGid;
+        public String source;
+        public String atlasName;
+
+        public TilesetRange(int firstGid, String source, String atlasName) {
+            this.firstGid = firstGid;
+            this.source = source;
+            this.atlasName = atlasName;
+        }
+    }
+
     public TileManager(GamePanel gp) {
         this.gp = gp;
 
@@ -222,14 +234,14 @@ public class TileManager {
     //     MapLayer ground = new MapLayer("ground", 36, 36);
     //     ground.atlasName = "basic_terrain";
 
-    //     MapLayer decor = new MapLayer("decor", 36, 36);
-    //     decor.atlasName = "water";
+    //     MapLayer underground = new MapLayer("underground", 36, 36);
+    //     underground.atlasName = "water";
 
     //     MapLayer collision = new MapLayer("collision", 36, 36);
     //     collision.atlasName = "";
 
     //     clearLayer(ground);
-    //     clearLayer(decor);
+    //     clearLayer(underground);
 
     //     for (int row = 0; row < collision.rows; row++) {
     //         for (int col = 0; col < collision.cols; col++) {
@@ -243,20 +255,20 @@ public class TileManager {
     //     // -------------------------------------------------
     //     // 1) GRASS/WATER family
     //     // -------------------------------------------------
-    //     placeTerrain3x3(decor, "water", "GWATER", 2, 2);
-    //     placeTerrain3x3(decor, "water", "WGRASS", 6, 2);
+    //     placeTerrain3x3(underground, "water", "GWATER", 2, 2);
+    //     placeTerrain3x3(underground, "water", "WGRASS", 6, 2);
 
     //     // -------------------------------------------------
     //     // 2) SAND/WATER family
     //     // -------------------------------------------------
-    //     placeTerrain3x3(decor, "water", "SWATER", 2, 6);
-    //     placeTerrain3x3(decor, "water", "WSAND", 6, 6);
+    //     placeTerrain3x3(underground, "water", "SWATER", 2, 6);
+    //     placeTerrain3x3(underground, "water", "WSAND", 6, 6);
 
     //     // -------------------------------------------------
     //     // 3) SNOW/WATER family
     //     // -------------------------------------------------
-    //     placeTerrain3x3(decor, "water", "SNWATER", 2, 10);
-    //     placeTerrain3x3(decor, "water", "WSNOW", 6, 10);
+    //     placeTerrain3x3(underground, "water", "SNWATER", 2, 10);
+    //     placeTerrain3x3(underground, "water", "WSNOW", 6, 10);
 
     //     AtlasManifest waterManifest = getManifest("water");
     //     if (waterManifest == null) {
@@ -267,31 +279,31 @@ public class TileManager {
     //     // -------------------------------------------------
     //     // 4) Waves row
     //     // -------------------------------------------------
-    //     if (waterManifest.hasTile("WAVES_1")) setLayerTile(decor, 14, 2, waterManifest.getRequiredTileId("WAVES_1"));
-    //     if (waterManifest.hasTile("WAVES_2")) setLayerTile(decor, 15, 2, waterManifest.getRequiredTileId("WAVES_2"));
-    //     if (waterManifest.hasTile("WAVES_3")) setLayerTile(decor, 16, 2, waterManifest.getRequiredTileId("WAVES_3"));
-    //     if (waterManifest.hasTile("WAVES_4")) setLayerTile(decor, 17, 2, waterManifest.getRequiredTileId("WAVES_4"));
-    //     if (waterManifest.hasTile("WAVES_5")) setLayerTile(decor, 18, 2, waterManifest.getRequiredTileId("WAVES_5"));
+    //     if (waterManifest.hasTile("WAVES_1")) setLayerTile(underground, 14, 2, waterManifest.getRequiredTileId("WAVES_1"));
+    //     if (waterManifest.hasTile("WAVES_2")) setLayerTile(underground, 15, 2, waterManifest.getRequiredTileId("WAVES_2"));
+    //     if (waterManifest.hasTile("WAVES_3")) setLayerTile(underground, 16, 2, waterManifest.getRequiredTileId("WAVES_3"));
+    //     if (waterManifest.hasTile("WAVES_4")) setLayerTile(underground, 17, 2, waterManifest.getRequiredTileId("WAVES_4"));
+    //     if (waterManifest.hasTile("WAVES_5")) setLayerTile(underground, 18, 2, waterManifest.getRequiredTileId("WAVES_5"));
 
     //     // Single water tile
-    //     if (waterManifest.hasTile("WATER_TILE")) setLayerTile(decor, 20, 2, waterManifest.getRequiredTileId("WATER_TILE"));
+    //     if (waterManifest.hasTile("WATER_TILE")) setLayerTile(underground, 20, 2, waterManifest.getRequiredTileId("WATER_TILE"));
 
     //     // Rocks
-    //     if (waterManifest.hasTile("WATER_ROCKS_1")) setLayerTile(decor, 22, 2, waterManifest.getRequiredTileId("WATER_ROCKS_1"));
-    //     if (waterManifest.hasTile("WATER_ROCKS_2")) setLayerTile(decor, 23, 2, waterManifest.getRequiredTileId("WATER_ROCKS_2"));
+    //     if (waterManifest.hasTile("WATER_ROCKS_1")) setLayerTile(underground, 22, 2, waterManifest.getRequiredTileId("WATER_ROCKS_1"));
+    //     if (waterManifest.hasTile("WATER_ROCKS_2")) setLayerTile(underground, 23, 2, waterManifest.getRequiredTileId("WATER_ROCKS_2"));
 
     //     // -------------------------------------------------
     //     // 5) Water rock path 2x2
     //     // -------------------------------------------------
-    //     placeVariant2x2(decor, "water", "WATER_ROCK_PATH", 14, 6);
+    //     placeVariant2x2(underground, "water", "WATER_ROCK_PATH", 14, 6);
 
     //     // 6) Water snow path 2x2
-    //     placeVariant2x2(decor, "water", "WATER_SNOW_PATH", 18, 6);
+    //     placeVariant2x2(underground, "water", "WATER_SNOW_PATH", 18, 6);
 
     //     // -------------------------------------------------
     //     // 7) Big waterfall 4x5
     //     // -------------------------------------------------
-    //     placeExplicitBlock4x5(decor, "water",
+    //     placeExplicitBlock4x5(underground, "water",
     //             new String[][]{
     //                     {"WATERFALL_BIG_TLL", "WATERFALL_BIG_TL", "WATERFALL_BIG_TR", "WATERFALL_BIG_TRR"},
     //                     {"WATERFALL_BIG_MTLL", "WATERFALL_BIG_MTL", "WATERFALL_BIG_MTR", "WATERFALL_BIG_MTRR"},
@@ -303,7 +315,7 @@ public class TileManager {
     //     // -------------------------------------------------
     //     // 8) Small waterfall 4x3
     //     // -------------------------------------------------
-    //     placeExplicitBlock4x3(decor, "water",
+    //     placeExplicitBlock4x3(underground, "water",
     //             new String[][]{
     //                     {"WATERFALL_SMALL_TLL", "WATERFALL_SMALL_TL", "WATERFALL_SMALL_TR", "WATERFALL_SMALL_TRR"},
     //                     {"WATERFALL_SMALL_MLL", "WATERFALL_SMALL_ML", "WATERFALL_SMALL_MR", "WATERFALL_SMALL_MRR"},
@@ -321,7 +333,7 @@ public class TileManager {
     //     }
 
     //     map.layers.add(ground);
-    //     map.layers.add(decor);
+    //     map.layers.add(underground);
     //     map.layers.add(collision);
 
     //     addAdvancedMap(map);
@@ -340,18 +352,18 @@ public class TileManager {
     //     MapLayer ground = new MapLayer("ground", rows, cols);
     //     ground.atlasName = "basic_terrain";
 
-    //     MapLayer decor = new MapLayer("decor", rows, cols);
-    //     decor.atlasName = "basic_terrain";
+    //     MapLayer underground = new MapLayer("underground", rows, cols);
+    //     underground.atlasName = "basic_terrain";
 
-    //     MapLayer waterDecor = new MapLayer("water_decor", rows, cols);
-    //     waterDecor.atlasName = "water";
+    //     MapLayer waterunderground = new MapLayer("water_underground", rows, cols);
+    //     waterunderground.atlasName = "water";
 
     //     MapLayer collision = new MapLayer("collision", rows, cols);
     //     collision.atlasName = "";
 
     //     clearLayer(ground);
-    //     clearLayer(decor);
-    //     clearLayer(waterDecor);
+    //     clearLayer(underground);
+    //     clearLayer(waterunderground);
 
     //     for (int row = 0; row < rows; row++) {
     //         for (int col = 0; col < cols; col++) {
@@ -362,9 +374,9 @@ public class TileManager {
     //     // 1. Βάση όλου του χάρτη = grass
     //     paintFilledRect(ground, "basic_terrain", "GRASS_FILL", 0, 0, cols, rows);
 
-    //     // καθάρισε decor από terrain stamps
-    //     clearLayer(decor);
-    //     clearLayer(waterDecor);
+    //     // καθάρισε underground από terrain stamps
+    //     clearLayer(underground);
+    //     clearLayer(waterunderground);
 
     //     // 3. Αριστερή θάλασσα
     //     int seaCol = 1;
@@ -376,22 +388,22 @@ public class TileManager {
     //     paintBeachAroundWater(ground, seaCol, seaRow, seaWidth, seaHeight, 2);
 
     //     // 5. Νερό με sand-water shoreline
-    //     paintWaterRect(waterDecor, "SWATER", seaCol, seaRow, seaWidth, seaHeight);
+    //     paintWaterRect(waterunderground, "SWATER", seaCol, seaRow, seaWidth, seaHeight);
 
     //     // collision στη θάλασσα
     //     blockCollisionRect(collision, seaCol, seaRow, seaWidth, seaHeight);
 
     //     // 6. Κεντρικός δρόμος vertical
-    //     paintRoadRect(ground, decor, 26, 3, 4, 40);
+    //     paintRoadRect(ground, underground, 26, 3, 4, 40);
 
     //     // 7. Κεντρικός δρόμος horizontal προς σπίτι/yard
-    //     paintRoadRect(ground, decor, 18, 16, 12, 4);
+    //     paintRoadRect(ground, underground, 18, 16, 12, 4);
 
     //     // 8. Snow zone πάνω δεξιά
-    //     paintSnowRect(ground, decor, 36, 1, 13, 11);
+    //     paintSnowRect(ground, underground, 36, 1, 13, 11);
 
     //     // 9. House yard περιοχή
-    //     paintFenceRect(decor, 20, 10, 10, 10);
+    //     paintFenceRect(underground, 20, 10, 10, 10);
 
     //     // 10. POI markers απλά για τώρα
     //     AtlasManifest basic = getManifest("basic_terrain");
@@ -399,21 +411,21 @@ public class TileManager {
 
     //     if (basic != null) {
     //         if (basic.hasVariant2x2("DIRT_PATH")) {
-    //             paintVariantRectangle(decor, "basic_terrain", "DIRT_PATH", 22, 12, 2, 2); // house marker
+    //             paintVariantRectangle(underground, "basic_terrain", "DIRT_PATH", 22, 12, 2, 2); // house marker
     //         }
     //         if (basic.hasVariant2x2("FLOWER_PATH")) {
-    //             paintVariantRectangle(decor, "basic_terrain", "FLOWER_PATH", 10, 20, 2, 2); // chest/flower marker
+    //             paintVariantRectangle(underground, "basic_terrain", "FLOWER_PATH", 10, 20, 2, 2); // chest/flower marker
     //         }
     //         if (basic.hasVariant2x2("GRASS_PATH")) {
-    //             paintVariantRectangle(decor, "basic_terrain", "GRASS_PATH", 27, 24, 2, 2); // sign marker
+    //             paintVariantRectangle(underground, "basic_terrain", "GRASS_PATH", 27, 24, 2, 2); // sign marker
     //         }
     //         if (basic.hasVariant2x2("SAND_PATH")) {
-    //             paintVariantRectangle(decor, "basic_terrain", "SAND_PATH", 42, 14, 2, 2); // cave marker near snow edge
+    //             paintVariantRectangle(underground, "basic_terrain", "SAND_PATH", 42, 14, 2, 2); // cave marker near snow edge
     //         }
     //     }
 
     //     if (water != null && water.hasTile("WATER_ROCKS_1")) {
-    //         setLayerTile(waterDecor, 8, 35, water.getRequiredTileId("WATER_ROCKS_1"));
+    //         setLayerTile(waterunderground, 8, 35, water.getRequiredTileId("WATER_ROCKS_1"));
     //     }
 
     //     // 10. Border collision
@@ -427,8 +439,8 @@ public class TileManager {
     //     }
 
     //     map.layers.add(ground);
-    //     map.layers.add(decor);
-    //     map.layers.add(waterDecor);
+    //     map.layers.add(underground);
+    //     map.layers.add(waterunderground);
     //     map.layers.add(collision);
 
     //     addAdvancedMap(map);
@@ -503,7 +515,7 @@ public class TileManager {
 
     // public void addTiledMap(String name, int cols, int rows,
     //                         String groundPath,
-    //                         String decorPath,
+    //                         String undergroundPath,
     //                         String waterPath,
     //                         String upperPath,
     //                         String collisionPath) {
@@ -520,9 +532,9 @@ public class TileManager {
     //     ground.atlasName = "basic_terrain";
     //     ground.tiles = loadCSVLayerWithOffset(groundPath, cols, rows, basicTerrainFirstGid);
 
-    //     MapLayer decor = new MapLayer("decor", rows, cols);
-    //     decor.atlasName = "basic_terrain";
-    //     decor.tiles = loadCSVLayerWithOffset(decorPath, cols, rows, basicTerrainFirstGid);
+    //     MapLayer underground = new MapLayer("underground", rows, cols);
+    //     underground.atlasName = "basic_terrain";
+    //     underground.tiles = loadCSVLayerWithOffset(undergroundPath, cols, rows, basicTerrainFirstGid);
 
     //     MapLayer water = new MapLayer("water", rows, cols);
     //     water.atlasName = "water";
@@ -537,7 +549,7 @@ public class TileManager {
     //     collision.tiles = loadCSVLayer(collisionPath, cols, rows);
 
     //     map.layers.add(ground);
-    //     map.layers.add(decor);
+    //     map.layers.add(underground);
     //     map.layers.add(water);
     //     map.layers.add(upper);
     //     map.layers.add(collision);
@@ -559,36 +571,21 @@ public class TileManager {
             int cols = Integer.parseInt(mapElement.getAttribute("width"));
             int rows = Integer.parseInt(mapElement.getAttribute("height"));
 
-            int basicTerrainFirstGid = findFirstGid(doc, "basic_terrain.tsx");
-            int waterFirstGid = findFirstGid(doc, "water.tsx");
-            int decorFirstGid = findFirstGid(doc, "decor.tsx");
-
-            System.out.println("TMX firstgid basic_terrain = " + basicTerrainFirstGid);
-            System.out.println("TMX firstgid water = " + waterFirstGid);
-            System.out.println("TMX firstgid decor = " + decorFirstGid);
+            ArrayList<TilesetRange> ranges = getTilesetRanges(doc);
 
             AdvancedMapData map = new AdvancedMapData(name, cols, rows);
             map.legacy = false;
 
-            MapLayer ground = loadTMXLayer(doc, "ground", "ground", rows, cols,
-                    "basic_terrain", basicTerrainFirstGid, false);
-
-            MapLayer decor = loadTMXLayer(doc, "decor", "decor", rows, cols,
-                    "basic_terrain", basicTerrainFirstGid, false);
-
-            MapLayer water = loadTMXLayer(doc, "water", "water", rows, cols,
-                    "water", waterFirstGid, false);
-
-            MapLayer upperground = loadTMXLayer(doc, "upperground", "upperground", rows, cols,
-                    "other", decorFirstGid, false);
-
-            MapLayer collision = loadTMXLayer(doc, "collision", "collision", rows, cols,
-                    "", 0, true);
+            MapLayer water = loadTMXLayer(doc, "water", "water", rows, cols, ranges, false);
+            MapLayer underground = loadTMXLayer(doc, "underground", "underground", rows, cols, ranges, false);
+            MapLayer ground = loadTMXLayer(doc, "ground", "ground", rows, cols, ranges, false);
+            MapLayer decor = loadTMXLayer(doc, "decor", "decor", rows, cols, ranges, false);
+            MapLayer collision = loadTMXLayer(doc, "collision", "collision", rows, cols, ranges, true);
 
             if (ground != null) map.layers.add(ground);
-            if (decor != null) map.layers.add(decor);
+            if (underground != null) map.layers.add(underground);
             if (water != null) map.layers.add(water);
-            if (upperground != null) map.layers.add(upperground);
+            if (decor != null) map.layers.add(decor);
             if (collision != null) map.layers.add(collision);
 
             addAdvancedMap(map);
@@ -642,7 +639,14 @@ public class TileManager {
         // Advanced path - προς το παρόν ground layer fallback
         MapLayer ground = map.getLayer("ground");
         if (ground != null) {
-            return ground.tiles[row][col];
+            LayerTile t = ground.tiles[row][col];
+
+            if (t == null || t.isEmpty()) return 0;
+
+            TilesetAtlas atlas = getAtlas(t.atlasName);
+            if (atlas == null) return 0;
+
+            return t.tileId;
         }
 
         return 0;
@@ -666,7 +670,8 @@ public class TileManager {
         // Advanced maps: πρώτα δες collision layer
         MapLayer collisionLayer = map.getLayer("collision");
         if (collisionLayer != null) {
-            return collisionLayer.tiles[row][col] != -1;
+            LayerTile t = collisionLayer.tiles[row][col];
+            return t != null && !t.isEmpty();
         }
 
         // fallback: αν δεν υπάρχει collision layer, πάρε από ground tile collision
@@ -787,12 +792,12 @@ public class TileManager {
     //     setLayerTile(layer, startCol + 1, startRow + 1, manifest.getRequiredTileId(prefix + "_4"));
     // }
 
-    // public void placeTerrainStack3x3(MapLayer groundLayer, MapLayer decorLayer,
+    // public void placeTerrainStack3x3(MapLayer groundLayer, MapLayer undergroundLayer,
     //                                 String atlasName,
     //                                 String bottomPrefix, String topPrefix,
     //                                 int startCol, int startRow) {
     //     placeBottom3x3(groundLayer, atlasName, bottomPrefix, startCol, startRow);
-    //     placeTerrainFrame3x3(decorLayer, atlasName, topPrefix, startCol, startRow);
+    //     placeTerrainFrame3x3(undergroundLayer, atlasName, topPrefix, startCol, startRow);
     // }
 
     // public void placePaintedWater3x3(MapLayer layer, String prefix, int startCol, int startRow) {
@@ -829,7 +834,7 @@ public class TileManager {
     //     }
     // }
 
-    // public void placeTerrainRectangleFrame(MapLayer decorLayer, String atlasName, String prefix,
+    // public void placeTerrainRectangleFrame(MapLayer undergroundLayer, String atlasName, String prefix,
     //                                     int startCol, int startRow, int width, int height) {
     //     AtlasManifest manifest = getManifest(atlasName);
     //     if (manifest == null) return;
@@ -846,27 +851,27 @@ public class TileManager {
     //     int br = manifest.getRequiredTileId(prefix + "_BR");
 
     //     // γωνίες
-    //     setLayerTile(decorLayer, startCol, startRow, tl);
-    //     setLayerTile(decorLayer, startCol + width - 1, startRow, tr);
-    //     setLayerTile(decorLayer, startCol, startRow + height - 1, bl);
-    //     setLayerTile(decorLayer, startCol + width - 1, startRow + height - 1, br);
+    //     setLayerTile(undergroundLayer, startCol, startRow, tl);
+    //     setLayerTile(undergroundLayer, startCol + width - 1, startRow, tr);
+    //     setLayerTile(undergroundLayer, startCol, startRow + height - 1, bl);
+    //     setLayerTile(undergroundLayer, startCol + width - 1, startRow + height - 1, br);
 
     //     // πάνω / κάτω
     //     for (int col = startCol + 1; col < startCol + width - 1; col++) {
-    //         setLayerTile(decorLayer, col, startRow, t);
-    //         setLayerTile(decorLayer, col, startRow + height - 1, b);
+    //         setLayerTile(undergroundLayer, col, startRow, t);
+    //         setLayerTile(undergroundLayer, col, startRow + height - 1, b);
     //     }
 
     //     // αριστερά / δεξιά
     //     for (int row = startRow + 1; row < startRow + height - 1; row++) {
-    //         setLayerTile(decorLayer, startCol, row, l);
-    //         setLayerTile(decorLayer, startCol + width - 1, row, r);
+    //         setLayerTile(undergroundLayer, startCol, row, l);
+    //         setLayerTile(undergroundLayer, startCol + width - 1, row, r);
     //     }
 
-    //     // κέντρο decor = κενό για να φαίνεται το κάτω layer
+    //     // κέντρο underground = κενό για να φαίνεται το κάτω layer
     //     for (int row = startRow + 1; row < startRow + height - 1; row++) {
     //         for (int col = startCol + 1; col < startCol + width - 1; col++) {
-    //             setLayerTile(decorLayer, col, row, -1);
+    //             setLayerTile(undergroundLayer, col, row, -1);
     //         }
     //     }
     // }
@@ -881,14 +886,14 @@ public class TileManager {
     //     fillRectangleWithTile(groundLayer, startCol, startRow, width, height, fillId);
     // }
 
-    // public void paintTerrainRectangle(MapLayer groundLayer, MapLayer decorLayer,
+    // public void paintTerrainRectangle(MapLayer groundLayer, MapLayer undergroundLayer,
     //                                 String atlasName,
     //                                 String bottomPrefix, String topPrefix,
     //                                 int startCol, int startRow, int width, int height) {
     //     if (width < 3 || height < 3) return;
 
     //     placeBottomTerrainRectangle(groundLayer, atlasName, bottomPrefix, startCol, startRow, width, height);
-    //     placeTerrainRectangleFrame(decorLayer, atlasName, topPrefix, startCol, startRow, width, height);
+    //     placeTerrainRectangleFrame(undergroundLayer, atlasName, topPrefix, startCol, startRow, width, height);
     // }
 
     // public void placeExplicitBlock4x5(MapLayer layer, String atlasName, String[][] names, int startCol, int startRow) {
@@ -1010,25 +1015,25 @@ public class TileManager {
     //     fillRectangleWithNamedTile(layer, atlasName, tileName, startCol, startRow, width, height);
     // }
 
-    // public void paintRoadRect(MapLayer ground, MapLayer decor,
+    // public void paintRoadRect(MapLayer ground, MapLayer underground,
     //                         int startCol, int startRow, int width, int height) {
     //     // εσωτερικό = DIRT_FILL
     //     // outline = GRASS_DIRT
-    //     paintTerrainRectangle(ground, decor, "basic_terrain", "DIRT", "GRASS", startCol, startRow, width, height);
+    //     paintTerrainRectangle(ground, underground, "basic_terrain", "DIRT", "GRASS", startCol, startRow, width, height);
     // }
 
-    // public void paintSnowRect(MapLayer ground, MapLayer decor,
+    // public void paintSnowRect(MapLayer ground, MapLayer underground,
     //                         int startCol, int startRow, int width, int height) {
     //     // Μόνο valid pairing: DIRT κάτω, SNOW πάνω
-    //     paintTerrainRectangle(ground, decor, "basic_terrain", "DIRT", "SNOW", startCol, startRow, width, height);
+    //     paintTerrainRectangle(ground, underground, "basic_terrain", "DIRT", "SNOW", startCol, startRow, width, height);
     // }
 
-    // public void paintGrassField(MapLayer ground, MapLayer decor,
+    // public void paintGrassField(MapLayer ground, MapLayer underground,
     //                             int startCol, int startRow, int width, int height) {
-    //     paintTerrainRectangle(ground, decor, "basic_terrain", "DIRT", "GRASS", startCol, startRow, width, height);
+    //     paintTerrainRectangle(ground, underground, "basic_terrain", "DIRT", "GRASS", startCol, startRow, width, height);
     // }
 
-    // public void paintWaterRect(MapLayer waterDecor, String prefix,
+    // public void paintWaterRect(MapLayer waterunderground, String prefix,
     //                         int startCol, int startRow, int width, int height) {
     //     AtlasManifest waterManifest = getManifest("water");
     //     if (waterManifest == null) return;
@@ -1053,7 +1058,7 @@ public class TileManager {
     //             else tileName = prefix + "_FILL";
 
     //             if (waterManifest.hasTile(tileName)) {
-    //                 setLayerTile(waterDecor, col, row, waterManifest.getRequiredTileId(tileName));
+    //                 setLayerTile(waterunderground, col, row, waterManifest.getRequiredTileId(tileName));
     //             }
     //         }
     //     }
@@ -1076,13 +1081,13 @@ public class TileManager {
         for (int row = startRow; row < startRow + height; row++) {
             for (int col = startCol; col < startCol + width; col++) {
                 if (row >= 0 && row < collision.rows && col >= 0 && col < collision.cols) {
-                    collision.tiles[row][col] = 1;
+                    collision.tiles[row][col] = new LayerTile("collision", 0);
                 }
             }
         }
     }
 
-    // public void paintFenceRect(MapLayer decor, int startCol, int startRow, int width, int height) {
+    // public void paintFenceRect(MapLayer underground, int startCol, int startRow, int width, int height) {
     //     AtlasManifest basic = getManifest("basic_terrain");
     //     if (basic == null || !basic.hasTile("DIRT_PATH_1")) return;
 
@@ -1091,10 +1096,10 @@ public class TileManager {
     //     int bl = basic.getRequiredTileId("DIRT_PATH_3");
     //     int br = basic.getRequiredTileId("DIRT_PATH_4");
 
-    //     setLayerTile(decor, startCol, startRow, tl);
-    //     setLayerTile(decor, startCol + width - 1, startRow, tr);
-    //     setLayerTile(decor, startCol, startRow + height - 1, bl);
-    //     setLayerTile(decor, startCol + width - 1, startRow + height - 1, br);
+    //     setLayerTile(underground, startCol, startRow, tl);
+    //     setLayerTile(underground, startCol + width - 1, startRow, tr);
+    //     setLayerTile(underground, startCol, startRow + height - 1, bl);
+    //     setLayerTile(underground, startCol + width - 1, startRow + height - 1, br);
     // }
 
     // public void paintWaterBlockRectangle(MapLayer layer, String prefix,
@@ -1142,8 +1147,7 @@ public class TileManager {
                                 String internalLayerName,
                                 int rows,
                                 int cols,
-                                String atlasName,
-                                int firstGid,
+                                ArrayList<TilesetRange> ranges,
                                 boolean collisionMode) {
 
         Element layerElement = findLayerElement(doc, tmxLayerName);
@@ -1158,24 +1162,37 @@ public class TileManager {
         String[] tokens = csv.split(",");
 
         MapLayer layer = new MapLayer(internalLayerName, rows, cols);
-        layer.atlasName = atlasName;
 
         int index = 0;
 
         for (int row = 0; row < rows; row++) {
             for (int col = 0; col < cols; col++) {
                 if (index >= tokens.length) {
-                    layer.tiles[row][col] = -1;
+                    layer.tiles[row][col] = new LayerTile();
                     continue;
                 }
 
-                String token = tokens[index].trim();
-                int gid = Integer.parseInt(token);
+                int gid = Integer.parseInt(tokens[index].trim());
 
                 if (collisionMode) {
-                    layer.tiles[row][col] = (gid == 0) ? -1 : 1;
+                    if (gid == 0) {
+                        layer.tiles[row][col] = new LayerTile("", -1);
+                    } else {
+                        layer.tiles[row][col] = new LayerTile("collision", 1);
+                    }
                 } else {
-                    layer.tiles[row][col] = (gid == 0) ? -1 : (gid - firstGid);
+                    if (gid == 0) {
+                        layer.tiles[row][col] = new LayerTile("", -1);
+                    } else {
+                        TilesetRange range = findTilesetRangeForGid(ranges, gid);
+
+                        if (range == null || range.atlasName.isEmpty()) {
+                            layer.tiles[row][col] = new LayerTile("", -1);
+                        } else {
+                            int localId = gid - range.firstGid;
+                            layer.tiles[row][col] = new LayerTile(range.atlasName, localId);
+                        }
+                    }
                 }
 
                 index++;
@@ -1183,6 +1200,54 @@ public class TileManager {
         }
 
         return layer;
+    }
+
+    private String mapTsxSourceToAtlasName(String source) {
+        if (source == null) return "";
+
+        if (source.endsWith("basic_terrain.tsx")) return "basic_terrain";
+        if (source.endsWith("water.tsx")) return "water";
+        if (source.endsWith("decor.tsx")) return "other";
+        if (source.endsWith("other.tsx")) return "other";
+        if (source.endsWith("cave.tsx")) return "cave";
+        if (source.endsWith("mountains.tsx")) return "mountains";
+        if (source.endsWith("mountains2.tsx")) return "mountains2";
+        if (source.endsWith("water_animated.tsx")) return "water_animated";
+
+        return "";
+    }
+
+    private ArrayList<TilesetRange> getTilesetRanges(Document doc) {
+        ArrayList<TilesetRange> ranges = new ArrayList<>();
+
+        NodeList tilesets = doc.getElementsByTagName("tileset");
+
+        for (int i = 0; i < tilesets.getLength(); i++) {
+            Element ts = (Element) tilesets.item(i);
+
+            int firstGid = Integer.parseInt(ts.getAttribute("firstgid"));
+            String source = ts.getAttribute("source");
+            String atlasName = mapTsxSourceToAtlasName(source);
+
+            ranges.add(new TilesetRange(firstGid, source, atlasName));
+        }
+
+        ranges.sort((a, b) -> Integer.compare(a.firstGid, b.firstGid));
+        return ranges;
+    }
+
+    private TilesetRange findTilesetRangeForGid(ArrayList<TilesetRange> ranges, int gid) {
+        TilesetRange result = null;
+
+        for (TilesetRange range : ranges) {
+            if (gid >= range.firstGid) {
+                result = range;
+            } else {
+                break;
+            }
+        }
+
+        return result;
     }
 
     // =========================================================
@@ -1231,21 +1296,21 @@ public class TileManager {
 
     private void drawAdvancedMap(Graphics2D g2, AdvancedMapData currentMap) {
         drawAtlasLayer(g2, currentMap.getLayer("water"));
-        drawAtlasLayer(g2, currentMap.getLayer("decor"));
+        drawAtlasLayer(g2, currentMap.getLayer("underground"));
         drawAtlasLayer(g2, currentMap.getLayer("ground"));
-        drawAtlasLayer(g2, currentMap.getLayer("upperground"));
+        drawAtlasLayer(g2, currentMap.getLayer("decor"));
     }
 
     private void drawAtlasLayer(Graphics2D g2, MapLayer layer) {
         if (layer == null || !layer.visible) return;
 
-        TilesetAtlas atlas = getAtlas(layer.atlasName);
-        if (atlas == null) return;
-
         for (int row = 0; row < layer.rows; row++) {
             for (int col = 0; col < layer.cols; col++) {
-                int tileNum = layer.tiles[row][col];
-                if (tileNum < 0) continue;
+                LayerTile layerTile = layer.tiles[row][col];
+                if (layerTile == null || layerTile.isEmpty()) continue;
+
+                TilesetAtlas atlas = getAtlas(layerTile.atlasName);
+                if (atlas == null) continue;
 
                 int worldX = col * gp.tileSize;
                 int worldY = row * gp.tileSize;
@@ -1257,7 +1322,7 @@ public class TileManager {
                     worldY + gp.tileSize > gp.worldY &&
                     worldY - gp.tileSize < gp.worldY + gp.screenHeight) {
 
-                    BufferedImage tileImage = atlas.getTileImage(tileNum);
+                    BufferedImage tileImage = atlas.getTileImage(layerTile.tileId);
                     if (tileImage != null) {
                         g2.drawImage(tileImage, screenX, screenY, gp.tileSize, gp.tileSize, null);
                     }
