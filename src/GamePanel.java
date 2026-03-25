@@ -696,15 +696,15 @@ public class GamePanel extends JPanel implements Runnable {
         inventory.addItem(mapItem);  // Αυτόματα θα πάει στα key items
 
         // Δημιούργησε portals
-        portals.add(new Portal(0, 12 * tileSize, 8 * tileSize, 1, 10 * tileSize, 41 * tileSize)); // Overworld -> Dungeon
-        portals.add(new Portal(1, 9 * tileSize, 41 * tileSize, 0, 11 * tileSize, 9 * tileSize)); // Dungeon -> Overworld
-        portals.add(new Portal(0, 10 * tileSize, 39 * tileSize, 2, 12 * tileSize, 12 * tileSize)); // Overworld -> Merchant House
-        portals.add(new Portal(2, 12 * tileSize, 13 * tileSize, 0, 10 * tileSize, 40 * tileSize)); // Merchant House -> Overworld
-        portals.add(new Portal(0, 41 * tileSize, 7 * tileSize, 3, 4 * tileSize, 22 * tileSize)); // Overworld -> Town
-        portals.add(new Portal(3, 3 * tileSize, 22 * tileSize, 0, 41 * tileSize, 8 * tileSize)); // Town -> Overworld
+        // portals.add(new Portal(0, 12 * tileSize, 8 * tileSize, 1, 10 * tileSize, 41 * tileSize)); // Overworld -> Dungeon
+        // portals.add(new Portal(1, 9 * tileSize, 41 * tileSize, 0, 11 * tileSize, 9 * tileSize)); // Dungeon -> Overworld
+        // portals.add(new Portal(0, 10 * tileSize, 39 * tileSize, 2, 12 * tileSize, 12 * tileSize)); // Overworld -> Merchant House
+        // portals.add(new Portal(2, 12 * tileSize, 13 * tileSize, 0, 10 * tileSize, 40 * tileSize)); // Merchant House -> Overworld
+        // portals.add(new Portal(0, 41 * tileSize, 7 * tileSize, 3, 4 * tileSize, 22 * tileSize)); // Overworld -> Town
+        // portals.add(new Portal(3, 3 * tileSize, 22 * tileSize, 0, 41 * tileSize, 8 * tileSize)); // Town -> Overworld
 
-        //portals.add(new Portal(3, 40 * tileSize, 30 * tileSize, 6, 8 * tileSize, 8 * tileSize)); // Town -> region
-        portals.add(new Portal(3, 40 * tileSize, 28 * tileSize, 6, 20 * tileSize, 10 * tileSize)); // Town -> testmaps
+        // //portals.add(new Portal(3, 40 * tileSize, 30 * tileSize, 6, 8 * tileSize, 8 * tileSize)); // Town -> region
+        // portals.add(new Portal(3, 40 * tileSize, 28 * tileSize, 6, 20 * tileSize, 10 * tileSize)); // Town -> testmaps
 
         //ΞΕΚΙΝΑΩ ΜΕ TITLE
         gameState = titleState;
@@ -2153,6 +2153,9 @@ public class GamePanel extends JPanel implements Runnable {
                         else if (currentMap == 2) { // Merchant Village
                             // Στο merchant village, καμία μάχη
                             currentArea = "safe";
+                        } 
+                        else {
+                            currentArea = "safe";
                         }
                         
                         // ========== RANDOM ENCOUNTER CHECK ==========
@@ -2237,6 +2240,9 @@ public class GamePanel extends JPanel implements Runnable {
                         }
                         else if (currentMap == 2) { // Merchant Village
                             // Στο merchant village, καμία μάχη
+                            currentArea = "safe";
+                        }
+                        else {
                             currentArea = "safe";
                         }
                         
@@ -2326,6 +2332,9 @@ public class GamePanel extends JPanel implements Runnable {
                             // Στο merchant village, καμία μάχη
                             currentArea = "safe";
                         }
+                        else {
+                            currentArea = "safe";
+                        }
                         
                         // ========== RANDOM ENCOUNTER CHECK ==========
                         encounterStepCounter++;
@@ -2412,6 +2421,9 @@ public class GamePanel extends JPanel implements Runnable {
                             // Στο merchant village, καμία μάχη
                             currentArea = "safe";
                         }
+                        else {
+                            currentArea = "safe";
+                        }
                         
                         // ========== RANDOM ENCOUNTER CHECK ==========
                         encounterStepCounter++;
@@ -2444,44 +2456,67 @@ public class GamePanel extends JPanel implements Runnable {
                 if (player.worldY > worldHeight - tileSize) player.worldY = worldHeight - tileSize;
 
                 // Έλεγξε για portals
-                for (Portal portal : portals) {
-                    // Μόνο αν είμαστε στον σωστό χάρτη για αυτό το portal
-                    if (currentMap == portal.sourceMap) {
-                        int distanceX = Math.abs(player.worldX - portal.worldX);
-                        int distanceY = Math.abs(player.worldY - portal.worldY);
-                        
-                        if (distanceX < tileSize && distanceY < tileSize) {
-                            currentMap = portal.targetMap;
-                            tileM.applyMapSizeToGamePanel(currentMap);
-                            player.worldX = portal.targetX;
-                            player.worldY = portal.targetY;
-                            
-                            // ========== ΑΛΛΑΓΗ ΜΟΥΣΙΚΗΣ ==========
-                            if (currentMap == 0) { // Overworld
-                                if (dayTime == 0 || dayTime == 3) {
-                                    sound.playMusic("overworld_day");
-                                } else {
-                                    sound.playMusic("overworld_night");
-                                }
-                            } else if (currentMap == 1) { // Dungeon
-                                sound.playMusic("dungeon");
-                            } else if (currentMap == 3) { // town
-                                if (dayTime == 0 || dayTime == 3) {
-                                    sound.playMusic("town_day");
-                                } else {
-                                    sound.playMusic("town_night");
-                                }
-                            } else { // Τρίτος χάρτης
-                                sound.playMusic("merchant_village");
+                ArrayList<TiledObjectData> portalObjects = tileM.getMapObjectsByLayer(currentMap, "portals");
+
+                for (TiledObjectData portalObj : portalObjects) {
+                    int portalX = (int)(portalObj.x / originalTileSize) * tileSize;
+                    int portalY = (int)(portalObj.y / originalTileSize) * tileSize;
+
+                    int portalWidthTiles = Math.max(1, portalObj.width / originalTileSize);
+                    int portalHeightTiles = Math.max(1, portalObj.height / originalTileSize);
+
+                    int portalWidthWorld = portalWidthTiles * tileSize;
+                    int portalHeightWorld = portalHeightTiles * tileSize;
+
+                    boolean touchingPortal =
+                            player.worldX + tileSize > portalX &&
+                            player.worldX < portalX + portalWidthWorld &&
+                            player.worldY + tileSize > portalY &&
+                            player.worldY < portalY + portalHeightWorld;
+
+                    if (touchingPortal) {
+                        int targetMap = portalObj.getPropertyInt("targetMap", currentMap);
+                        int targetCol = portalObj.getPropertyInt("targetX", 5);
+                        int targetRow = portalObj.getPropertyInt("targetY", 5);
+
+                        currentMap = targetMap;
+                        tileM.applyMapSizeToGamePanel(currentMap);
+
+                        player.worldX = targetCol * tileSize;
+                        player.worldY = targetRow * tileSize;
+
+                        // μουσική
+                        if (currentMap == 0) { // Overworld
+                            if (dayTime == 0 || dayTime == 3) {
+                                sound.playMusic("overworld_day");
+                            } else {
+                                sound.playMusic("overworld_night");
                             }
-                            currentMusicVolume = musicVolume / 100.0f;
-                            sound.setMusicVolume(currentMusicVolume);
-                            
-                            playSound("portal");
-                            startDialogue("Ταξίδεψες σε άλλη περιοχή!");
-                            gameState = dialogueState;
-                            break;
+                        } else if (currentMap == 1) { // Dungeon
+                            sound.playMusic("dungeon");
+                        } else if (currentMap == 3) { // Town
+                            if (dayTime == 0 || dayTime == 3) {
+                                sound.playMusic("town_day");
+                            } else {
+                                sound.playMusic("town_night");
+                            }
+                        } else {
+                            sound.playMusic("merchant_village");
                         }
+
+                        currentMusicVolume = musicVolume / 100.0f;
+                        sound.setMusicVolume(currentMusicVolume);
+
+                        playSound("portal");
+
+                        String portalMessage = portalObj.getProperty("message");
+                        if (portalMessage == null || portalMessage.isEmpty()) {
+                            portalMessage = "Ταξίδεψες σε άλλη περιοχή!";
+                        }
+
+                        startDialogue(portalMessage);
+                        gameState = dialogueState;
+                        break;
                     }
                 }
 

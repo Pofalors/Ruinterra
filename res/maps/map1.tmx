@@ -279,7 +279,7 @@
  <objectgroup id="7" name="portals">
   <object id="3" name="portal" x="320" y="0.333333" width="47.6667" height="15">
    <properties>
-    <property name="targetMap" value="town"/>
+    <property name="targetMap" type="int" value="3"/>
     <property name="targetX" type="int" value="38"/>
     <property name="targetY" type="int" value="28"/>
    </properties>
