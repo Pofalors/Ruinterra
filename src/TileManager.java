@@ -217,14 +217,14 @@ public class TileManager {
         }
     }
 
-    public void addAdvancedMapFromFile(String metadataPath) {
-        AdvancedMapData map = AdvancedMapLoader.loadAdvancedMap(metadataPath);
-        if (map != null) {
-            map.legacy = false;
-            maps.add(map);
-            System.out.println("Advanced map loaded: " + map.name + " (" + map.cols + "x" + map.rows + ")");
-        }
-    }
+    // public void addAdvancedMapFromFile(String metadataPath) {
+    //     AdvancedMapData map = AdvancedMapLoader.loadAdvancedMap(metadataPath);
+    //     if (map != null) {
+    //         map.legacy = false;
+    //         maps.add(map);
+    //         System.out.println("Advanced map loaded: " + map.name + " (" + map.cols + "x" + map.rows + ")");
+    //     }
+    // }
 
     // public void addWaterManifestShowcaseMap() {
     //     AdvancedMapData map = new AdvancedMapData("WaterManifestShowcase", 36, 36);
@@ -587,6 +587,8 @@ public class TileManager {
             if (water != null) map.layers.add(water);
             if (decor != null) map.layers.add(decor);
             if (collision != null) map.layers.add(collision);
+            map.objects.addAll(loadTMXObjects(doc, "spawns"));
+            map.objects.addAll(loadTMXObjects(doc, "portals"));
 
             addAdvancedMap(map);
 
@@ -1244,6 +1246,86 @@ public class TileManager {
                 result = range;
             } else {
                 break;
+            }
+        }
+
+        return result;
+    }
+
+    private Element findObjectGroupElement(Document doc, String layerName) {
+        NodeList groups = doc.getElementsByTagName("objectgroup");
+
+        for (int i = 0; i < groups.getLength(); i++) {
+            Element group = (Element) groups.item(i);
+            String name = group.getAttribute("name");
+            if (name.equalsIgnoreCase(layerName)) {
+                return group;
+            }
+        }
+
+        return null;
+    }
+
+    private ArrayList<TiledObjectData> loadTMXObjects(Document doc, String objectGroupName) {
+        ArrayList<TiledObjectData> result = new ArrayList<>();
+
+        Element group = findObjectGroupElement(doc, objectGroupName);
+        if (group == null) return result;
+
+        NodeList objects = group.getElementsByTagName("object");
+
+        for (int i = 0; i < objects.getLength(); i++) {
+            Element obj = (Element) objects.item(i);
+
+            TiledObjectData data = new TiledObjectData();
+            data.layerName = objectGroupName;
+            data.name = obj.getAttribute("name");
+            data.type = obj.getAttribute("type");
+
+            data.x = (int) Double.parseDouble(obj.getAttribute("x"));
+            data.y = (int) Double.parseDouble(obj.getAttribute("y"));
+
+            String w = obj.getAttribute("width");
+            String h = obj.getAttribute("height");
+
+            data.width = w.isEmpty() ? 0 : (int) Double.parseDouble(w);
+            data.height = h.isEmpty() ? 0 : (int) Double.parseDouble(h);
+
+            NodeList propsList = obj.getElementsByTagName("property");
+            for (int p = 0; p < propsList.getLength(); p++) {
+                Element prop = (Element) propsList.item(p);
+                String key = prop.getAttribute("name");
+                String value = prop.getAttribute("value");
+                data.properties.put(key, value);
+            }
+
+            result.add(data);
+        }
+
+        return result;
+    }
+
+    public TiledObjectData findMapObjectByName(int mapIndex, String objectName) {
+        AdvancedMapData map = getMap(mapIndex);
+        if (map == null) return null;
+
+        for (TiledObjectData obj : map.objects) {
+            if (obj.name != null && obj.name.equalsIgnoreCase(objectName)) {
+                return obj;
+            }
+        }
+
+        return null;
+    }
+
+    public ArrayList<TiledObjectData> getMapObjectsByLayer(int mapIndex, String layerName) {
+        ArrayList<TiledObjectData> result = new ArrayList<>();
+        AdvancedMapData map = getMap(mapIndex);
+        if (map == null) return result;
+
+        for (TiledObjectData obj : map.objects) {
+            if (obj.layerName != null && obj.layerName.equalsIgnoreCase(layerName)) {
+                result.add(obj);
             }
         }
 

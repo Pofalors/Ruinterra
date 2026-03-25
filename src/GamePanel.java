@@ -332,8 +332,22 @@ public class GamePanel extends JPanel implements Runnable {
 
         // Δημιούργησε τον player ως Entity
         player = new Entity(this);
-        player.worldX = 23 * tileSize;  // ή όποιο spawn point θες
-        player.worldY = 21 * tileSize;
+        // player.worldX = 23 * tileSize;  // ή όποιο spawn point θες
+        // player.worldY = 21 * tileSize;
+        currentMap = tileM.maps.size() - 1;
+        tileM.applyMapSizeToGamePanel(currentMap);
+
+        TiledObjectData spawn = tileM.findMapObjectByName(currentMap, "player_spawn");
+        if (spawn != null) {
+            int spawnCol = (int)(spawn.x / originalTileSize);
+            int spawnRow = (int)(spawn.y / originalTileSize) - 1;
+
+            player.worldX = spawnCol * tileSize;
+            player.worldY = spawnRow * tileSize;
+        } else {
+            player.worldX = 5 * tileSize;
+            player.worldY = 5 * tileSize;
+        }
         player.speed = 4;
         player.direction = "down";
 

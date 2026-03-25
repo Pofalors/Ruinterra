@@ -12,6 +12,7 @@ public class AdvancedMapData {
 
     // advanced support
     public ArrayList<MapLayer> layers = new ArrayList<>();
+    public ArrayList<TiledObjectData> objects = new ArrayList<>();
 
     public AdvancedMapData(String name, int cols, int rows) {
         this.name = name;
