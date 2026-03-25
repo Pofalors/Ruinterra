@@ -1,7 +1,10 @@
+import java.util.ArrayList;
+
 public class BiomeMap {
     public int cols;
     public int rows;
     public BiomeType[][] data;
+    public ArrayList<PointOfInterest> pointsOfInterest = new ArrayList<>();
 
     public BiomeMap(int cols, int rows) {
         this.cols = cols;
@@ -43,5 +46,19 @@ public class BiomeMap {
                 set(col, row, biome);
             }
         }
+    }
+
+    public void addPOI(PointOfInterestType type, int col, int row) {
+        if (!isValid(col, row)) return;
+        pointsOfInterest.add(new PointOfInterest(type, col, row));
+    }
+
+    public boolean hasPOIAt(int col, int row) {
+        for (PointOfInterest poi : pointsOfInterest) {
+            if (poi.col == col && poi.row == row) {
+                return true;
+            }
+        }
+        return false;
     }
 }

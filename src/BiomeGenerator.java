@@ -46,6 +46,8 @@ public class BiomeGenerator {
         if (template.hasMainPath) {
             carveMainPath(map, template.entryCol, template.entryRow, template.exitCol, template.exitRow);
         }
+        placePointsOfInterest(map, template);
+        connectPointsOfInterest(map, template);
 
         // 6. Small random sprinkles
         sprinkleBiome(map, template.secondaryBiome, 10);
@@ -98,6 +100,108 @@ public class BiomeGenerator {
                 if (map.isValid(c, r) && map.get(c, r) != BiomeType.MOUNTAIN && map.get(c, r) != BiomeType.WATER) {
                     map.set(c, r, BiomeType.DIRT);
                 }
+            }
+        }
+    }
+
+    private void placePointsOfInterest(BiomeMap map, RegionTemplate template) {
+        // Town κοντά στη δεξιά πλευρά, πάνω στο main land
+        int townCol = map.cols - 8;
+        int townRow = map.rows / 2;
+
+        if (map.isValid(townCol, townRow)) {
+            map.addPOI(PointOfInterestType.TOWN_ENTRY, townCol, townRow);
+        }
+
+        // Cave πάνω δεξιά
+        int caveCol = map.cols - 7;
+        int caveRow = 4;
+
+        if (map.isValid(caveCol, caveRow)) {
+            map.addPOI(PointOfInterestType.CAVE_ENTRY, caveCol, caveRow);
+        }
+
+        // Sign κοντά στο κέντρο του δρόμου
+        int signCol = map.cols / 2;
+        int signRow = map.rows / 2;
+
+        if (map.isValid(signCol, signRow)) {
+            map.addPOI(PointOfInterestType.SIGN_POST, signCol, signRow);
+        }
+
+        // Chest κάτω αριστερά αλλά όχι πάνω στο border
+        int chestCol = 5;
+        int chestRow = map.rows - 6;
+
+        if (map.isValid(chestCol, chestRow)) {
+            map.addPOI(PointOfInterestType.CHEST_SPOT, chestCol, chestRow);
+        }
+
+        // Lake marker στο πρώτο water cell
+        for (int row = 1; row < map.rows - 1; row++) {
+            for (int col = 1; col < map.cols - 1; col++) {
+                if (map.get(col, row) == BiomeType.WATER) {
+                    map.addPOI(PointOfInterestType.LAKE_MARKER, col, row);
+                    return;
+                }
+            }
+        }
+    }
+
+    private void connectPointsOfInterest(BiomeMap map, RegionTemplate template) {
+        PointOfInterest town = findPOI(map, PointOfInterestType.TOWN_ENTRY);
+        PointOfInterest cave = findPOI(map, PointOfInterestType.CAVE_ENTRY);
+        PointOfInterest chest = findPOI(map, PointOfInterestType.CHEST_SPOT);
+
+        // entry -> town
+        if (town != null) {
+            carveRoad(map, template.entryCol, template.entryRow, town.col, town.row);
+        }
+
+        // town -> cave
+        if (town != null && cave != null) {
+            carveRoad(map, town.col, town.row, cave.col, cave.row);
+        }
+
+        // town -> chest
+        if (town != null && chest != null) {
+            carveRoad(map, town.col, town.row, chest.col, chest.row);
+        }
+    }
+
+    private PointOfInterest findPOI(BiomeMap map, PointOfInterestType type) {
+        for (PointOfInterest poi : map.pointsOfInterest) {
+            if (poi.type == type) return poi;
+        }
+        return null;
+    }
+
+    private void carveRoad(BiomeMap map, int startCol, int startRow, int endCol, int endRow) {
+        int col = startCol;
+        int row = startRow;
+
+        while (col != endCol) {
+            if (col < endCol) col++;
+            else col--;
+            carveRoadCell(map, col, row);
+        }
+
+        while (row != endRow) {
+            if (row < endRow) row++;
+            else row--;
+            carveRoadCell(map, col, row);
+        }
+    }
+
+    private void carveRoadCell(BiomeMap map, int col, int row) {
+        for (int r = row - 1; r <= row + 1; r++) {
+            for (int c = col - 1; c <= col + 1; c++) {
+                if (!map.isValid(c, r)) continue;
+
+                BiomeType current = map.get(c, r);
+                if (current == BiomeType.MOUNTAIN || current == BiomeType.WATER) continue;
+
+                map.set(c, r, BiomeType.DIRT);
             }
         }
     }

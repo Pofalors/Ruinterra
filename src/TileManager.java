@@ -4,10 +4,16 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.awt.image.BufferedImage;
 import java.util.HashMap;
 import java.util.Map;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 
 
 public class TileManager {
@@ -144,11 +150,13 @@ public class TileManager {
         // ΑΡΓΟΤΕΡΑ ΕΔΩ θα μπουν advanced maps / atlas maps
         // π.χ. addAdvancedMap(...)
         // ======================================================
-        addAdvancedMapFromFile("res/maps/test_region_01.frmap");
-        addAdvancedMapFromFile("res/maps/basic_terrain_index_test.frmap");
+        //addAdvancedMapFromFile("res/maps/test_region_01.frmap");
+        //addAdvancedMapFromFile("res/maps/basic_terrain_index_test.frmap");
 
-        addWaterManifestShowcaseMap();
-        addGeneratedRegionMap();
+        //addWaterManifestShowcaseMap();
+        //addGeneratedRegionMap();
+
+        addTiledMapFromTMX("MyFirstTiledMap", "res/maps/map1.tmx");
     }
 
     public void addLegacyMap(String name, String filePath) {
@@ -206,245 +214,227 @@ public class TileManager {
         }
     }
 
-    public void addWaterManifestShowcaseMap() {
-        AdvancedMapData map = new AdvancedMapData("WaterManifestShowcase", 36, 36);
-        map.legacy = false;
-        map.tilesetName = "water";
+    // public void addWaterManifestShowcaseMap() {
+    //     AdvancedMapData map = new AdvancedMapData("WaterManifestShowcase", 36, 36);
+    //     map.legacy = false;
+    //     map.tilesetName = "water";
 
-        MapLayer ground = new MapLayer("ground", 36, 36);
-        ground.atlasName = "basic_terrain";
+    //     MapLayer ground = new MapLayer("ground", 36, 36);
+    //     ground.atlasName = "basic_terrain";
 
-        MapLayer decor = new MapLayer("decor", 36, 36);
-        decor.atlasName = "water";
+    //     MapLayer decor = new MapLayer("decor", 36, 36);
+    //     decor.atlasName = "water";
 
-        MapLayer collision = new MapLayer("collision", 36, 36);
-        collision.atlasName = "";
+    //     MapLayer collision = new MapLayer("collision", 36, 36);
+    //     collision.atlasName = "";
 
-        clearLayer(ground);
-        clearLayer(decor);
+    //     clearLayer(ground);
+    //     clearLayer(decor);
 
-        for (int row = 0; row < collision.rows; row++) {
-            for (int col = 0; col < collision.cols; col++) {
-                collision.tiles[row][col] = 0;
-            }
-        }
+    //     for (int row = 0; row < collision.rows; row++) {
+    //         for (int col = 0; col < collision.cols; col++) {
+    //             collision.tiles[row][col] = 0;
+    //         }
+    //     }
 
-        // Βάση γης
-        fillRectangleWithNamedTile(ground, "basic_terrain", "DIRT_FILL", 0, 0, map.cols, map.rows);
+    //     // Βάση γης
+    //     fillRectangleWithNamedTile(ground, "basic_terrain", "DIRT_FILL", 0, 0, map.cols, map.rows);
 
-        // -------------------------------------------------
-        // 1) GRASS/WATER family
-        // -------------------------------------------------
-        placeTerrain3x3(decor, "water", "GWATER", 2, 2);
-        placeTerrain3x3(decor, "water", "WGRASS", 6, 2);
+    //     // -------------------------------------------------
+    //     // 1) GRASS/WATER family
+    //     // -------------------------------------------------
+    //     placeTerrain3x3(decor, "water", "GWATER", 2, 2);
+    //     placeTerrain3x3(decor, "water", "WGRASS", 6, 2);
 
-        // -------------------------------------------------
-        // 2) SAND/WATER family
-        // -------------------------------------------------
-        placeTerrain3x3(decor, "water", "SWATER", 2, 6);
-        placeTerrain3x3(decor, "water", "WSAND", 6, 6);
+    //     // -------------------------------------------------
+    //     // 2) SAND/WATER family
+    //     // -------------------------------------------------
+    //     placeTerrain3x3(decor, "water", "SWATER", 2, 6);
+    //     placeTerrain3x3(decor, "water", "WSAND", 6, 6);
 
-        // -------------------------------------------------
-        // 3) SNOW/WATER family
-        // -------------------------------------------------
-        placeTerrain3x3(decor, "water", "SNWATER", 2, 10);
-        placeTerrain3x3(decor, "water", "WSNOW", 6, 10);
+    //     // -------------------------------------------------
+    //     // 3) SNOW/WATER family
+    //     // -------------------------------------------------
+    //     placeTerrain3x3(decor, "water", "SNWATER", 2, 10);
+    //     placeTerrain3x3(decor, "water", "WSNOW", 6, 10);
 
-        AtlasManifest waterManifest = getManifest("water");
-        if (waterManifest == null) {
-            System.out.println("No water manifest loaded.");
-            return;
-        }
+    //     AtlasManifest waterManifest = getManifest("water");
+    //     if (waterManifest == null) {
+    //         System.out.println("No water manifest loaded.");
+    //         return;
+    //     }
 
-        // -------------------------------------------------
-        // 4) Waves row
-        // -------------------------------------------------
-        if (waterManifest.hasTile("WAVES_1")) setLayerTile(decor, 14, 2, waterManifest.getRequiredTileId("WAVES_1"));
-        if (waterManifest.hasTile("WAVES_2")) setLayerTile(decor, 15, 2, waterManifest.getRequiredTileId("WAVES_2"));
-        if (waterManifest.hasTile("WAVES_3")) setLayerTile(decor, 16, 2, waterManifest.getRequiredTileId("WAVES_3"));
-        if (waterManifest.hasTile("WAVES_4")) setLayerTile(decor, 17, 2, waterManifest.getRequiredTileId("WAVES_4"));
-        if (waterManifest.hasTile("WAVES_5")) setLayerTile(decor, 18, 2, waterManifest.getRequiredTileId("WAVES_5"));
+    //     // -------------------------------------------------
+    //     // 4) Waves row
+    //     // -------------------------------------------------
+    //     if (waterManifest.hasTile("WAVES_1")) setLayerTile(decor, 14, 2, waterManifest.getRequiredTileId("WAVES_1"));
+    //     if (waterManifest.hasTile("WAVES_2")) setLayerTile(decor, 15, 2, waterManifest.getRequiredTileId("WAVES_2"));
+    //     if (waterManifest.hasTile("WAVES_3")) setLayerTile(decor, 16, 2, waterManifest.getRequiredTileId("WAVES_3"));
+    //     if (waterManifest.hasTile("WAVES_4")) setLayerTile(decor, 17, 2, waterManifest.getRequiredTileId("WAVES_4"));
+    //     if (waterManifest.hasTile("WAVES_5")) setLayerTile(decor, 18, 2, waterManifest.getRequiredTileId("WAVES_5"));
 
-        // Single water tile
-        if (waterManifest.hasTile("WATER_TILE")) setLayerTile(decor, 20, 2, waterManifest.getRequiredTileId("WATER_TILE"));
+    //     // Single water tile
+    //     if (waterManifest.hasTile("WATER_TILE")) setLayerTile(decor, 20, 2, waterManifest.getRequiredTileId("WATER_TILE"));
 
-        // Rocks
-        if (waterManifest.hasTile("WATER_ROCKS_1")) setLayerTile(decor, 22, 2, waterManifest.getRequiredTileId("WATER_ROCKS_1"));
-        if (waterManifest.hasTile("WATER_ROCKS_2")) setLayerTile(decor, 23, 2, waterManifest.getRequiredTileId("WATER_ROCKS_2"));
+    //     // Rocks
+    //     if (waterManifest.hasTile("WATER_ROCKS_1")) setLayerTile(decor, 22, 2, waterManifest.getRequiredTileId("WATER_ROCKS_1"));
+    //     if (waterManifest.hasTile("WATER_ROCKS_2")) setLayerTile(decor, 23, 2, waterManifest.getRequiredTileId("WATER_ROCKS_2"));
 
-        // -------------------------------------------------
-        // 5) Water rock path 2x2
-        // -------------------------------------------------
-        placeVariant2x2(decor, "water", "WATER_ROCK_PATH", 14, 6);
+    //     // -------------------------------------------------
+    //     // 5) Water rock path 2x2
+    //     // -------------------------------------------------
+    //     placeVariant2x2(decor, "water", "WATER_ROCK_PATH", 14, 6);
 
-        // 6) Water snow path 2x2
-        placeVariant2x2(decor, "water", "WATER_SNOW_PATH", 18, 6);
+    //     // 6) Water snow path 2x2
+    //     placeVariant2x2(decor, "water", "WATER_SNOW_PATH", 18, 6);
 
-        // -------------------------------------------------
-        // 7) Big waterfall 4x5
-        // -------------------------------------------------
-        placeExplicitBlock4x5(decor, "water",
-                new String[][]{
-                        {"WATERFALL_BIG_TLL", "WATERFALL_BIG_TL", "WATERFALL_BIG_TR", "WATERFALL_BIG_TRR"},
-                        {"WATERFALL_BIG_MTLL", "WATERFALL_BIG_MTL", "WATERFALL_BIG_MTR", "WATERFALL_BIG_MTRR"},
-                        {"WATERFALL_BIG_MLL", "WATERFALL_BIG_ML", "WATERFALL_BIG_MR", "WATERFALL_BIG_MRR"},
-                        {"WATERFALL_BIG_MBLL", "WATERFALL_BIG_MBL", "WATERFALL_BIG_MBR", "WATERFALL_BIG_MBRR"},
-                        {"WATERFALL_BIG_BLL", "WATERFALL_BIG_BL", "WATERFALL_BIG_BR", "WATERFALL_BIG_BRR"}
-                }, 14, 12);
+    //     // -------------------------------------------------
+    //     // 7) Big waterfall 4x5
+    //     // -------------------------------------------------
+    //     placeExplicitBlock4x5(decor, "water",
+    //             new String[][]{
+    //                     {"WATERFALL_BIG_TLL", "WATERFALL_BIG_TL", "WATERFALL_BIG_TR", "WATERFALL_BIG_TRR"},
+    //                     {"WATERFALL_BIG_MTLL", "WATERFALL_BIG_MTL", "WATERFALL_BIG_MTR", "WATERFALL_BIG_MTRR"},
+    //                     {"WATERFALL_BIG_MLL", "WATERFALL_BIG_ML", "WATERFALL_BIG_MR", "WATERFALL_BIG_MRR"},
+    //                     {"WATERFALL_BIG_MBLL", "WATERFALL_BIG_MBL", "WATERFALL_BIG_MBR", "WATERFALL_BIG_MBRR"},
+    //                     {"WATERFALL_BIG_BLL", "WATERFALL_BIG_BL", "WATERFALL_BIG_BR", "WATERFALL_BIG_BRR"}
+    //             }, 14, 12);
 
-        // -------------------------------------------------
-        // 8) Small waterfall 4x3
-        // -------------------------------------------------
-        placeExplicitBlock4x3(decor, "water",
-                new String[][]{
-                        {"WATERFALL_SMALL_TLL", "WATERFALL_SMALL_TL", "WATERFALL_SMALL_TR", "WATERFALL_SMALL_TRR"},
-                        {"WATERFALL_SMALL_MLL", "WATERFALL_SMALL_ML", "WATERFALL_SMALL_MR", "WATERFALL_SMALL_MRR"},
-                        {"WATERFALL_SMALL_BLL", "WATERFALL_SMALL_BL", "WATERFALL_SMALL_BR", "WATERFALL_SMALL_BRR"}
-                }, 20, 12);
+    //     // -------------------------------------------------
+    //     // 8) Small waterfall 4x3
+    //     // -------------------------------------------------
+    //     placeExplicitBlock4x3(decor, "water",
+    //             new String[][]{
+    //                     {"WATERFALL_SMALL_TLL", "WATERFALL_SMALL_TL", "WATERFALL_SMALL_TR", "WATERFALL_SMALL_TRR"},
+    //                     {"WATERFALL_SMALL_MLL", "WATERFALL_SMALL_ML", "WATERFALL_SMALL_MR", "WATERFALL_SMALL_MRR"},
+    //                     {"WATERFALL_SMALL_BLL", "WATERFALL_SMALL_BL", "WATERFALL_SMALL_BR", "WATERFALL_SMALL_BRR"}
+    //             }, 20, 12);
 
-        // Border collision μόνο
-        for (int col = 0; col < map.cols; col++) {
-            collision.tiles[0][col] = 1;
-            collision.tiles[map.rows - 1][col] = 1;
-        }
-        for (int row = 0; row < map.rows; row++) {
-            collision.tiles[row][0] = 1;
-            collision.tiles[row][map.cols - 1] = 1;
-        }
+    //     // Border collision μόνο
+    //     for (int col = 0; col < map.cols; col++) {
+    //         collision.tiles[0][col] = 1;
+    //         collision.tiles[map.rows - 1][col] = 1;
+    //     }
+    //     for (int row = 0; row < map.rows; row++) {
+    //         collision.tiles[row][0] = 1;
+    //         collision.tiles[row][map.cols - 1] = 1;
+    //     }
 
-        map.layers.add(ground);
-        map.layers.add(decor);
-        map.layers.add(collision);
+    //     map.layers.add(ground);
+    //     map.layers.add(decor);
+    //     map.layers.add(collision);
 
-        addAdvancedMap(map);
+    //     addAdvancedMap(map);
 
-        System.out.println("Water manifest showcase map added.");
-    }
+    //     System.out.println("Water manifest showcase map added.");
+    // }
 
-    public void addGeneratedRegionMap() {
-        int cols = 36;
-        int rows = 24;
+    // public void addGeneratedRegionMap() {
+    //     int cols = 50;
+    //     int rows = 50;
 
-        RegionTemplate template = RegionTemplate.createPlainsTemplate(cols, rows);
+    //     AdvancedMapData map = new AdvancedMapData("GeneratedRegionMap", cols, rows);
+    //     map.legacy = false;
+    //     map.tilesetName = "basic_terrain";
 
-        BiomeGenerator generator = new BiomeGenerator();
-        BiomeMap biomeMap = generator.generateFromTemplate(cols, rows, template);
+    //     MapLayer ground = new MapLayer("ground", rows, cols);
+    //     ground.atlasName = "basic_terrain";
 
-        AdvancedMapData map = new AdvancedMapData("GeneratedRegionMap", biomeMap.cols, biomeMap.rows);
-        map.legacy = false;
-        map.tilesetName = "basic_terrain";
+    //     MapLayer decor = new MapLayer("decor", rows, cols);
+    //     decor.atlasName = "basic_terrain";
 
-        MapLayer ground = new MapLayer("ground", biomeMap.rows, biomeMap.cols);
-        ground.atlasName = "basic_terrain";
+    //     MapLayer waterDecor = new MapLayer("water_decor", rows, cols);
+    //     waterDecor.atlasName = "water";
 
-        MapLayer decor = new MapLayer("decor", biomeMap.rows, biomeMap.cols);
-        decor.atlasName = "basic_terrain";
+    //     MapLayer collision = new MapLayer("collision", rows, cols);
+    //     collision.atlasName = "";
 
-        MapLayer waterDecor = new MapLayer("water_decor", biomeMap.rows, biomeMap.cols);
-        waterDecor.atlasName = "water";
+    //     clearLayer(ground);
+    //     clearLayer(decor);
+    //     clearLayer(waterDecor);
 
-        MapLayer collision = new MapLayer("collision", biomeMap.rows, biomeMap.cols);
-        collision.atlasName = "";
+    //     for (int row = 0; row < rows; row++) {
+    //         for (int col = 0; col < cols; col++) {
+    //             collision.tiles[row][col] = 0;
+    //         }
+    //     }
 
-        clearLayer(ground);
-        clearLayer(decor);
-        clearLayer(waterDecor);
+    //     // 1. Βάση όλου του χάρτη = grass
+    //     paintFilledRect(ground, "basic_terrain", "GRASS_FILL", 0, 0, cols, rows);
 
-        for (int row = 0; row < collision.rows; row++) {
-            for (int col = 0; col < collision.cols; col++) {
-                collision.tiles[row][col] = 0;
-            }
-        }
+    //     // καθάρισε decor από terrain stamps
+    //     clearLayer(decor);
+    //     clearLayer(waterDecor);
 
-        fillRectangleWithNamedTile(ground, "basic_terrain", "DIRT_FILL", 0, 0, biomeMap.cols, biomeMap.rows);
+    //     // 3. Αριστερή θάλασσα
+    //     int seaCol = 1;
+    //     int seaRow = 28;
+    //     int seaWidth = 13;
+    //     int seaHeight = 18;
 
-        for (int row = 1; row < biomeMap.rows - 2; row += 3) {
-            for (int col = 1; col < biomeMap.cols - 2; col += 3) {
-                BiomeType biome = biomeMap.get(col, row);
+    //     // 4. Παραλία γύρω από το νερό, 2 tiles πιο έξω
+    //     paintBeachAroundWater(ground, seaCol, seaRow, seaWidth, seaHeight, 2);
 
-                switch (biome) {
-                    case GRASS:
-                        placeTerrainStack3x3(ground, decor, "basic_terrain", "DIRT", "GRASS", col, row);
-                        break;
+    //     // 5. Νερό με sand-water shoreline
+    //     paintWaterRect(waterDecor, "SWATER", seaCol, seaRow, seaWidth, seaHeight);
 
-                    case DIRT:
-                        placeTerrainStack3x3(ground, decor, "basic_terrain", "GRASS", "DIRT", col, row);
-                        break;
+    //     // collision στη θάλασσα
+    //     blockCollisionRect(collision, seaCol, seaRow, seaWidth, seaHeight);
 
-                    case SAND:
-                        placeTerrainStack3x3(ground, decor, "basic_terrain", "DIRT", "SAND", col, row);
-                        break;
+    //     // 6. Κεντρικός δρόμος vertical
+    //     paintRoadRect(ground, decor, 26, 3, 4, 40);
 
-                    case SNOW:
-                        placeTerrainStack3x3(ground, decor, "basic_terrain", "DIRT", "SNOW", col, row);
-                        break;
+    //     // 7. Κεντρικός δρόμος horizontal προς σπίτι/yard
+    //     paintRoadRect(ground, decor, 18, 16, 12, 4);
 
-                    case WATER:
-                        placeTerrainStack3x3(ground, decor, "basic_terrain", "DIRT", "GRASS", col, row);
-                        placePaintedWater3x3(waterDecor, "GWATER", col, row);
+    //     // 8. Snow zone πάνω δεξιά
+    //     paintSnowRect(ground, decor, 36, 1, 13, 11);
 
-                        for (int r = row; r < row + 3; r++) {
-                            for (int c = col; c < col + 3; c++) {
-                                if (r >= 0 && r < collision.rows && c >= 0 && c < collision.cols) {
-                                    collision.tiles[r][c] = 1;
-                                }
-                            }
-                        }
-                        break;
+    //     // 9. House yard περιοχή
+    //     paintFenceRect(decor, 20, 10, 10, 10);
 
-                    case MOUNTAIN:
-                        fillRectangleWithNamedTile(ground, "basic_terrain", "DIRT_FILL", col, row, 3, 3);
+    //     // 10. POI markers απλά για τώρα
+    //     AtlasManifest basic = getManifest("basic_terrain");
+    //     AtlasManifest water = getManifest("water");
 
-                        for (int r = row; r < row + 3; r++) {
-                            for (int c = col; c < col + 3; c++) {
-                                if (r >= 0 && r < collision.rows && c >= 0 && c < collision.cols) {
-                                    collision.tiles[r][c] = 1;
-                                }
-                            }
-                        }
-                        break;
+    //     if (basic != null) {
+    //         if (basic.hasVariant2x2("DIRT_PATH")) {
+    //             paintVariantRectangle(decor, "basic_terrain", "DIRT_PATH", 22, 12, 2, 2); // house marker
+    //         }
+    //         if (basic.hasVariant2x2("FLOWER_PATH")) {
+    //             paintVariantRectangle(decor, "basic_terrain", "FLOWER_PATH", 10, 20, 2, 2); // chest/flower marker
+    //         }
+    //         if (basic.hasVariant2x2("GRASS_PATH")) {
+    //             paintVariantRectangle(decor, "basic_terrain", "GRASS_PATH", 27, 24, 2, 2); // sign marker
+    //         }
+    //         if (basic.hasVariant2x2("SAND_PATH")) {
+    //             paintVariantRectangle(decor, "basic_terrain", "SAND_PATH", 42, 14, 2, 2); // cave marker near snow edge
+    //         }
+    //     }
 
-                    default:
-                        break;
-                }
-            }
-        }
+    //     if (water != null && water.hasTile("WATER_ROCKS_1")) {
+    //         setLayerTile(waterDecor, 8, 35, water.getRequiredTileId("WATER_ROCKS_1"));
+    //     }
 
-        // Water decor extra polish
-        AtlasManifest waterManifest = getManifest("water");
-        if (waterManifest != null) {
-            if (waterManifest.hasTile("WAVES_1")) {
-                for (int row = 1; row < biomeMap.rows - 1; row++) {
-                    for (int col = 1; col < biomeMap.cols - 1; col++) {
-                        if (biomeMap.get(col, row) == BiomeType.WATER) {
-                            if ((col + row) % 5 == 0) {
-                                setLayerTile(waterDecor, col, row, waterManifest.getRequiredTileId("WAVES_1"));
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    //     // 10. Border collision
+    //     for (int col = 0; col < cols; col++) {
+    //         collision.tiles[0][col] = 1;
+    //         collision.tiles[rows - 1][col] = 1;
+    //     }
+    //     for (int row = 0; row < rows; row++) {
+    //         collision.tiles[row][0] = 1;
+    //         collision.tiles[row][cols - 1] = 1;
+    //     }
 
-        // Border collision
-        for (int col = 0; col < biomeMap.cols; col++) {
-            collision.tiles[0][col] = 1;
-            collision.tiles[biomeMap.rows - 1][col] = 1;
-        }
-        for (int row = 0; row < biomeMap.rows; row++) {
-            collision.tiles[row][0] = 1;
-            collision.tiles[row][biomeMap.cols - 1] = 1;
-        }
+    //     map.layers.add(ground);
+    //     map.layers.add(decor);
+    //     map.layers.add(waterDecor);
+    //     map.layers.add(collision);
 
-        map.layers.add(ground);
-        map.layers.add(decor);
-        map.layers.add(waterDecor);
-        map.layers.add(collision);
+    //     addAdvancedMap(map);
 
-        addAdvancedMap(map);
-
-        System.out.println("Generated region map added.");
-    }
+    //     System.out.println("Generated region map added.");
+    // }
 
     // =========================================================
     // ADVANCED MAP PLACEHOLDER
@@ -453,6 +443,161 @@ public class TileManager {
         if (map != null) {
             map.legacy = false;
             maps.add(map);
+        }
+    }
+
+    // public int[][] loadCSVLayer(String path, int cols, int rows) {
+    //     int[][] map = new int[rows][cols];
+
+    //     try (BufferedReader br = new BufferedReader(new FileReader(path))) {
+
+    //         for (int row = 0; row < rows; row++) {
+    //             String line = br.readLine();
+    //             if (line == null) break;
+
+    //             String[] numbers = line.split(",");
+
+    //             for (int col = 0; col < cols; col++) {
+    //                 int val = Integer.parseInt(numbers[col].trim());
+
+    //                 // Tiled starts from 1, empty = 0
+    //                 map[row][col] = (val == 0) ? -1 : val - 1;
+    //             }
+    //         }
+
+    //     } catch (Exception e) {
+    //         System.out.println("Failed to load CSV layer: " + path);
+    //         e.printStackTrace();
+    //     }
+
+    //     return map;
+    // }
+
+    // public int[][] loadCSVLayerWithOffset(String path, int cols, int rows, int firstGid) {
+    //     int[][] map = new int[rows][cols];
+
+    //     try (BufferedReader br = new BufferedReader(new FileReader(path))) {
+    //         for (int row = 0; row < rows; row++) {
+    //             String line = br.readLine();
+    //             if (line == null) break;
+
+    //             String[] numbers = line.split(",");
+
+    //             for (int col = 0; col < cols; col++) {
+    //                 int val = Integer.parseInt(numbers[col].trim());
+
+    //                 if (val == 0) {
+    //                     map[row][col] = -1;
+    //                 } else {
+    //                     map[row][col] = val - firstGid;
+    //                 }
+    //             }
+    //         }
+    //     } catch (Exception e) {
+    //         System.out.println("Failed to load CSV layer: " + path);
+    //         e.printStackTrace();
+    //     }
+
+    //     return map;
+    // }
+
+    // public void addTiledMap(String name, int cols, int rows,
+    //                         String groundPath,
+    //                         String decorPath,
+    //                         String waterPath,
+    //                         String upperPath,
+    //                         String collisionPath) {
+
+    //     AdvancedMapData map = new AdvancedMapData(name, cols, rows);
+    //     map.legacy = false;
+
+    //     // ΒΑΛΕ ΕΔΩ ΤΑ σωστά firstgid από το Tiled tileset order
+    //     int basicTerrainFirstGid = 1;
+    //     int waterFirstGid = 529;   // παράδειγμα μόνο
+    //     int otherFirstGid = 1444;  // παράδειγμα μόνο
+
+    //     MapLayer ground = new MapLayer("ground", rows, cols);
+    //     ground.atlasName = "basic_terrain";
+    //     ground.tiles = loadCSVLayerWithOffset(groundPath, cols, rows, basicTerrainFirstGid);
+
+    //     MapLayer decor = new MapLayer("decor", rows, cols);
+    //     decor.atlasName = "basic_terrain";
+    //     decor.tiles = loadCSVLayerWithOffset(decorPath, cols, rows, basicTerrainFirstGid);
+
+    //     MapLayer water = new MapLayer("water", rows, cols);
+    //     water.atlasName = "water";
+    //     water.tiles = loadCSVLayerWithOffset(waterPath, cols, rows, waterFirstGid);
+
+    //     MapLayer upper = new MapLayer("upper", rows, cols);
+    //     upper.atlasName = "other";
+    //     upper.tiles = loadCSVLayerWithOffset(upperPath, cols, rows, otherFirstGid);
+
+    //     MapLayer collision = new MapLayer("collision", rows, cols);
+    //     collision.atlasName = "";
+    //     collision.tiles = loadCSVLayer(collisionPath, cols, rows);
+
+    //     map.layers.add(ground);
+    //     map.layers.add(decor);
+    //     map.layers.add(water);
+    //     map.layers.add(upper);
+    //     map.layers.add(collision);
+
+    //     addAdvancedMap(map);
+    // }
+
+    public void addTiledMapFromTMX(String name, String tmxPath) {
+        try {
+            File file = new File(tmxPath);
+
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document doc = builder.parse(file);
+            doc.getDocumentElement().normalize();
+
+            Element mapElement = doc.getDocumentElement();
+
+            int cols = Integer.parseInt(mapElement.getAttribute("width"));
+            int rows = Integer.parseInt(mapElement.getAttribute("height"));
+
+            int basicTerrainFirstGid = findFirstGid(doc, "basic_terrain.tsx");
+            int waterFirstGid = findFirstGid(doc, "water.tsx");
+            int decorFirstGid = findFirstGid(doc, "decor.tsx");
+
+            System.out.println("TMX firstgid basic_terrain = " + basicTerrainFirstGid);
+            System.out.println("TMX firstgid water = " + waterFirstGid);
+            System.out.println("TMX firstgid decor = " + decorFirstGid);
+
+            AdvancedMapData map = new AdvancedMapData(name, cols, rows);
+            map.legacy = false;
+
+            MapLayer ground = loadTMXLayer(doc, "ground", "ground", rows, cols,
+                    "basic_terrain", basicTerrainFirstGid, false);
+
+            MapLayer decor = loadTMXLayer(doc, "decor", "decor", rows, cols,
+                    "basic_terrain", basicTerrainFirstGid, false);
+
+            MapLayer water = loadTMXLayer(doc, "water", "water", rows, cols,
+                    "water", waterFirstGid, false);
+
+            MapLayer upperground = loadTMXLayer(doc, "upperground", "upperground", rows, cols,
+                    "other", decorFirstGid, false);
+
+            MapLayer collision = loadTMXLayer(doc, "collision", "collision", rows, cols,
+                    "", 0, true);
+
+            if (ground != null) map.layers.add(ground);
+            if (decor != null) map.layers.add(decor);
+            if (water != null) map.layers.add(water);
+            if (upperground != null) map.layers.add(upperground);
+            if (collision != null) map.layers.add(collision);
+
+            addAdvancedMap(map);
+
+            System.out.println("TMX map loaded: " + name + " (" + cols + "x" + rows + ")");
+
+        } catch (Exception e) {
+            System.out.println("Failed to load TMX map: " + tmxPath);
+            e.printStackTrace();
         }
     }
 
@@ -521,7 +666,7 @@ public class TileManager {
         // Advanced maps: πρώτα δες collision layer
         MapLayer collisionLayer = map.getLayer("collision");
         if (collisionLayer != null) {
-            return collisionLayer.tiles[row][col] == 1;
+            return collisionLayer.tiles[row][col] != -1;
         }
 
         // fallback: αν δεν υπάρχει collision layer, πάρε από ground tile collision
@@ -551,324 +696,493 @@ public class TileManager {
         return atlas.getTileImage(tileId);
     }
 
-    public void setLayerTile(MapLayer layer, int col, int row, int tileId) {
-        if (layer == null) return;
-        if (row < 0 || row >= layer.rows || col < 0 || col >= layer.cols) return;
-        layer.tiles[row][col] = tileId;
-    }
+    // public void setLayerTile(MapLayer layer, int col, int row, int tileId) {
+    //     if (layer == null) return;
+    //     if (row < 0 || row >= layer.rows || col < 0 || col >= layer.cols) return;
+    //     layer.tiles[row][col] = tileId;
+    // }
 
-    public void fillLayer(MapLayer layer, int tileId) {
-        if (layer == null) return;
+    // public void fillLayer(MapLayer layer, int tileId) {
+    //     if (layer == null) return;
 
-        for (int row = 0; row < layer.rows; row++) {
-            for (int col = 0; col < layer.cols; col++) {
-                layer.tiles[row][col] = tileId;
-            }
-        }
-    }
+    //     for (int row = 0; row < layer.rows; row++) {
+    //         for (int col = 0; col < layer.cols; col++) {
+    //             layer.tiles[row][col] = tileId;
+    //         }
+    //     }
+    // }
 
-    public void clearLayer(MapLayer layer) {
-        if (layer == null) return;
+    // public void clearLayer(MapLayer layer) {
+    //     if (layer == null) return;
 
-        for (int row = 0; row < layer.rows; row++) {
-            for (int col = 0; col < layer.cols; col++) {
-                layer.tiles[row][col] = -1;
-            }
-        }
-    }
+    //     for (int row = 0; row < layer.rows; row++) {
+    //         for (int col = 0; col < layer.cols; col++) {
+    //             layer.tiles[row][col] = -1;
+    //         }
+    //     }
+    // }
 
-    public void placeTerrain3x3(MapLayer layer, String atlasName, String prefix, int startCol, int startRow) {
-        AtlasManifest manifest = getManifest(atlasName);
-        if (manifest == null) return;
-        if (!manifest.hasTerrain3x3(prefix)) return;
+    // public void placeTerrain3x3(MapLayer layer, String atlasName, String prefix, int startCol, int startRow) {
+    //     AtlasManifest manifest = getManifest(atlasName);
+    //     if (manifest == null) return;
+    //     if (!manifest.hasTerrain3x3(prefix)) return;
 
-        setLayerTile(layer, startCol,     startRow,     manifest.getRequiredTileId(prefix + "_TL"));
-        setLayerTile(layer, startCol + 1, startRow,     manifest.getRequiredTileId(prefix + "_T"));
-        setLayerTile(layer, startCol + 2, startRow,     manifest.getRequiredTileId(prefix + "_TR"));
+    //     setLayerTile(layer, startCol,     startRow,     manifest.getRequiredTileId(prefix + "_TL"));
+    //     setLayerTile(layer, startCol + 1, startRow,     manifest.getRequiredTileId(prefix + "_T"));
+    //     setLayerTile(layer, startCol + 2, startRow,     manifest.getRequiredTileId(prefix + "_TR"));
 
-        setLayerTile(layer, startCol,     startRow + 1, manifest.getRequiredTileId(prefix + "_L"));
-        setLayerTile(layer, startCol + 1, startRow + 1, manifest.getRequiredTileId(prefix + "_FILL"));
-        setLayerTile(layer, startCol + 2, startRow + 1, manifest.getRequiredTileId(prefix + "_R"));
+    //     setLayerTile(layer, startCol,     startRow + 1, manifest.getRequiredTileId(prefix + "_L"));
+    //     setLayerTile(layer, startCol + 1, startRow + 1, manifest.getRequiredTileId(prefix + "_FILL"));
+    //     setLayerTile(layer, startCol + 2, startRow + 1, manifest.getRequiredTileId(prefix + "_R"));
 
-        setLayerTile(layer, startCol,     startRow + 2, manifest.getRequiredTileId(prefix + "_BL"));
-        setLayerTile(layer, startCol + 1, startRow + 2, manifest.getRequiredTileId(prefix + "_B"));
-        setLayerTile(layer, startCol + 2, startRow + 2, manifest.getRequiredTileId(prefix + "_BR"));
-    }
+    //     setLayerTile(layer, startCol,     startRow + 2, manifest.getRequiredTileId(prefix + "_BL"));
+    //     setLayerTile(layer, startCol + 1, startRow + 2, manifest.getRequiredTileId(prefix + "_B"));
+    //     setLayerTile(layer, startCol + 2, startRow + 2, manifest.getRequiredTileId(prefix + "_BR"));
+    // }
 
-    public void placeBottom3x3(MapLayer layer, String atlasName, String prefix, int startCol, int startRow) {
-        AtlasManifest manifest = getManifest(atlasName);
-        if (manifest == null) return;
-        if (!manifest.hasBottom3x3(prefix)) return;
+    // public void placeBottom3x3(MapLayer layer, String atlasName, String prefix, int startCol, int startRow) {
+    //     AtlasManifest manifest = getManifest(atlasName);
+    //     if (manifest == null) return;
+    //     if (!manifest.hasBottom3x3(prefix)) return;
 
-        setLayerTile(layer, startCol,     startRow,     manifest.getRequiredTileId(prefix + "_BTL"));
-        setLayerTile(layer, startCol + 1, startRow,     manifest.getRequiredTileId(prefix + "_BT"));
-        setLayerTile(layer, startCol + 2, startRow,     manifest.getRequiredTileId(prefix + "_BTR"));
+    //     setLayerTile(layer, startCol,     startRow,     manifest.getRequiredTileId(prefix + "_BTL"));
+    //     setLayerTile(layer, startCol + 1, startRow,     manifest.getRequiredTileId(prefix + "_BT"));
+    //     setLayerTile(layer, startCol + 2, startRow,     manifest.getRequiredTileId(prefix + "_BTR"));
 
-        setLayerTile(layer, startCol,     startRow + 1, manifest.getRequiredTileId(prefix + "_BML"));
-        setLayerTile(layer, startCol + 1, startRow + 1, manifest.getRequiredTileId(prefix + "_FILL"));
-        setLayerTile(layer, startCol + 2, startRow + 1, manifest.getRequiredTileId(prefix + "_BMR"));
+    //     setLayerTile(layer, startCol,     startRow + 1, manifest.getRequiredTileId(prefix + "_BML"));
+    //     setLayerTile(layer, startCol + 1, startRow + 1, manifest.getRequiredTileId(prefix + "_FILL"));
+    //     setLayerTile(layer, startCol + 2, startRow + 1, manifest.getRequiredTileId(prefix + "_BMR"));
 
-        setLayerTile(layer, startCol,     startRow + 2, manifest.getRequiredTileId(prefix + "_BBL"));
-        setLayerTile(layer, startCol + 1, startRow + 2, manifest.getRequiredTileId(prefix + "_BB"));
-        setLayerTile(layer, startCol + 2, startRow + 2, manifest.getRequiredTileId(prefix + "_BBR"));
-    }
+    //     setLayerTile(layer, startCol,     startRow + 2, manifest.getRequiredTileId(prefix + "_BBL"));
+    //     setLayerTile(layer, startCol + 1, startRow + 2, manifest.getRequiredTileId(prefix + "_BB"));
+    //     setLayerTile(layer, startCol + 2, startRow + 2, manifest.getRequiredTileId(prefix + "_BBR"));
+    // }
 
-    public void placeTerrainFrame3x3(MapLayer layer, String atlasName, String prefix, int startCol, int startRow) {
-        AtlasManifest manifest = getManifest(atlasName);
-        if (manifest == null) return;
-        if (!manifest.hasTerrain3x3(prefix)) return;
+    // public void placeTerrainFrame3x3(MapLayer layer, String atlasName, String prefix, int startCol, int startRow) {
+    //     AtlasManifest manifest = getManifest(atlasName);
+    //     if (manifest == null) return;
+    //     if (!manifest.hasTerrain3x3(prefix)) return;
 
-        setLayerTile(layer, startCol,     startRow,     manifest.getRequiredTileId(prefix + "_TL"));
-        setLayerTile(layer, startCol + 1, startRow,     manifest.getRequiredTileId(prefix + "_T"));
-        setLayerTile(layer, startCol + 2, startRow,     manifest.getRequiredTileId(prefix + "_TR"));
+    //     setLayerTile(layer, startCol,     startRow,     manifest.getRequiredTileId(prefix + "_TL"));
+    //     setLayerTile(layer, startCol + 1, startRow,     manifest.getRequiredTileId(prefix + "_T"));
+    //     setLayerTile(layer, startCol + 2, startRow,     manifest.getRequiredTileId(prefix + "_TR"));
 
-        setLayerTile(layer, startCol,     startRow + 1, manifest.getRequiredTileId(prefix + "_L"));
-        setLayerTile(layer, startCol + 1, startRow + 1, -1); // ΠΟΛΥ ΣΗΜΑΝΤΙΚΟ
-        setLayerTile(layer, startCol + 2, startRow + 1, manifest.getRequiredTileId(prefix + "_R"));
+    //     setLayerTile(layer, startCol,     startRow + 1, manifest.getRequiredTileId(prefix + "_L"));
+    //     setLayerTile(layer, startCol + 1, startRow + 1, -1); // ΠΟΛΥ ΣΗΜΑΝΤΙΚΟ
+    //     setLayerTile(layer, startCol + 2, startRow + 1, manifest.getRequiredTileId(prefix + "_R"));
 
-        setLayerTile(layer, startCol,     startRow + 2, manifest.getRequiredTileId(prefix + "_BL"));
-        setLayerTile(layer, startCol + 1, startRow + 2, manifest.getRequiredTileId(prefix + "_B"));
-        setLayerTile(layer, startCol + 2, startRow + 2, manifest.getRequiredTileId(prefix + "_BR"));
-    }
+    //     setLayerTile(layer, startCol,     startRow + 2, manifest.getRequiredTileId(prefix + "_BL"));
+    //     setLayerTile(layer, startCol + 1, startRow + 2, manifest.getRequiredTileId(prefix + "_B"));
+    //     setLayerTile(layer, startCol + 2, startRow + 2, manifest.getRequiredTileId(prefix + "_BR"));
+    // }
 
-    public void placeVariant2x2(MapLayer layer, String atlasName, String prefix, int startCol, int startRow) {
-        AtlasManifest manifest = getManifest(atlasName);
-        if (manifest == null) return;
-        if (!manifest.hasVariant2x2(prefix)) return;
+    // public void placeVariant2x2(MapLayer layer, String atlasName, String prefix, int startCol, int startRow) {
+    //     AtlasManifest manifest = getManifest(atlasName);
+    //     if (manifest == null) return;
+    //     if (!manifest.hasVariant2x2(prefix)) return;
 
-        setLayerTile(layer, startCol,     startRow,     manifest.getRequiredTileId(prefix + "_1"));
-        setLayerTile(layer, startCol + 1, startRow,     manifest.getRequiredTileId(prefix + "_2"));
-        setLayerTile(layer, startCol,     startRow + 1, manifest.getRequiredTileId(prefix + "_3"));
-        setLayerTile(layer, startCol + 1, startRow + 1, manifest.getRequiredTileId(prefix + "_4"));
-    }
+    //     setLayerTile(layer, startCol,     startRow,     manifest.getRequiredTileId(prefix + "_1"));
+    //     setLayerTile(layer, startCol + 1, startRow,     manifest.getRequiredTileId(prefix + "_2"));
+    //     setLayerTile(layer, startCol,     startRow + 1, manifest.getRequiredTileId(prefix + "_3"));
+    //     setLayerTile(layer, startCol + 1, startRow + 1, manifest.getRequiredTileId(prefix + "_4"));
+    // }
 
-    public void placeTerrainStack3x3(MapLayer groundLayer, MapLayer decorLayer,
-                                    String atlasName,
-                                    String bottomPrefix, String topPrefix,
-                                    int startCol, int startRow) {
-        placeBottom3x3(groundLayer, atlasName, bottomPrefix, startCol, startRow);
-        placeTerrainFrame3x3(decorLayer, atlasName, topPrefix, startCol, startRow);
-    }
+    // public void placeTerrainStack3x3(MapLayer groundLayer, MapLayer decorLayer,
+    //                                 String atlasName,
+    //                                 String bottomPrefix, String topPrefix,
+    //                                 int startCol, int startRow) {
+    //     placeBottom3x3(groundLayer, atlasName, bottomPrefix, startCol, startRow);
+    //     placeTerrainFrame3x3(decorLayer, atlasName, topPrefix, startCol, startRow);
+    // }
 
-    public void placePaintedWater3x3(MapLayer layer, String prefix, int startCol, int startRow) {
-        placeTerrain3x3(layer, "water", prefix, startCol, startRow);
-    }
+    // public void placePaintedWater3x3(MapLayer layer, String prefix, int startCol, int startRow) {
+    //     placeTerrain3x3(layer, "water", prefix, startCol, startRow);
+    // }
 
-    public void fillRectangleWithNamedTile(MapLayer layer, String atlasName, String tileName,
-                                        int startCol, int startRow, int width, int height) {
-        AtlasManifest manifest = getManifest(atlasName);
-        if (manifest == null) return;
-        if (!manifest.hasTile(tileName)) return;
+    // public void fillRectangleWithNamedTile(MapLayer layer, String atlasName, String tileName,
+    //                                     int startCol, int startRow, int width, int height) {
+    //     AtlasManifest manifest = getManifest(atlasName);
+    //     if (manifest == null) return;
+    //     if (!manifest.hasTile(tileName)) return;
 
-        int tileId = manifest.getRequiredTileId(tileName);
-        fillRectangleWithTile(layer, startCol, startRow, width, height, tileId);
-    }
+    //     int tileId = manifest.getRequiredTileId(tileName);
+    //     fillRectangleWithTile(layer, startCol, startRow, width, height, tileId);
+    // }
 
-    public void fillRectangleWithTile(MapLayer layer, int startCol, int startRow, int width, int height, int tileId) {
-        if (layer == null) return;
+    // public void fillRectangleWithTile(MapLayer layer, int startCol, int startRow, int width, int height, int tileId) {
+    //     if (layer == null) return;
 
+    //     for (int row = startRow; row < startRow + height; row++) {
+    //         for (int col = startCol; col < startCol + width; col++) {
+    //             setLayerTile(layer, col, row, tileId);
+    //         }
+    //     }
+    // }
+
+    // public void clearRectangle(MapLayer layer, int startCol, int startRow, int width, int height) {
+    //     if (layer == null) return;
+
+    //     for (int row = startRow; row < startRow + height; row++) {
+    //         for (int col = startCol; col < startCol + width; col++) {
+    //             setLayerTile(layer, col, row, -1);
+    //         }
+    //     }
+    // }
+
+    // public void placeTerrainRectangleFrame(MapLayer decorLayer, String atlasName, String prefix,
+    //                                     int startCol, int startRow, int width, int height) {
+    //     AtlasManifest manifest = getManifest(atlasName);
+    //     if (manifest == null) return;
+    //     if (!manifest.hasTerrain3x3(prefix)) return;
+    //     if (width < 2 || height < 2) return;
+
+    //     int tl = manifest.getRequiredTileId(prefix + "_TL");
+    //     int t  = manifest.getRequiredTileId(prefix + "_T");
+    //     int tr = manifest.getRequiredTileId(prefix + "_TR");
+    //     int l  = manifest.getRequiredTileId(prefix + "_L");
+    //     int r  = manifest.getRequiredTileId(prefix + "_R");
+    //     int bl = manifest.getRequiredTileId(prefix + "_BL");
+    //     int b  = manifest.getRequiredTileId(prefix + "_B");
+    //     int br = manifest.getRequiredTileId(prefix + "_BR");
+
+    //     // γωνίες
+    //     setLayerTile(decorLayer, startCol, startRow, tl);
+    //     setLayerTile(decorLayer, startCol + width - 1, startRow, tr);
+    //     setLayerTile(decorLayer, startCol, startRow + height - 1, bl);
+    //     setLayerTile(decorLayer, startCol + width - 1, startRow + height - 1, br);
+
+    //     // πάνω / κάτω
+    //     for (int col = startCol + 1; col < startCol + width - 1; col++) {
+    //         setLayerTile(decorLayer, col, startRow, t);
+    //         setLayerTile(decorLayer, col, startRow + height - 1, b);
+    //     }
+
+    //     // αριστερά / δεξιά
+    //     for (int row = startRow + 1; row < startRow + height - 1; row++) {
+    //         setLayerTile(decorLayer, startCol, row, l);
+    //         setLayerTile(decorLayer, startCol + width - 1, row, r);
+    //     }
+
+    //     // κέντρο decor = κενό για να φαίνεται το κάτω layer
+    //     for (int row = startRow + 1; row < startRow + height - 1; row++) {
+    //         for (int col = startCol + 1; col < startCol + width - 1; col++) {
+    //             setLayerTile(decorLayer, col, row, -1);
+    //         }
+    //     }
+    // }
+
+    // public void placeBottomTerrainRectangle(MapLayer groundLayer, String atlasName, String prefix,
+    //                                         int startCol, int startRow, int width, int height) {
+    //     AtlasManifest manifest = getManifest(atlasName);
+    //     if (manifest == null) return;
+    //     if (!manifest.hasTile(prefix + "_FILL")) return;
+
+    //     int fillId = manifest.getRequiredTileId(prefix + "_FILL");
+    //     fillRectangleWithTile(groundLayer, startCol, startRow, width, height, fillId);
+    // }
+
+    // public void paintTerrainRectangle(MapLayer groundLayer, MapLayer decorLayer,
+    //                                 String atlasName,
+    //                                 String bottomPrefix, String topPrefix,
+    //                                 int startCol, int startRow, int width, int height) {
+    //     if (width < 3 || height < 3) return;
+
+    //     placeBottomTerrainRectangle(groundLayer, atlasName, bottomPrefix, startCol, startRow, width, height);
+    //     placeTerrainRectangleFrame(decorLayer, atlasName, topPrefix, startCol, startRow, width, height);
+    // }
+
+    // public void placeExplicitBlock4x5(MapLayer layer, String atlasName, String[][] names, int startCol, int startRow) {
+    //     AtlasManifest manifest = getManifest(atlasName);
+    //     if (layer == null || manifest == null) return;
+
+    //     for (int row = 0; row < 5; row++) {
+    //         for (int col = 0; col < 4; col++) {
+    //             String tileName = names[row][col];
+    //             if (manifest.hasTile(tileName)) {
+    //                 setLayerTile(layer, startCol + col, startRow + row, manifest.getRequiredTileId(tileName));
+    //             }
+    //         }
+    //     }
+    // }
+
+    // public void placeExplicitBlock4x3(MapLayer layer, String atlasName, String[][] names, int startCol, int startRow) {
+    //     AtlasManifest manifest = getManifest(atlasName);
+    //     if (layer == null || manifest == null) return;
+
+    //     for (int row = 0; row < 3; row++) {
+    //         for (int col = 0; col < 4; col++) {
+    //             String tileName = names[row][col];
+    //             if (manifest.hasTile(tileName)) {
+    //                 setLayerTile(layer, startCol + col, startRow + row, manifest.getRequiredTileId(tileName));
+    //             }
+    //         }
+    //     }
+    // }
+
+    // public void paintVariantRectangle(MapLayer layer, String atlasName, String prefix,
+    //                                 int startCol, int startRow, int width, int height) {
+    //     AtlasManifest manifest = getManifest(atlasName);
+    //     if (manifest == null) return;
+    //     if (!manifest.hasVariant2x2(prefix)) return;
+    //     if (width < 2 || height < 2) return;
+
+    //     int t1 = manifest.getRequiredTileId(prefix + "_1");
+    //     int t2 = manifest.getRequiredTileId(prefix + "_2");
+    //     int t3 = manifest.getRequiredTileId(prefix + "_3");
+    //     int t4 = manifest.getRequiredTileId(prefix + "_4");
+
+    //     for (int row = 0; row < height; row++) {
+    //         for (int col = 0; col < width; col++) {
+    //             int targetCol = startCol + col;
+    //             int targetRow = startRow + row;
+
+    //             int modCol = col % 2;
+    //             int modRow = row % 2;
+
+    //             int tileId;
+    //             if (modRow == 0 && modCol == 0) {
+    //                 tileId = t1;
+    //             } else if (modRow == 0 && modCol == 1) {
+    //                 tileId = t2;
+    //             } else if (modRow == 1 && modCol == 0) {
+    //                 tileId = t3;
+    //             } else {
+    //                 tileId = t4;
+    //             }
+
+    //             setLayerTile(layer, targetCol, targetRow, tileId);
+    //         }
+    //     }
+    // }
+
+    // public void paintHorizontalPath(MapLayer layer, String atlasName, String prefix,
+    //                                 int startCol, int row, int length) {
+    //     AtlasManifest manifest = getManifest(atlasName);
+    //     if (manifest == null) return;
+    //     if (!manifest.hasVariant2x2(prefix)) return;
+    //     if (length < 2) return;
+
+    //     int t1 = manifest.getRequiredTileId(prefix + "_1");
+    //     int t2 = manifest.getRequiredTileId(prefix + "_2");
+    //     int t3 = manifest.getRequiredTileId(prefix + "_3");
+    //     int t4 = manifest.getRequiredTileId(prefix + "_4");
+
+    //     for (int col = 0; col < length; col++) {
+    //         int targetCol = startCol + col;
+
+    //         if (col % 2 == 0) {
+    //             setLayerTile(layer, targetCol, row, t1);
+    //             setLayerTile(layer, targetCol, row + 1, t3);
+    //         } else {
+    //             setLayerTile(layer, targetCol, row, t2);
+    //             setLayerTile(layer, targetCol, row + 1, t4);
+    //         }
+    //     }
+    // }
+
+    // public void paintVerticalPath(MapLayer layer, String atlasName, String prefix,
+    //                             int col, int startRow, int length) {
+    //     AtlasManifest manifest = getManifest(atlasName);
+    //     if (manifest == null) return;
+    //     if (!manifest.hasVariant2x2(prefix)) return;
+    //     if (length < 2) return;
+
+    //     int t1 = manifest.getRequiredTileId(prefix + "_1");
+    //     int t2 = manifest.getRequiredTileId(prefix + "_2");
+    //     int t3 = manifest.getRequiredTileId(prefix + "_3");
+    //     int t4 = manifest.getRequiredTileId(prefix + "_4");
+
+    //     for (int row = 0; row < length; row++) {
+    //         int targetRow = startRow + row;
+
+    //         if (row % 2 == 0) {
+    //             setLayerTile(layer, col, targetRow, t1);
+    //             setLayerTile(layer, col + 1, targetRow, t2);
+    //         } else {
+    //             setLayerTile(layer, col, targetRow, t3);
+    //             setLayerTile(layer, col + 1, targetRow, t4);
+    //         }
+    //     }
+    // }
+
+    // public void paintFilledRect(MapLayer layer, String atlasName, String tileName,
+    //                             int startCol, int startRow, int width, int height) {
+    //     fillRectangleWithNamedTile(layer, atlasName, tileName, startCol, startRow, width, height);
+    // }
+
+    // public void paintRoadRect(MapLayer ground, MapLayer decor,
+    //                         int startCol, int startRow, int width, int height) {
+    //     // εσωτερικό = DIRT_FILL
+    //     // outline = GRASS_DIRT
+    //     paintTerrainRectangle(ground, decor, "basic_terrain", "DIRT", "GRASS", startCol, startRow, width, height);
+    // }
+
+    // public void paintSnowRect(MapLayer ground, MapLayer decor,
+    //                         int startCol, int startRow, int width, int height) {
+    //     // Μόνο valid pairing: DIRT κάτω, SNOW πάνω
+    //     paintTerrainRectangle(ground, decor, "basic_terrain", "DIRT", "SNOW", startCol, startRow, width, height);
+    // }
+
+    // public void paintGrassField(MapLayer ground, MapLayer decor,
+    //                             int startCol, int startRow, int width, int height) {
+    //     paintTerrainRectangle(ground, decor, "basic_terrain", "DIRT", "GRASS", startCol, startRow, width, height);
+    // }
+
+    // public void paintWaterRect(MapLayer waterDecor, String prefix,
+    //                         int startCol, int startRow, int width, int height) {
+    //     AtlasManifest waterManifest = getManifest("water");
+    //     if (waterManifest == null) return;
+
+    //     for (int row = startRow; row < startRow + height; row++) {
+    //         for (int col = startCol; col < startCol + width; col++) {
+    //             boolean up = row > startRow;
+    //             boolean down = row < startRow + height - 1;
+    //             boolean left = col > startCol;
+    //             boolean right = col < startCol + width - 1;
+
+    //             String tileName;
+
+    //             if (!up && !left) tileName = prefix + "_TL";
+    //             else if (!up && !right) tileName = prefix + "_TR";
+    //             else if (!down && !left) tileName = prefix + "_BL";
+    //             else if (!down && !right) tileName = prefix + "_BR";
+    //             else if (!up) tileName = prefix + "_T";
+    //             else if (!down) tileName = prefix + "_B";
+    //             else if (!left) tileName = prefix + "_L";
+    //             else if (!right) tileName = prefix + "_R";
+    //             else tileName = prefix + "_FILL";
+
+    //             if (waterManifest.hasTile(tileName)) {
+    //                 setLayerTile(waterDecor, col, row, waterManifest.getRequiredTileId(tileName));
+    //             }
+    //         }
+    //     }
+    // }
+
+    // public void paintBeachAroundWater(MapLayer ground,
+    //                                 int waterCol, int waterRow, int waterWidth, int waterHeight,
+    //                                 int thickness) {
+
+    //     int sandCol = waterCol;
+    //     int sandRow = Math.max(1, waterRow - thickness);
+    //     int sandWidth = waterWidth + thickness;
+    //     int sandHeight = waterHeight + (thickness * 2);
+
+    //     // sand βάση κάτω από το νερό και γύρω του
+    //     paintFilledRect(ground, "basic_terrain", "SAND_FILL", sandCol, sandRow, sandWidth, sandHeight);
+    // }
+
+    public void blockCollisionRect(MapLayer collision, int startCol, int startRow, int width, int height) {
         for (int row = startRow; row < startRow + height; row++) {
             for (int col = startCol; col < startCol + width; col++) {
-                setLayerTile(layer, col, row, tileId);
-            }
-        }
-    }
-
-    public void clearRectangle(MapLayer layer, int startCol, int startRow, int width, int height) {
-        if (layer == null) return;
-
-        for (int row = startRow; row < startRow + height; row++) {
-            for (int col = startCol; col < startCol + width; col++) {
-                setLayerTile(layer, col, row, -1);
-            }
-        }
-    }
-
-    public void placeTerrainRectangleFrame(MapLayer decorLayer, String atlasName, String prefix,
-                                        int startCol, int startRow, int width, int height) {
-        AtlasManifest manifest = getManifest(atlasName);
-        if (manifest == null) return;
-        if (!manifest.hasTerrain3x3(prefix)) return;
-        if (width < 2 || height < 2) return;
-
-        int tl = manifest.getRequiredTileId(prefix + "_TL");
-        int t  = manifest.getRequiredTileId(prefix + "_T");
-        int tr = manifest.getRequiredTileId(prefix + "_TR");
-        int l  = manifest.getRequiredTileId(prefix + "_L");
-        int r  = manifest.getRequiredTileId(prefix + "_R");
-        int bl = manifest.getRequiredTileId(prefix + "_BL");
-        int b  = manifest.getRequiredTileId(prefix + "_B");
-        int br = manifest.getRequiredTileId(prefix + "_BR");
-
-        // γωνίες
-        setLayerTile(decorLayer, startCol, startRow, tl);
-        setLayerTile(decorLayer, startCol + width - 1, startRow, tr);
-        setLayerTile(decorLayer, startCol, startRow + height - 1, bl);
-        setLayerTile(decorLayer, startCol + width - 1, startRow + height - 1, br);
-
-        // πάνω / κάτω
-        for (int col = startCol + 1; col < startCol + width - 1; col++) {
-            setLayerTile(decorLayer, col, startRow, t);
-            setLayerTile(decorLayer, col, startRow + height - 1, b);
-        }
-
-        // αριστερά / δεξιά
-        for (int row = startRow + 1; row < startRow + height - 1; row++) {
-            setLayerTile(decorLayer, startCol, row, l);
-            setLayerTile(decorLayer, startCol + width - 1, row, r);
-        }
-
-        // κέντρο decor = κενό για να φαίνεται το κάτω layer
-        for (int row = startRow + 1; row < startRow + height - 1; row++) {
-            for (int col = startCol + 1; col < startCol + width - 1; col++) {
-                setLayerTile(decorLayer, col, row, -1);
-            }
-        }
-    }
-
-    public void placeBottomTerrainRectangle(MapLayer groundLayer, String atlasName, String prefix,
-                                            int startCol, int startRow, int width, int height) {
-        AtlasManifest manifest = getManifest(atlasName);
-        if (manifest == null) return;
-        if (!manifest.hasTile(prefix + "_FILL")) return;
-
-        int fillId = manifest.getRequiredTileId(prefix + "_FILL");
-        fillRectangleWithTile(groundLayer, startCol, startRow, width, height, fillId);
-    }
-
-    public void paintTerrainRectangle(MapLayer groundLayer, MapLayer decorLayer,
-                                    String atlasName,
-                                    String bottomPrefix, String topPrefix,
-                                    int startCol, int startRow, int width, int height) {
-        if (width < 3 || height < 3) return;
-
-        placeBottomTerrainRectangle(groundLayer, atlasName, bottomPrefix, startCol, startRow, width, height);
-        placeTerrainRectangleFrame(decorLayer, atlasName, topPrefix, startCol, startRow, width, height);
-    }
-
-    public void placeExplicitBlock4x5(MapLayer layer, String atlasName, String[][] names, int startCol, int startRow) {
-        AtlasManifest manifest = getManifest(atlasName);
-        if (layer == null || manifest == null) return;
-
-        for (int row = 0; row < 5; row++) {
-            for (int col = 0; col < 4; col++) {
-                String tileName = names[row][col];
-                if (manifest.hasTile(tileName)) {
-                    setLayerTile(layer, startCol + col, startRow + row, manifest.getRequiredTileId(tileName));
+                if (row >= 0 && row < collision.rows && col >= 0 && col < collision.cols) {
+                    collision.tiles[row][col] = 1;
                 }
             }
         }
     }
 
-    public void placeExplicitBlock4x3(MapLayer layer, String atlasName, String[][] names, int startCol, int startRow) {
-        AtlasManifest manifest = getManifest(atlasName);
-        if (layer == null || manifest == null) return;
+    // public void paintFenceRect(MapLayer decor, int startCol, int startRow, int width, int height) {
+    //     AtlasManifest basic = getManifest("basic_terrain");
+    //     if (basic == null || !basic.hasTile("DIRT_PATH_1")) return;
 
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 4; col++) {
-                String tileName = names[row][col];
-                if (manifest.hasTile(tileName)) {
-                    setLayerTile(layer, startCol + col, startRow + row, manifest.getRequiredTileId(tileName));
-                }
+    //     int tl = basic.getRequiredTileId("DIRT_PATH_1");
+    //     int tr = basic.getRequiredTileId("DIRT_PATH_2");
+    //     int bl = basic.getRequiredTileId("DIRT_PATH_3");
+    //     int br = basic.getRequiredTileId("DIRT_PATH_4");
+
+    //     setLayerTile(decor, startCol, startRow, tl);
+    //     setLayerTile(decor, startCol + width - 1, startRow, tr);
+    //     setLayerTile(decor, startCol, startRow + height - 1, bl);
+    //     setLayerTile(decor, startCol + width - 1, startRow + height - 1, br);
+    // }
+
+    // public void paintWaterBlockRectangle(MapLayer layer, String prefix,
+    //                                     int startCol, int startRow, int blockCols, int blockRows) {
+    //     for (int by = 0; by < blockRows; by++) {
+    //         for (int bx = 0; bx < blockCols; bx++) {
+    //             int col = startCol + (bx * 3);
+    //             int row = startRow + (by * 3);
+    //             placePaintedWater3x3(layer, prefix, col, row);
+    //         }
+    //     }
+    // }
+
+    private Element findLayerElement(Document doc, String layerName) {
+        NodeList layers = doc.getElementsByTagName("layer");
+
+        for (int i = 0; i < layers.getLength(); i++) {
+            Element layer = (Element) layers.item(i);
+            String name = layer.getAttribute("name");
+            if (name.equalsIgnoreCase(layerName)) {
+                return layer;
             }
         }
+
+        return null;
     }
 
-    public void paintVariantRectangle(MapLayer layer, String atlasName, String prefix,
-                                    int startCol, int startRow, int width, int height) {
-        AtlasManifest manifest = getManifest(atlasName);
-        if (manifest == null) return;
-        if (!manifest.hasVariant2x2(prefix)) return;
-        if (width < 2 || height < 2) return;
+    private int findFirstGid(Document doc, String tsxFileName) {
+        NodeList tilesets = doc.getElementsByTagName("tileset");
 
-        int t1 = manifest.getRequiredTileId(prefix + "_1");
-        int t2 = manifest.getRequiredTileId(prefix + "_2");
-        int t3 = manifest.getRequiredTileId(prefix + "_3");
-        int t4 = manifest.getRequiredTileId(prefix + "_4");
+        for (int i = 0; i < tilesets.getLength(); i++) {
+            Element ts = (Element) tilesets.item(i);
+            String source = ts.getAttribute("source");
 
-        for (int row = 0; row < height; row++) {
-            for (int col = 0; col < width; col++) {
-                int targetCol = startCol + col;
-                int targetRow = startRow + row;
+            if (source != null && source.endsWith(tsxFileName)) {
+                return Integer.parseInt(ts.getAttribute("firstgid"));
+            }
+        }
 
-                int modCol = col % 2;
-                int modRow = row % 2;
+        return -1;
+    }
 
-                int tileId;
-                if (modRow == 0 && modCol == 0) {
-                    tileId = t1;
-                } else if (modRow == 0 && modCol == 1) {
-                    tileId = t2;
-                } else if (modRow == 1 && modCol == 0) {
-                    tileId = t3;
+    private MapLayer loadTMXLayer(Document doc,
+                                String tmxLayerName,
+                                String internalLayerName,
+                                int rows,
+                                int cols,
+                                String atlasName,
+                                int firstGid,
+                                boolean collisionMode) {
+
+        Element layerElement = findLayerElement(doc, tmxLayerName);
+        if (layerElement == null) {
+            System.out.println("TMX layer not found: " + tmxLayerName);
+            return null;
+        }
+
+        Element dataElement = (Element) layerElement.getElementsByTagName("data").item(0);
+        String csv = dataElement.getTextContent().trim();
+
+        String[] tokens = csv.split(",");
+
+        MapLayer layer = new MapLayer(internalLayerName, rows, cols);
+        layer.atlasName = atlasName;
+
+        int index = 0;
+
+        for (int row = 0; row < rows; row++) {
+            for (int col = 0; col < cols; col++) {
+                if (index >= tokens.length) {
+                    layer.tiles[row][col] = -1;
+                    continue;
+                }
+
+                String token = tokens[index].trim();
+                int gid = Integer.parseInt(token);
+
+                if (collisionMode) {
+                    layer.tiles[row][col] = (gid == 0) ? -1 : 1;
                 } else {
-                    tileId = t4;
+                    layer.tiles[row][col] = (gid == 0) ? -1 : (gid - firstGid);
                 }
 
-                setLayerTile(layer, targetCol, targetRow, tileId);
+                index++;
             }
         }
-    }
 
-    public void paintHorizontalPath(MapLayer layer, String atlasName, String prefix,
-                                    int startCol, int row, int length) {
-        AtlasManifest manifest = getManifest(atlasName);
-        if (manifest == null) return;
-        if (!manifest.hasVariant2x2(prefix)) return;
-        if (length < 2) return;
-
-        int t1 = manifest.getRequiredTileId(prefix + "_1");
-        int t2 = manifest.getRequiredTileId(prefix + "_2");
-        int t3 = manifest.getRequiredTileId(prefix + "_3");
-        int t4 = manifest.getRequiredTileId(prefix + "_4");
-
-        for (int col = 0; col < length; col++) {
-            int targetCol = startCol + col;
-
-            if (col % 2 == 0) {
-                setLayerTile(layer, targetCol, row, t1);
-                setLayerTile(layer, targetCol, row + 1, t3);
-            } else {
-                setLayerTile(layer, targetCol, row, t2);
-                setLayerTile(layer, targetCol, row + 1, t4);
-            }
-        }
-    }
-
-    public void paintVerticalPath(MapLayer layer, String atlasName, String prefix,
-                                int col, int startRow, int length) {
-        AtlasManifest manifest = getManifest(atlasName);
-        if (manifest == null) return;
-        if (!manifest.hasVariant2x2(prefix)) return;
-        if (length < 2) return;
-
-        int t1 = manifest.getRequiredTileId(prefix + "_1");
-        int t2 = manifest.getRequiredTileId(prefix + "_2");
-        int t3 = manifest.getRequiredTileId(prefix + "_3");
-        int t4 = manifest.getRequiredTileId(prefix + "_4");
-
-        for (int row = 0; row < length; row++) {
-            int targetRow = startRow + row;
-
-            if (row % 2 == 0) {
-                setLayerTile(layer, col, targetRow, t1);
-                setLayerTile(layer, col + 1, targetRow, t2);
-            } else {
-                setLayerTile(layer, col, targetRow, t3);
-                setLayerTile(layer, col + 1, targetRow, t4);
-            }
-        }
-    }
-
-    public void paintWaterBlockRectangle(MapLayer layer, String prefix,
-                                        int startCol, int startRow, int blockCols, int blockRows) {
-        for (int by = 0; by < blockRows; by++) {
-            for (int bx = 0; bx < blockCols; bx++) {
-                int col = startCol + (bx * 3);
-                int row = startRow + (by * 3);
-                placePaintedWater3x3(layer, prefix, col, row);
-            }
-        }
+        return layer;
     }
 
     // =========================================================
@@ -916,9 +1230,10 @@ public class TileManager {
     }
 
     private void drawAdvancedMap(Graphics2D g2, AdvancedMapData currentMap) {
-        drawAtlasLayer(g2, currentMap.getLayer("ground"));
+        drawAtlasLayer(g2, currentMap.getLayer("water"));
         drawAtlasLayer(g2, currentMap.getLayer("decor"));
-        drawAtlasLayer(g2, currentMap.getLayer("water_decor"));
+        drawAtlasLayer(g2, currentMap.getLayer("ground"));
+        drawAtlasLayer(g2, currentMap.getLayer("upperground"));
     }
 
     private void drawAtlasLayer(Graphics2D g2, MapLayer layer) {

@@ -689,8 +689,8 @@ public class GamePanel extends JPanel implements Runnable {
         portals.add(new Portal(0, 41 * tileSize, 7 * tileSize, 3, 4 * tileSize, 22 * tileSize)); // Overworld -> Town
         portals.add(new Portal(3, 3 * tileSize, 22 * tileSize, 0, 41 * tileSize, 8 * tileSize)); // Town -> Overworld
 
-        portals.add(new Portal(3, 40 * tileSize, 30 * tileSize, 6, 8 * tileSize, 8 * tileSize)); // Town -> region
-        portals.add(new Portal(3, 40 * tileSize, 28 * tileSize, 9, 4 * tileSize, 4 * tileSize)); // Town -> testmaps
+        //portals.add(new Portal(3, 40 * tileSize, 30 * tileSize, 6, 8 * tileSize, 8 * tileSize)); // Town -> region
+        portals.add(new Portal(3, 40 * tileSize, 28 * tileSize, 6, 20 * tileSize, 10 * tileSize)); // Town -> testmaps
 
         //ΞΕΚΙΝΑΩ ΜΕ TITLE
         gameState = titleState;
@@ -4371,16 +4371,16 @@ public class GamePanel extends JPanel implements Runnable {
 
         boolean collision = false;
 
-        if (tileM.isValidTile(currentMap, topLeftRow, topLeftCol)) {
+        if (isValidWorldTile(topLeftRow, topLeftCol)) {
             collision = tileM.isTileCollision(currentMap, topLeftRow, topLeftCol);
         }
-        if (!collision && tileM.isValidTile(currentMap, topRightRow, topRightCol)) {
+        if (!collision && isValidWorldTile(topRightRow, topRightCol)) {
             collision = tileM.isTileCollision(currentMap, topRightRow, topRightCol);
         }
-        if (!collision && tileM.isValidTile(currentMap, bottomLeftRow, bottomLeftCol)) {
+        if (!collision && isValidWorldTile(bottomLeftRow, bottomLeftCol)) {
             collision = tileM.isTileCollision(currentMap, bottomLeftRow, bottomLeftCol);
         }
-        if (!collision && tileM.isValidTile(currentMap, bottomRightRow, bottomRightCol)) {
+        if (!collision && isValidWorldTile(bottomRightRow, bottomRightCol)) {
             collision = tileM.isTileCollision(currentMap, bottomRightRow, bottomRightCol);
         }
 
