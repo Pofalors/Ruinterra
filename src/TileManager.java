@@ -50,7 +50,7 @@ public class TileManager {
         loadTileData();
 
         tile = new Tile[fileNames.size()];
-        getTileImage();
+        // getTileImage();
 
         loadAtlases();
         loadManifests();
@@ -85,13 +85,13 @@ public class TileManager {
         }
     }
 
-    public void getTileImage() {
-        for (int i = 0; i < fileNames.size(); i++) {
-            String fileName = fileNames.get(i);
-            boolean collision = collisionStatus.get(i).equals("true");
-            setup(i, fileName, collision);
-        }
-    }
+    // public void getTileImage() {
+    //     for (int i = 0; i < fileNames.size(); i++) {
+    //         String fileName = fileNames.get(i);
+    //         boolean collision = collisionStatus.get(i).equals("true");
+    //         setup(i, fileName, collision);
+    //     }
+    // }
 
     public void loadAtlases() {
         loadAtlas("basic_terrain", "res/tilesets/basic_terrain.png");
@@ -134,15 +134,15 @@ public class TileManager {
         return atlases.get(atlasName);
     }
 
-    public void setup(int index, String imageName, boolean collision) {
-        try {
-            tile[index] = new Tile();
-            tile[index].image = ImageIO.read(new File("res/tiles/" + imageName));
-            tile[index].collision = collision;
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
+    // public void setup(int index, String imageName, boolean collision) {
+    //     try {
+    //         tile[index] = new Tile();
+    //         tile[index].image = ImageIO.read(new File("res/tiles/" + imageName));
+    //         tile[index].collision = collision;
+    //     } catch (IOException e) {
+    //         e.printStackTrace();
+    //     }
+    // }
 
     // =========================================================
     // MAP LOADING

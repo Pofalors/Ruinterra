@@ -146,6 +146,9 @@ public class GamePanel extends JPanel implements Runnable {
     // DECORATIONS
     public ArrayList<ArrayList<Decoration>> decorations = new ArrayList<>();
     public ArrayList<House> houses = new ArrayList<>();
+    // NEW CHESTS
+    public ArrayList<ArrayList<Chest>> chests = new ArrayList<>();
+    public java.util.HashSet<String> openedChestIds = new java.util.HashSet<>();
 
 
     // Game states
@@ -327,6 +330,7 @@ public class GamePanel extends JPanel implements Runnable {
         for (int i = 0; i < maxMaps; i++) {
             npcs.add(new ArrayList<>());
             itemsOnGround.add(new ArrayList<>());
+            chests.add(new ArrayList<>());
         }
 
         // Δημιούργησε τον player ως Entity
@@ -350,10 +354,14 @@ public class GamePanel extends JPanel implements Runnable {
         player.speed = 4;
         player.direction = "down";
 
+        // LOAD OPENED CHESTS
+        loadOpenedChests();
         // NPCS NEW
         spawnTiledNPCs(currentMap);
         // ITEMS ON GROUND NEW
-        spawnTiledChestLoot(currentMap);
+        spawnTiledChests(currentMap);
+
+        
 
         // ========== Δημιουργία των άλλων μελών της ομάδας ==========
         PartyMember assassin = new PartyMember(this, "assassin", "Assassin");
@@ -781,6 +789,7 @@ public class GamePanel extends JPanel implements Runnable {
                     }
                     if (!enteredHouse) {
                         handleNPCInteraction(currentMapNPCs);
+                        handleChestInteraction();
                     }
                     keyH.enterPressed = false;
                 } 
@@ -2604,37 +2613,30 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
-    private void spawnTiledChestLoot(int mapIndex) {
+    private void spawnTiledChests(int mapIndex) {
         ArrayList<TiledObjectData> chestObjects = tileM.getMapObjectsByLayer(mapIndex, "chests");
 
         for (TiledObjectData obj : chestObjects) {
+
             int col = (int)(obj.x / originalTileSize);
             int row = (int)(obj.y / originalTileSize) - 1;
 
             int worldX = col * tileSize;
             int worldY = row * tileSize;
 
+            String chestId = obj.getProperty("chestId");
             String itemId = obj.getProperty("item");
             int amount = obj.getPropertyInt("amount", 1);
 
-            try {
-                Item item = createItemFromId(itemId);
-                if (item == null) continue;
+            Chest chest = new Chest(chestId, worldX, worldY, itemId, amount);
 
-                item.amount = amount;
-
-                BufferedImage itemImage = item.image;
-
-                itemsOnGround.get(mapIndex).add(
-                        new ItemOnGround(item.name, itemImage, worldX, worldY, item)
-                );
-
-                System.out.println("Spawned chest loot " + itemId + " x" + amount +
-                        " at map " + mapIndex + " (" + worldX + "," + worldY + ")");
-            } catch (Exception e) {
-                System.out.println("Failed to spawn chest loot: " + itemId);
-                e.printStackTrace();
+            if (chestId != null && !chestId.isEmpty() && openedChestIds.contains(chestId)) {
+                chest.opened = true;
             }
+
+            chests.get(mapIndex).add(chest);
+
+            System.out.println("Chest spawned: " + itemId);
         }
     }
 
@@ -2767,6 +2769,87 @@ public class GamePanel extends JPanel implements Runnable {
                     return;
                 }
             }
+        }
+    }
+
+    private void handleChestInteraction() {
+        ArrayList<Chest> currentChests = chests.get(currentMap);
+
+        for (Chest chest : currentChests) {
+
+            int distanceX = Math.abs(player.worldX - chest.worldX);
+            int distanceY = Math.abs(player.worldY - chest.worldY);
+
+            if (distanceX <= tileSize && distanceY <= tileSize) {
+
+                if (!chest.opened) {
+
+                    chest.opened = true;
+
+                    if (chest.chestId != null && !chest.chestId.isEmpty()) {
+                        openedChestIds.add(chest.chestId);
+                        saveOpenedChests();
+                    }
+
+                    try {
+                        Item item = createItemFromId(chest.itemId);
+                        if (item == null) return;
+
+                        item.amount = chest.amount;
+
+                        inventory.addItem(item);
+
+                        playSound("item");
+
+                        startDialogue("Βρήκες " + item.name + " x" + chest.amount + "!");
+                        gameState = dialogueState;
+
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+
+                    return;
+                }
+            }
+        }
+    }
+
+    private void saveOpenedChests() {
+        try {
+            java.io.PrintWriter writer = new java.io.PrintWriter(new java.io.FileWriter("res/save/opened_chests.txt"));
+
+            for (String chestId : openedChestIds) {
+                writer.println(chestId);
+            }
+
+            writer.close();
+            System.out.println("Opened chests saved.");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void loadOpenedChests() {
+        openedChestIds.clear();
+
+        java.io.File file = new java.io.File("res/save/opened_chests.txt");
+        if (!file.exists()) return;
+
+        try {
+            java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(file));
+            String line;
+
+            while ((line = br.readLine()) != null) {
+                line = line.trim();
+                if (!line.isEmpty()) {
+                    openedChestIds.add(line);
+                }
+            }
+
+            br.close();
+            System.out.println("Opened chests loaded.");
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -4718,6 +4801,12 @@ public class GamePanel extends JPanel implements Runnable {
                 screenY + tileSize > 0 && screenY < screenHeight) {
                 g2.drawImage(item.image, screenX, screenY, tileSize, tileSize, null);
             }
+        }
+
+        // ζωγραφισε chests
+        ArrayList<Chest> currentChests = chests.get(currentMap);
+        for (Chest chest : currentChests) {
+            chest.draw(g2, this);
         }
 
         // ========== ΖΩΓΡΑΦΙΣΕ ΤΑ ΜΕΛΗ ΤΗΣ ΟΜΑΔΑΣ (ΠΙΣΩ ΑΠΟ ΤΟΝ ΠΑΙΚΤΗ) ==========

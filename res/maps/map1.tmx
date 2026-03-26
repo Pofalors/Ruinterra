@@ -330,7 +330,8 @@
  <objectgroup id="9" name="chests">
   <object id="5" name="chest1" x="459.25" y="280">
    <properties>
-    <property name="amount" type="int" value="3"/>
+    <property name="amount" type="int" value="2"/>
+    <property name="chestId" value="beach_potion"/>
     <property name="item" value="health_potion"/>
    </properties>
    <point/>
