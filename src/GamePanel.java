@@ -337,25 +337,31 @@ public class GamePanel extends JPanel implements Runnable {
         player = new Entity(this);
         // player.worldX = 23 * tileSize;  // ή όποιο spawn point θες
         // player.worldY = 21 * tileSize;
+
+        // LOAD OPENED CHESTS
+        loadOpenedChests();
+        
         currentMap = 0;
         tileM.applyMapSizeToGamePanel(currentMap);
 
-        TiledObjectData spawn = tileM.findMapObjectByName(currentMap, "player_spawn");
-        if (spawn != null) {
-            int spawnCol = (int)(spawn.x / originalTileSize);
-            int spawnRow = (int)(spawn.y / originalTileSize) - 1;
+        boolean loadedSave = loadPlayerState();
 
-            player.worldX = spawnCol * tileSize;
-            player.worldY = spawnRow * tileSize;
-        } else {
-            player.worldX = 5 * tileSize;
-            player.worldY = 5 * tileSize;
+        if (!loadedSave) {
+            TiledObjectData spawn = tileM.findMapObjectByName(currentMap, "player_spawn");
+            if (spawn != null) {
+                int spawnCol = (int)(spawn.x / originalTileSize);
+                int spawnRow = (int)(spawn.y / originalTileSize) - 1;
+
+                player.worldX = spawnCol * tileSize;
+                player.worldY = spawnRow * tileSize;
+            } else {
+                player.worldX = 5 * tileSize;
+                player.worldY = 5 * tileSize;
+            }
         }
         player.speed = 4;
         player.direction = "down";
 
-        // LOAD OPENED CHESTS
-        loadOpenedChests();
         // NPCS NEW
         spawnTiledNPCs(currentMap);
         // ITEMS ON GROUND NEW
@@ -1925,6 +1931,9 @@ public class GamePanel extends JPanel implements Runnable {
                         
                         // ========== RANDOM ENCOUNTER CHECK ==========
                         encounterStepCounter++;
+                        if (encounterStepCounter % 10 == 0) {
+                            savePlayerState();
+                        }
 
                         if (encounterStepCounter >= encounterRate) {
                             encounterStepCounter = 0;
@@ -1994,6 +2003,9 @@ public class GamePanel extends JPanel implements Runnable {
                         
                         // ========== RANDOM ENCOUNTER CHECK ==========
                         encounterStepCounter++;
+                        if (encounterStepCounter % 10 == 0) {
+                            savePlayerState();
+                        }
 
                         if (encounterStepCounter >= encounterRate) {
                             encounterStepCounter = 0;
@@ -2065,6 +2077,9 @@ public class GamePanel extends JPanel implements Runnable {
                         
                         // ========== RANDOM ENCOUNTER CHECK ==========
                         encounterStepCounter++;
+                        if (encounterStepCounter % 10 == 0) {
+                            savePlayerState();
+                        }
 
                         if (encounterStepCounter >= encounterRate) {
                             encounterStepCounter = 0;
@@ -2135,6 +2150,9 @@ public class GamePanel extends JPanel implements Runnable {
                         
                         // ========== RANDOM ENCOUNTER CHECK ==========
                         encounterStepCounter++;
+                        if (encounterStepCounter % 10 == 0) {
+                            savePlayerState();
+                        }
 
                         if (encounterStepCounter >= encounterRate) {
                             encounterStepCounter = 0;
@@ -2192,6 +2210,7 @@ public class GamePanel extends JPanel implements Runnable {
 
                         player.worldX = targetCol * tileSize;
                         player.worldY = targetRow * tileSize;
+                        savePlayerState();
 
                         // μουσική
                         if (currentMap == 0) { // Overworld
@@ -2851,6 +2870,88 @@ public class GamePanel extends JPanel implements Runnable {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private void savePlayerState() {
+        try {
+            java.io.File saveDir = new java.io.File("res/save");
+            if (!saveDir.exists()) {
+                saveDir.mkdirs();
+            }
+
+            java.io.PrintWriter writer = new java.io.PrintWriter(
+                    new java.io.FileWriter("res/save/player_state.txt")
+            );
+
+            writer.println("currentMap=" + currentMap);
+            writer.println("worldX=" + player.worldX);
+            writer.println("worldY=" + player.worldY);
+
+            writer.close();
+            System.out.println("Player state saved.");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private boolean loadPlayerState() {
+        java.io.File file = new java.io.File("res/save/player_state.txt");
+        if (!file.exists()) return false;
+
+        int loadedMap = 0;
+        int loadedWorldX = -1;
+        int loadedWorldY = -1;
+
+        try {
+            java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(file));
+            String line;
+
+            while ((line = br.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty() || !line.contains("=")) continue;
+
+                String[] parts = line.split("=", 2);
+                String key = parts[0].trim();
+                String value = parts[1].trim();
+
+                switch (key) {
+                    case "currentMap":
+                        loadedMap = Integer.parseInt(value);
+                        break;
+                    case "worldX":
+                        loadedWorldX = Integer.parseInt(value);
+                        break;
+                    case "worldY":
+                        loadedWorldY = Integer.parseInt(value);
+                        break;
+                }
+            }
+
+            br.close();
+
+            if (loadedMap >= 0 && loadedMap < maxMaps) {
+                currentMap = loadedMap;
+                tileM.applyMapSizeToGamePanel(currentMap);
+            } else {
+                currentMap = 0;
+                tileM.applyMapSizeToGamePanel(currentMap);
+            }
+
+            if (loadedWorldX >= 0 && loadedWorldY >= 0) {
+                player.worldX = loadedWorldX;
+                player.worldY = loadedWorldY;
+            } else {
+                return false;
+            }
+
+            System.out.println("Player state loaded.");
+            return true;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return false;
     }
 
     private void faceNPCToPlayer(Entity npc) {
