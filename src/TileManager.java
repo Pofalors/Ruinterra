@@ -53,7 +53,7 @@ public class TileManager {
         // getTileImage();
 
         loadAtlases();
-        loadManifests();
+        // loadManifests();
 
         loadAllMaps();
 
@@ -115,20 +115,20 @@ public class TileManager {
         }
     }
 
-    public void loadManifests() {
-        loadManifest("basic_terrain", "res/tilesets/basic_terrain_manifest.txt");
-        loadManifest("water", "res/tilesets/water_manifest.txt");
-    }
+    // public void loadManifests() {
+    //     loadManifest("basic_terrain", "res/tilesets/basic_terrain_manifest.txt");
+    //     loadManifest("water", "res/tilesets/water_manifest.txt");
+    // }
 
-    public void loadManifest(String atlasName, String filePath) {
-        AtlasManifest manifest = AtlasManifestLoader.loadManifest(atlasName, filePath);
-        if (manifest != null) {
-            manifests.put(atlasName, manifest);
-            System.out.println("Manifest loaded: " + atlasName);
-        } else {
-            System.out.println("Could not load manifest: " + atlasName);
-        }
-    }
+    // public void loadManifest(String atlasName, String filePath) {
+    //     AtlasManifest manifest = AtlasManifestLoader.loadManifest(atlasName, filePath);
+    //     if (manifest != null) {
+    //         manifests.put(atlasName, manifest);
+    //         System.out.println("Manifest loaded: " + atlasName);
+    //     } else {
+    //         System.out.println("Could not load manifest: " + atlasName);
+    //     }
+    // }
 
     public TilesetAtlas getAtlas(String atlasName) {
         return atlases.get(atlasName);

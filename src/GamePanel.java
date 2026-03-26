@@ -28,6 +28,8 @@ import java.awt.GraphicsEnvironment;
 import java.awt.GraphicsDevice;  
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 
 public class GamePanel extends JPanel implements Runnable {
     // Ρυθμίσεις οθόνης
@@ -324,6 +326,21 @@ public class GamePanel extends JPanel implements Runnable {
         this.window = window;
         this.device = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();
 
+        if (this.window != null) {
+            this.window.addWindowListener(new WindowAdapter() {
+                @Override
+                public void windowClosing(WindowEvent e) {
+                    savePlayerState();
+                    saveInventoryAndGold();
+                    saveQuests();
+                    savePartyStats();
+                    saveOpenedChests();
+                    saveEquipment();
+                    System.out.println("Autosaved on window close.");
+                }
+            });
+        }
+
         tileM = new TileManager(this); // Δώσε του access στο GamePanel  
         
         // npc
@@ -340,11 +357,14 @@ public class GamePanel extends JPanel implements Runnable {
 
         // LOAD OPENED CHESTS
         loadOpenedChests();
-        
+
         currentMap = 0;
         tileM.applyMapSizeToGamePanel(currentMap);
 
         boolean loadedSave = loadPlayerState();
+        loadInventoryAndGold();
+        loadQuests();
+        loadEquipment();
 
         if (!loadedSave) {
             TiledObjectData spawn = tileM.findMapObjectByName(currentMap, "player_spawn");
@@ -362,25 +382,25 @@ public class GamePanel extends JPanel implements Runnable {
         player.speed = 4;
         player.direction = "down";
 
+        // ========== Δημιουργία των άλλων μελών της ομάδας ==========
+        PartyMember assassin = new PartyMember(this, "assassin", "Assassin");
+        assassin.worldX = player.worldX - tileSize;
+        assassin.worldY = player.worldY;
+
+        PartyMember mage = new PartyMember(this, "mage", "Mage");
+        mage.worldX = player.worldX - tileSize * 2;
+        mage.worldY = player.worldY;
+
+        partyMembers.add(assassin);
+        partyMembers.add(mage);
+
+        // ΤΩΡΑ που υπάρχουν όλοι, φόρτωσε party stats
+        loadPartyStats();
+
         // NPCS NEW
         spawnTiledNPCs(currentMap);
         // ITEMS ON GROUND NEW
         spawnTiledChests(currentMap);
-
-        
-
-        // ========== Δημιουργία των άλλων μελών της ομάδας ==========
-        PartyMember assassin = new PartyMember(this, "assassin", "Assassin");
-        assassin.worldX = player.worldX - tileSize; // Δίπλα στον κεντρικό ήρωα
-        assassin.worldY = player.worldY;
-
-        PartyMember mage = new PartyMember(this, "mage", "Mage");
-        mage.worldX = player.worldX - tileSize * 2; // Πιο αριστερά
-        mage.worldY = player.worldY;
-
-        // Πρόσθεσέ τα στη λίστα
-        partyMembers.add(assassin);
-        partyMembers.add(mage);
         
         // ========== Δημιουργία λίστας εχθρών ==========
         for (int i = 0; i < maxMaps; i++) {
@@ -473,7 +493,9 @@ public class GamePanel extends JPanel implements Runnable {
             lantern = new Item("Lantern");
             lantern.isKeyItem = true;
             lantern.loadImage("res/items/lantern.png");
-            inventory.addItem(lantern); // Αυτόματα θα πάει στα key items
+            if (!inventorySaveExists()) {
+                inventory.addItem(lantern);
+            }
             
             System.out.println("Lantern created successfully!");
         } catch (Exception e) {
@@ -615,7 +637,9 @@ public class GamePanel extends JPanel implements Runnable {
         Item mapItem = new Item("World Map");
         mapItem.isKeyItem = true;
         mapItem.loadImage("res/items/map.png");
-        inventory.addItem(mapItem);  // Αυτόματα θα πάει στα key items
+        if (!inventorySaveExists()) {
+            inventory.addItem(mapItem);
+        }
 
         // Δημιούργησε portals
         // portals.add(new Portal(0, 12 * tileSize, 8 * tileSize, 1, 10 * tileSize, 41 * tileSize)); // Overworld -> Dungeon
@@ -840,6 +864,7 @@ public class GamePanel extends JPanel implements Runnable {
                     if (distanceX < tileSize && distanceY < tileSize) {
                         if (inventory.addItem(item.item)) {
                             currentMapItems.remove(i);
+                            saveInventoryAndGold();
                             startDialogue("Πήρες: " + item.name + "!");
                             gameState = dialogueState;
                         }
@@ -1139,6 +1164,8 @@ public class GamePanel extends JPanel implements Runnable {
                                 playSound("use_items");
                                 player.heal(selected.healAmount);
                                 inventory.removeFromStorage(inventory.selectedStorageSlot);
+                                saveInventoryAndGold();
+                                savePartyStats();
                                 startDialogue("Ήπιες " + selected.name + "!");
                                 gameState = dialogueState;
                             } else { // Equippable item
@@ -1200,6 +1227,10 @@ public class GamePanel extends JPanel implements Runnable {
                                     // Αύξησε hp/mp αν χρειάζεται
                                     player.hp += selected.hpBonus;
                                     player.mp += selected.mpBonus;
+                                    
+                                    saveInventoryAndGold();
+                                    savePartyStats();
+                                    saveEquipment();
                                 
                                 } else {
                                     inventory.inventoryMode = 1;
@@ -1208,6 +1239,7 @@ public class GamePanel extends JPanel implements Runnable {
                             }
                         }
                         try { Thread.sleep(200); } catch (Exception e) {}
+                        saveInventoryAndGold();
                         keyH.enterPressed = false;
                     }
                 }
@@ -1259,6 +1291,10 @@ public class GamePanel extends JPanel implements Runnable {
                             
                             inventory.unequipItem(inventory.selectedEquipSlot);
                             player.recalcStats();
+
+                            saveInventoryAndGold();
+                            savePartyStats();
+                            saveEquipment();
                         }
                         try { Thread.sleep(200); } catch (Exception e) {}
                         keyH.enterPressed = false;
@@ -1596,6 +1632,7 @@ public class GamePanel extends JPanel implements Runnable {
                     victoryRewardsShown = true;
                     sound.stopMusic();
                     playSound("levelup");
+                    savePartyStats();
                 }
                 
                 // Αν πατήσει Enter, ξεκίνα fade out
@@ -2752,6 +2789,8 @@ public class GamePanel extends JPanel implements Runnable {
                     for (Quest q : player.quests) {
                         if (q.name.equals("Καθάρισμα τεράτων")) {
                             hasQuest = true;
+                            saveQuests();
+                            saveInventoryAndGold();
                             questCompleted = q.completed;
                             break;
                         }
@@ -2803,32 +2842,34 @@ public class GamePanel extends JPanel implements Runnable {
 
                 if (!chest.opened) {
 
-                    chest.opened = true;
+                chest.opened = true;
+
+                try {
+                    Item item = createItemFromId(chest.itemId);
+                    if (item == null) return;
+
+                    item.amount = chest.amount;
+
+                    inventory.addItem(item);
 
                     if (chest.chestId != null && !chest.chestId.isEmpty()) {
                         openedChestIds.add(chest.chestId);
                         saveOpenedChests();
                     }
 
-                    try {
-                        Item item = createItemFromId(chest.itemId);
-                        if (item == null) return;
+                    saveInventoryAndGold();
 
-                        item.amount = chest.amount;
+                    playSound("item");
 
-                        inventory.addItem(item);
+                    startDialogue("Βρήκες " + item.name + " x" + chest.amount + "!");
+                    gameState = dialogueState;
 
-                        playSound("item");
-
-                        startDialogue("Βρήκες " + item.name + " x" + chest.amount + "!");
-                        gameState = dialogueState;
-
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-
-                    return;
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
+
+                return;
+            }
             }
         }
     }
@@ -2952,6 +2993,377 @@ public class GamePanel extends JPanel implements Runnable {
         }
 
         return false;
+    }
+
+    private void saveInventoryAndGold() {
+        try {
+            java.io.File saveDir = new java.io.File("res/save");
+            if (!saveDir.exists()) {
+                saveDir.mkdirs();
+            }
+
+            java.io.PrintWriter writer = new java.io.PrintWriter(
+                    new java.io.FileWriter("res/save/inventory.txt")
+            );
+
+            writer.println("gold=" + player.gold);
+
+            for (int i = 0; i < inventory.storage.length; i++) {
+                Item item = inventory.storage[i];
+                if (item != null) {
+                    int amount = item.stackable ? item.amount : 1;
+                    writer.println(item.name + "|" + amount);
+                }
+            }
+
+            writer.close();
+            System.out.println("Inventory and gold saved.");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void loadInventoryAndGold() {
+        java.io.File file = new java.io.File("res/save/inventory.txt");
+        if (!file.exists()) return;
+
+        // καθάρισε inventory πριν το ξαναγεμίσεις
+        for (int i = 0; i < inventory.storage.length; i++) {
+            inventory.storage[i] = null;
+        }
+
+        try {
+            java.io.BufferedReader br = new java.io.BufferedReader(
+                    new java.io.FileReader(file)
+            );
+
+            String line;
+            while ((line = br.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty()) continue;
+
+                if (line.startsWith("gold=")) {
+                    player.gold = Integer.parseInt(line.substring("gold=".length()));
+                    continue;
+                }
+
+                String[] parts = line.split("\\|");
+                if (parts.length < 2) continue;
+
+                String itemName = parts[0].trim();
+                int amount = Integer.parseInt(parts[1].trim());
+
+                Item item = createItemFromSaveName(itemName);
+                if (item == null) continue;
+
+                if (item.stackable) {
+                    item.amount = amount;
+                }
+
+                inventory.addItem(item);
+            }
+
+            br.close();
+            System.out.println("Inventory and gold loaded.");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private Item createItemFromSaveName(String itemName) throws Exception {
+        if (itemName == null || itemName.isEmpty()) return null;
+
+        if (itemName.equalsIgnoreCase("Health Potion")) {
+            Item item = new Item("Health Potion");
+            item.stackable = true;
+            item.healAmount = 20;
+            item.price = 50;
+            item.loadImage("res/items/health_potion.png");
+            return item;
+        }
+
+        if (itemName.equalsIgnoreCase("Mana Potion")) {
+            Item item = new Item("Mana Potion");
+            item.stackable = true;
+            item.mpBonus = 20;
+            item.price = 40;
+            item.loadImage("res/items/potion_blue.png");
+            return item;
+        }
+
+        if (itemName.equalsIgnoreCase("Iron Sword")) {
+            Item item = new Item("Iron Sword");
+            item.attackBonus = 5;
+            item.price = 200;
+            item.loadImage("res/items/iron_sword.png");
+            return item;
+        }
+
+        if (itemName.equalsIgnoreCase("Goblin Ear")) {
+            Item item = new Item("Goblin Ear");
+            item.stackable = true;
+            item.loadImage("res/items/goblin_ear.png");
+            return item;
+        }
+
+        if (itemName.equalsIgnoreCase("Lantern")) {
+            Item item = new Item("Lantern");
+            item.isKeyItem = true;
+            item.loadImage("res/items/lantern.png");
+            return item;
+        }
+
+        if (itemName.equalsIgnoreCase("World Map")) {
+            Item item = new Item("World Map");
+            item.isKeyItem = true;
+            item.loadImage("res/items/map.png");
+            return item;
+        }
+
+        return null;
+    }
+
+    private void saveQuests() {
+        try {
+            java.io.File saveDir = new java.io.File("res/save");
+            if (!saveDir.exists()) {
+                saveDir.mkdirs();
+            }
+
+            java.io.PrintWriter writer = new java.io.PrintWriter(
+                    new java.io.FileWriter("res/save/quests.txt")
+            );
+
+            for (Quest q : player.quests) {
+                writer.println(q.name + "|" + q.completed);
+            }
+
+            writer.close();
+            System.out.println("Quests saved.");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void loadQuests() {
+        java.io.File file = new java.io.File("res/save/quests.txt");
+        if (!file.exists()) return;
+
+        player.quests.clear();
+
+        try {
+            java.io.BufferedReader br = new java.io.BufferedReader(
+                    new java.io.FileReader(file)
+            );
+
+            String line;
+            while ((line = br.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty()) continue;
+
+                String[] parts = line.split("\\|");
+                if (parts.length < 2) continue;
+
+                String questName = parts[0].trim();
+                boolean completed = Boolean.parseBoolean(parts[1].trim());
+
+                Quest q = new Quest(questName, "");
+                q.completed = completed;
+                player.quests.add(q);
+            }
+
+            br.close();
+            System.out.println("Quests loaded.");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private boolean inventorySaveExists() {
+        return new java.io.File("res/save/inventory.txt").exists();
+    }
+
+    private void writeEntityStats(java.io.PrintWriter writer, String prefix, Entity e) {
+        writer.println(prefix + ".hp=" + e.hp);
+        writer.println(prefix + ".mp=" + e.mp);
+        writer.println(prefix + ".maxHp=" + e.maxHp);
+        writer.println(prefix + ".maxMp=" + e.maxMp);
+        writer.println(prefix + ".attack=" + e.attack);
+        writer.println(prefix + ".defense=" + e.defense);
+        writer.println(prefix + ".magicAttack=" + e.magicAttack);
+        writer.println(prefix + ".speed=" + e.speed_stat);
+        writer.println(prefix + ".level=" + e.level);
+        writer.println(prefix + ".exp=" + e.exp);
+    }
+
+    private void savePartyStats() {
+        try {
+            java.io.File saveDir = new java.io.File("res/save");
+            if (!saveDir.exists()) {
+                saveDir.mkdirs();
+            }
+
+            java.io.PrintWriter writer = new java.io.PrintWriter(
+                    new java.io.FileWriter("res/save/party_stats.txt")
+            );
+
+            // main player
+            writeEntityStats(writer, "player", player);
+
+            // party members
+            writer.println("party.count=" + partyMembers.size());
+
+            for (int i = 0; i < partyMembers.size(); i++) {
+                PartyMember member = partyMembers.get(i);
+                writer.println("party." + i + ".className=" + member.className);
+                writeEntityStats(writer, "party." + i, member);
+            }
+
+            writer.close();
+            System.out.println("Party stats saved.");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void loadPartyStats() {
+        java.io.File file = new java.io.File("res/save/party_stats.txt");
+        if (!file.exists()) return;
+
+        java.util.HashMap<String, String> data = new java.util.HashMap<>();
+
+        try {
+            java.io.BufferedReader br = new java.io.BufferedReader(
+                    new java.io.FileReader(file)
+            );
+
+            String line;
+            while ((line = br.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty() || !line.contains("=")) continue;
+
+                String[] parts = line.split("=", 2);
+                data.put(parts[0].trim(), parts[1].trim());
+            }
+
+            br.close();
+
+            // main player
+            if (data.containsKey("player.hp")) player.hp = Integer.parseInt(data.get("player.hp"));
+            if (data.containsKey("player.mp")) player.mp = Integer.parseInt(data.get("player.mp"));
+            if (data.containsKey("player.maxHp")) player.maxHp = Integer.parseInt(data.get("player.maxHp"));
+            if (data.containsKey("player.maxMp")) player.maxMp = Integer.parseInt(data.get("player.maxMp"));
+            if (data.containsKey("player.attack")) player.attack = Integer.parseInt(data.get("player.attack"));
+            if (data.containsKey("player.defense")) player.defense = Integer.parseInt(data.get("player.defense"));
+            if (data.containsKey("player.magicAttack")) player.magicAttack = Integer.parseInt(data.get("player.magicAttack"));
+            if (data.containsKey("player.speed")) player.speed_stat = Integer.parseInt(data.get("player.speed"));
+            if (data.containsKey("player.level")) player.level = Integer.parseInt(data.get("player.level"));
+            if (data.containsKey("player.exp")) player.exp = Integer.parseInt(data.get("player.exp"));
+
+            // party members
+            for (int i = 0; i < partyMembers.size(); i++) {
+                PartyMember member = partyMembers.get(i);
+
+                String base = "party." + i;
+
+                if (data.containsKey(base + ".hp")) member.hp = Integer.parseInt(data.get(base + ".hp"));
+                if (data.containsKey(base + ".mp")) member.mp = Integer.parseInt(data.get(base + ".mp"));
+                if (data.containsKey(base + ".maxHp")) member.maxHp = Integer.parseInt(data.get(base + ".maxHp"));
+                if (data.containsKey(base + ".maxMp")) member.maxMp = Integer.parseInt(data.get(base + ".maxMp"));
+                if (data.containsKey(base + ".attack")) member.attack = Integer.parseInt(data.get(base + ".attack"));
+                if (data.containsKey(base + ".defense")) member.defense = Integer.parseInt(data.get(base + ".defense"));
+                if (data.containsKey(base + ".magicAttack")) member.magicAttack = Integer.parseInt(data.get(base + ".magicAttack"));
+                if (data.containsKey(base + ".speed")) member.speed_stat = Integer.parseInt(data.get(base + ".speed"));
+                if (data.containsKey(base + ".level")) member.level = Integer.parseInt(data.get(base + ".level"));
+                if (data.containsKey(base + ".exp")) member.exp = Integer.parseInt(data.get(base + ".exp"));
+            }
+
+            System.out.println("Party stats loaded.");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void saveEquipment() {
+        try {
+            java.io.File saveDir = new java.io.File("res/save");
+            if (!saveDir.exists()) {
+                saveDir.mkdirs();
+            }
+
+            java.io.PrintWriter writer = new java.io.PrintWriter(
+                    new java.io.FileWriter("res/save/equipment.txt")
+            );
+
+            for (int slot = 0; slot < 9; slot++) {
+                Item item = inventory.getEquipSlot(slot);
+                if (item != null) {
+                    writer.println(slot + "|" + item.name);
+                }
+            }
+
+            writer.close();
+            System.out.println("Equipment saved.");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void loadEquipment() {
+        java.io.File file = new java.io.File("res/save/equipment.txt");
+        if (!file.exists()) return;
+
+        try {
+            java.io.BufferedReader br = new java.io.BufferedReader(
+                    new java.io.FileReader(file)
+            );
+
+            String line;
+            while ((line = br.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty() || !line.contains("|")) continue;
+
+                String[] parts = line.split("\\|");
+                int slot = Integer.parseInt(parts[0]);
+                String itemName = parts[1];
+
+                Item item = createItemFromSaveName(itemName);
+                if (item == null) continue;
+
+                // ⚠️ Εδώ βάζουμε απευθείας στο σωστό slot
+                setEquipSlotDirect(slot, item);
+
+                // IMPORTANT: εφαρμόζουμε stats
+                player.attack += item.attackBonus;
+                player.defense += item.defenseBonus;
+                player.magicAttack += item.magicBonus;
+                player.maxHp += item.hpBonus;
+                player.maxMp += item.mpBonus;
+                player.speed_stat += item.speedBonus;
+
+                player.hp += item.hpBonus;
+                player.mp += item.mpBonus;
+            }
+
+            br.close();
+            System.out.println("Equipment loaded.");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void setEquipSlotDirect(int slot, Item item) {
+        switch(slot) {
+            case 0: inventory.ring = item; break;
+            case 1: inventory.helmet = item; break;
+            case 2: inventory.necklace = item; break;
+            case 3: inventory.sword = item; break;
+            case 4: inventory.chest = item; break;
+            case 5: inventory.shield = item; break;
+            case 6: inventory.gloves = item; break;
+            case 7: inventory.belt = item; break;
+            case 8: inventory.boots = item; break;
+        }
     }
 
     private void faceNPCToPlayer(Entity npc) {
@@ -4504,6 +4916,10 @@ public class GamePanel extends JPanel implements Runnable {
 
         battleParty.removeDeadEntities();
         battleParty.syncPlayerHealth();
+
+        savePartyStats();
+        savePlayerState();
+        saveInventoryAndGold();
 
         battleEnemies.removeIf(be -> {
             for (BattleEntity enemyEntity : battleParty.enemies) {
