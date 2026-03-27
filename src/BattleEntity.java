@@ -48,7 +48,7 @@ public class BattleEntity {
 
     // Enemy constructor
     public BattleEntity(Enemy enemy, BufferedImage img) {
-        this.name = enemy.getClass().getSimpleName();
+        this.name = enemy.name;
         this.hp = enemy.hp;
         this.maxHp = enemy.maxHp;
         this.mp = enemy.mp;

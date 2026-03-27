@@ -173,13 +173,42 @@ public class GamePanel extends JPanel implements Runnable {
     public String currentDialogue = "";
 
     // ========== ΜΑΧΗ ==========
-    public ArrayList<ArrayList<Enemy>> enemies = new ArrayList<>();
+    /*
+    =====================================================
+    BATTLE FLOW (CURRENT ACTIVE PATH)
+    1. Player steps inside Tiled encounter zone
+    2. getCurrentEncounterZone()
+    3. buildEncounterFromZone(...)
+    4. startRandomEncounter()
+    5. startBattleWithTransition(ArrayList<Enemy>)
+    6. pendingEncounterEnemies becomes the source for the next battle setup
+    7. Existing battle render / turn / BP flow continues normally
+
+    LEGACY / FALLBACK ONLY
+    - startBattleWithTransition(Enemy enemy)
+    - old hardcoded area-based enemy spawning
+    - currentEnemy as full source of truth for all battle enemies
+
+    NOTES
+    - currentArea is now theme/background helper only
+    - enemy composition now comes from Tiled encounter zone properties
+    =====================================================
+    */
+    // LEGACY FIELD - πιθανό leftover από παλιότερο map/enemy storage.
+    // Δεν είναι το active source των battle encounters στο Tiled flow.
+    public ArrayList<ArrayList<Enemy>> enemies = new ArrayList<>(); 
     public final int battleState = 4;
     public final int battleVictoryState = 12;
+
+    // FALLBACK / convenience pointer μόνο.
+    // Στο Tiled battle flow, η πραγματική enemy ομάδα έρχεται από pendingEncounterEnemies.
     public Enemy currentEnemy;
+
     // Random Encounters
     public int encounterStepCounter = 0;
     public int encounterRate = 20; // Κάθε 20 βήματα
+    // Theme / background helper only.
+    // Δεν χρησιμοποιείται πλέον για hardcoded enemy selection στο active Tiled encounter flow.
     public String currentArea = "overworld"; // "overworld" ή "dungeon"
     // Transition Battle
     public boolean battleStarting = false;
@@ -278,6 +307,7 @@ public class GamePanel extends JPanel implements Runnable {
     public BattleEnemy currentBattleEnemy = null;
     public int pendingDamage = 0;
     public PlayerAnimation playerBattleAnim;
+    public ArrayList<Enemy> pendingEncounterEnemies = new ArrayList<>();
 
     // variables για victory
     public int victoryTimer = 0;
@@ -3415,56 +3445,151 @@ public class GamePanel extends JPanel implements Runnable {
 
         return null;
     }
+
+    // =============================
+    // TILED ENCOUNTER HELPERS
+    // =============================
+
+    private String[] parseCsv(String csv) {
+        if (csv == null || csv.trim().isEmpty()) return new String[0];
+
+        String[] parts = csv.split(",");
+        for (int i = 0; i < parts.length; i++) {
+            parts[i] = parts[i].trim();
+        }
+        return parts;
+    }
+
+    private int[] parseIntCsv(String csv) {
+        String[] parts = parseCsv(csv);
+        int[] result = new int[parts.length];
+
+        for (int i = 0; i < parts.length; i++) {
+            try {
+                result[i] = Integer.parseInt(parts[i]);
+            } catch (Exception e) {
+                result[i] = 1;
+            }
+        }
+
+        return result;
+    }
+
+    private String getObjectPropertyOrDefault(TiledObjectData obj, String key, String defaultValue) {
+        if (obj == null) return defaultValue;
+        String value = obj.getProperty(key);
+        return (value == null || value.trim().isEmpty()) ? defaultValue : value.trim();
+    }
+
+    private int getObjectIntPropertyOrDefault(TiledObjectData obj, String key, int defaultValue) {
+        try {
+            return Integer.parseInt(getObjectPropertyOrDefault(obj, key, String.valueOf(defaultValue)));
+        } catch (Exception e) {
+            return defaultValue;
+        }
+    }
+
+    private String chooseWeightedEnemy(String[] enemyIds, int[] weights) {
+        if (enemyIds.length == 0) return null;
+
+        if (weights == null || weights.length != enemyIds.length) {
+            return enemyIds[(int)(Math.random() * enemyIds.length)];
+        }
+
+        int total = 0;
+        for (int w : weights) {
+            total += Math.max(0, w);
+        }
+
+        if (total <= 0) {
+            return enemyIds[(int)(Math.random() * enemyIds.length)];
+        }
+
+        int roll = (int)(Math.random() * total);
+        int cumulative = 0;
+
+        for (int i = 0; i < enemyIds.length; i++) {
+            cumulative += Math.max(0, weights[i]);
+            if (roll < cumulative) {
+                return enemyIds[i];
+            }
+        }
+
+        return enemyIds[enemyIds.length - 1];
+    }
+
+    private ArrayList<Enemy> buildEncounterFromZone(TiledObjectData zone) {
+        ArrayList<Enemy> result = new ArrayList<>();
+        if (zone == null) return result;
+
+        String enemiesCsv = getObjectPropertyOrDefault(zone, "enemies", "");
+        String[] enemyIds = parseCsv(enemiesCsv);
+
+        if (enemyIds.length == 0) {
+            System.out.println("Encounter zone has no enemies property.");
+            return result;
+        }
+
+        int minGroup = getObjectIntPropertyOrDefault(zone, "minGroup", 1);
+        int maxGroup = getObjectIntPropertyOrDefault(zone, "maxGroup", minGroup);
+
+        if (maxGroup < minGroup) maxGroup = minGroup;
+
+        int groupSize = minGroup;
+        if (maxGroup > minGroup) {
+            groupSize = minGroup + (int)(Math.random() * (maxGroup - minGroup + 1));
+        }
+
+        int[] weights = parseIntCsv(getObjectPropertyOrDefault(zone, "weights", ""));
+
+        for (int i = 0; i < groupSize; i++) {
+            String chosenId = chooseWeightedEnemy(enemyIds, weights);
+            Enemy enemy = EnemyFactory.createEnemy(this, chosenId);
+
+            if (enemy != null) {
+                result.add(enemy);
+            }
+        }
+
+        return result;
+    }
+
     // =============================
     //  END OF HELPERS FOR TILED
     // ============================
 
     public void startRandomEncounter() {
-        // Επέλεξε τυχαίο τέρας ανάλογα με την περιοχή
-        String[] possibleEnemies;
-        
-        if (currentArea.equals("overworld")) {
-            possibleEnemies = new String[]{"Goblin", "Mushroom"};
-        } else { // dungeon
-            possibleEnemies = new String[]{"Goblin", "Skeleton"};
-        }
-        
-        String enemyType = possibleEnemies[(int)(Math.random() * possibleEnemies.length)];
-        
-        Enemy newEnemy = null;
-        
-        // Δημιούργησε το κατάλληλο τέρας
-        if (enemyType.equals("Goblin")) {
-            newEnemy = new Enemy_Goblin(this);
-        } else if (enemyType.equals("Mushroom")) {
-            newEnemy = new Enemy_Mushroom(this);
-        } else if (enemyType.equals("Skeleton")) {
-            newEnemy = new Enemy_Skeleton(this);
-        }
-        
-        if (newEnemy != null) {
-            // ΞΕΚΙΝΑΕΙ ΜΑΧΗ
-            battleStarting = true;
-            startBattleWithTransition(newEnemy);
-            battleMessage = "Εμφανίστηκε " + enemyType + "!";
-            sound.stopMusic();
-            sound.playBattleSE("ENEMY_APPEAR");
-            waitingForBattleMusic = true;
-            battleAppearTimer = 0;
-            battleAppearDurationFrames = (int)(sound.getBattleSoundLengthMs("ENEMY_APPEAR") / 16.67);
+        TiledObjectData encounterZone = getCurrentEncounterZone();
+        if (encounterZone == null) return;
 
-            // ξεκίνα τη μουσική ~20 frames πριν τελειώσει ο ήχος
-            battleAppearDurationFrames -= 200;
+        ArrayList<Enemy> encounterEnemies = buildEncounterFromZone(encounterZone);
+        if (encounterEnemies.isEmpty()) return;
 
-            if (battleAppearDurationFrames <= 0) battleAppearDurationFrames = 40;
+        battleStarting = true;
+        startBattleWithTransition(encounterEnemies);
+
+        if (encounterEnemies.size() == 1) {
+            battleMessage = "Εμφανίστηκε " + encounterEnemies.get(0).name + "!";
+        } else {
+            battleMessage = "Εμφανίστηκαν εχθροί!";
         }
+
+        sound.stopMusic();
+        sound.playBattleSE("ENEMY_APPEAR");
+        waitingForBattleMusic = true;
+        battleAppearTimer = 0;
+        battleAppearDurationFrames = (int)(sound.getBattleSoundLengthMs("ENEMY_APPEAR") / 16.67);
+        battleAppearDurationFrames -= 200;
+
+        if (battleAppearDurationFrames <= 0) battleAppearDurationFrames = 40;
     }
 
-    // Νέα μέθοδος για έναρξη μάχης με transition
-    public void startBattleWithTransition(Enemy enemy) {
-        currentEnemy = enemy;
+    public void startBattleWithTransition(ArrayList<Enemy> enemiesToBattle) {
+        if (enemiesToBattle == null || enemiesToBattle.isEmpty()) return;
 
-        // Ξεκίνα fade out
+        currentEnemy = enemiesToBattle.get(0);
+        pendingEncounterEnemies = new ArrayList<>(enemiesToBattle);
+
         battleFadeOut = true;
         battleFadeAlpha = 0;
         battleFadeIn = false;
@@ -3475,18 +3600,43 @@ public class GamePanel extends JPanel implements Runnable {
             System.out.println("Ground images loaded successfully!");
         } catch (IOException e) {
             e.printStackTrace();
-            // Fallback: δημιούργησε gradient images
             groundGrass = createGroundGradient(new Color(34, 139, 34), new Color(144, 238, 144));
             groundDungeon = createGroundGradient(new Color(70, 70, 70), new Color(120, 70, 70));
         }
 
-        
-        // Δημιούργησε τυχαίο background για τη μάχη
         createBattleBackground();
-        
-        // Ρύθμισε τους εχθρούς και τους παίκτες για οριζόντια μάχη
-        //setupBattleEntities();
     }
+
+    // ===================================
+    //    LEGACY METHOD
+    // ===================================
+    // Νέα μέθοδος για έναρξη μάχης με transition
+    // public void startBattleWithTransition(Enemy enemy) {
+    //     currentEnemy = enemy;
+
+    //     // Ξεκίνα fade out
+    //     battleFadeOut = true;
+    //     battleFadeAlpha = 0;
+    //     battleFadeIn = false;
+
+    //     try {
+    //         groundGrass = ImageIO.read(new File("res/battle/ground_grass.png"));
+    //         groundDungeon = ImageIO.read(new File("res/battle/ground_dungeon.png"));
+    //         System.out.println("Ground images loaded successfully!");
+    //     } catch (IOException e) {
+    //         e.printStackTrace();
+    //         // Fallback: δημιούργησε gradient images
+    //         groundGrass = createGroundGradient(new Color(34, 139, 34), new Color(144, 238, 144));
+    //         groundDungeon = createGroundGradient(new Color(70, 70, 70), new Color(120, 70, 70));
+    //     }
+
+        
+    //     // Δημιούργησε τυχαίο background για τη μάχη
+    //     createBattleBackground();
+        
+    //     // Ρύθμισε τους εχθρούς και τους παίκτες για οριζόντια μάχη
+    //     //setupBattleEntities();
+    // }
 
     public BufferedImage createGroundGradient(Color topColor, Color bottomColor) {
         BufferedImage ground = new BufferedImage(groundWidth, groundHeight, BufferedImage.TYPE_INT_RGB);
@@ -3598,37 +3748,21 @@ public class GamePanel extends JPanel implements Runnable {
         groundX = 0;
         
         // ========== ΔΗΜΙΟΥΡΓΙΑ ΕΧΘΡΩΝ (2-3) ==========
-        int numEnemies = 1 + (int)(Math.random() * 2);
-        
-        for (int i = 0; i < numEnemies; i++) {
-            Enemy enemy;
-            String[] possibleEnemies;
-            if (currentArea.equals("overworld")) {
-                possibleEnemies = new String[]{"Goblin", "Mushroom"};
-            } else {
-                possibleEnemies = new String[]{"Goblin", "Skeleton"};
-            }
-            String enemyType = possibleEnemies[(int)(Math.random() * possibleEnemies.length)];
-            
-            if (enemyType.equals("Goblin")) {
-                enemy = new Enemy_Goblin(this);
-            } else if (enemyType.equals("Mushroom")) {
-                enemy = new Enemy_Mushroom(this);
-            } else {
-                enemy = new Enemy_Skeleton(this);
-            }
-            
+        if (pendingEncounterEnemies == null || pendingEncounterEnemies.isEmpty()) return;
+
+        for (int i = 0; i < pendingEncounterEnemies.size(); i++) {
+            Enemy enemy = pendingEncounterEnemies.get(i);
+
             BattleEnemy be = new BattleEnemy(enemy);
-            
-            // Στοίχιση κατακόρυφα
+
             be.x = -tileSize * 4;
             be.y = groundY - tileSize - (i * 120);
             be.targetX = tileSize / 2 - 60;
             be.targetY = groundY - tileSize - (i * 120);
-            
+
             be.playAnimation("idle");
             battleEnemies.add(be);
-            
+
             BattleEntity enemyEntity = new BattleEntity(enemy, enemy.currentImage);
             battleParty.enemies.add(enemyEntity);
         }

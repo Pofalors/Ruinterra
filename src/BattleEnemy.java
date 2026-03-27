@@ -8,6 +8,7 @@ public class BattleEnemy {
     public int maxHp;
     public BufferedImage image;
     public EnemyAnimation anim;
+    public BattleEntity battleEntityRef;
 
     public BattleEnemy(Enemy enemy) {
         this.enemy = enemy;

@@ -20,6 +20,9 @@ public class Enemy_Skeleton extends Enemy {
             speed_stat = 7;
             exp = 22;
 
+            name = "Skeleton";
+            enemyType = "skeleton";
+            spriteSize = 64;
             // Φόρτωσε animations (64x64)
             loadAnimations("skeleton", 128);
             

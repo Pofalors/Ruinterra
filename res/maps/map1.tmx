@@ -277,10 +277,15 @@
 </data>
  </layer>
  <objectgroup id="10" name="encounters">
-  <object id="8" name="encounter_1" x="211" y="170" width="91" height="99.6667">
+  <object id="8" name="grass_zone_1" x="211" y="170" width="91" height="99.6667">
    <properties>
     <property name="areaType" value="overworld"/>
+    <property name="enemies" value="Goblin,Mushroom"/>
+    <property name="maxGroup" type="int" value="2"/>
+    <property name="minGroup" type="int" value="1"/>
     <property name="rate" type="float" value="0.05"/>
+    <property name="type" value="encounter_zone"/>
+    <property name="weights" value="70,30"/>
    </properties>
   </object>
  </objectgroup>

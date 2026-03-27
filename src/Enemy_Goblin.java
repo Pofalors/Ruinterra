@@ -20,6 +20,9 @@ public class Enemy_Goblin extends Enemy {
             speed_stat = 5;
             exp = 15;
 
+            name = "Goblin";
+            enemyType = "goblin";
+            spriteSize = 48;
             // Φόρτωσε animations (48x48)
             loadAnimations("goblin", 128);
             

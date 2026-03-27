@@ -20,6 +20,9 @@ public class Enemy_Mushroom extends Enemy {
             speed_stat = 3;
             exp = 12;
 
+            name = "Mushroom";
+            enemyType = "mushroom";
+            spriteSize = 48;
             // Φόρτωσε animations (48x48)
             loadAnimations("mushroom", 128);
             

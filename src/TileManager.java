@@ -583,6 +583,7 @@ public class TileManager {
             map.objects.addAll(loadTMXObjects(doc, "npcs"));
             map.objects.addAll(loadTMXObjects(doc, "chests"));
             map.objects.addAll(loadTMXObjects(doc, "encounters"));
+            map.objects.addAll(loadTMXObjects(doc, "enemies"));
             
 
             addAdvancedMap(map);

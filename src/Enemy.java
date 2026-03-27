@@ -7,6 +7,11 @@ public class Enemy extends Entity {
     public EnemyAnimation anim;
     public String enemyType; // "mushroom", "goblin", "skeleton"
     public int spriteSize; // 48 ή 64
+    public String enemyId;
+    public int goldReward;
+    public String battleBg = "";
+    public String groundType = "";
+    
     
     public Enemy(GamePanel gp) {
         super(gp);
