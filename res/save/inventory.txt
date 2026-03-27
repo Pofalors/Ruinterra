@@ -1,2 +1,0 @@
-gold=167
-Health Potion|1

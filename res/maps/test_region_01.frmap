@@ -1,7 +1,0 @@
-name=TestRegion01
-cols=20
-rows=15
-tileset=basic_terrain
-ground=test_region_01_ground.txt
-decor=test_region_01_decor.txt
-collision=test_region_01_collision.txt

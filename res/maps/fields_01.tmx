@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="50" height="50" tilewidth="16" tileheight="16" infinite="0" nextlayerid="11" nextobjectid="9">
  <editorsettings>
-  <export target="map1.csv" format="csv"/>
+  <export format="csv"/>
  </editorsettings>
  <tileset firstgid="1" source="basic_terrain.tsx"/>
  <tileset firstgid="529" source="water.tsx"/>
@@ -290,11 +290,12 @@
   </object>
  </objectgroup>
  <objectgroup id="7" name="portals">
-  <object id="3" name="portal" x="320" y="0.333333" width="47.6667" height="15">
+  <object id="3" name="fields_to_town" x="320" y="0.333333" width="47.6667" height="15">
    <properties>
-    <property name="targetMap" type="int" value="3"/>
-    <property name="targetX" type="int" value="38"/>
-    <property name="targetY" type="int" value="28"/>
+    <property name="targetMap" type="int" value="0"/>
+    <property name="targetX" type="int" value="28"/>
+    <property name="targetY" type="int" value="48"/>
+    <property name="type" value="portal"/>
    </properties>
   </object>
  </objectgroup>

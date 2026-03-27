@@ -427,10 +427,10 @@ public class GamePanel extends JPanel implements Runnable {
         // ΤΩΡΑ που υπάρχουν όλοι, φόρτωσε party stats
         loadPartyStats();
 
-        // NPCS NEW
-        spawnTiledNPCs(currentMap);
-        // ITEMS ON GROUND NEW
-        spawnTiledChests(currentMap);
+        for (int i = 0; i < maxMaps; i++) {
+            spawnTiledNPCs(i);
+            spawnTiledChests(i);
+        }
         
         // ========== Δημιουργία λίστας εχθρών ==========
         for (int i = 0; i < maxMaps; i++) {
@@ -1731,9 +1731,9 @@ public class GamePanel extends JPanel implements Runnable {
                         
                         // Ξεκίνα crossfade προς νυχτερινή μουσική
                         if (currentMap == 0) { // Μόνο για overworld
-                            startMusicCrossfade("overworld_night");
-                        } else if (currentMap == 3) { // Μόνο για overworld
                             startMusicCrossfade("town_night");
+                        } else if (currentMap == 1) { // Μόνο για overworld
+                            startMusicCrossfade("overworld_night");
                         }
                     }
                 } else if (dayTime == 1) { // Μετάβαση από μέρα σε νύχτα
@@ -1750,9 +1750,9 @@ public class GamePanel extends JPanel implements Runnable {
                         
                         // Ξεκίνα crossfade προς μεσημεριανή μουσική
                         if (currentMap == 0) { // Μόνο για overworld
-                            startMusicCrossfade("overworld_day");
-                        } else if (currentMap == 3) { // Μόνο για overworld
                             startMusicCrossfade("town_day");
+                        } else if (currentMap == 1) { // Μόνο για overworld
+                            startMusicCrossfade("overworld_day");
                         }
                     }
                 } else if (dayTime == 3) { // Μετάβαση από νύχτα σε μέρα
@@ -2280,22 +2280,22 @@ public class GamePanel extends JPanel implements Runnable {
                         savePlayerState();
 
                         // μουσική
-                        if (currentMap == 0) { // Overworld
-                            if (dayTime == 0 || dayTime == 3) {
-                                sound.playMusic("overworld_day");
-                            } else {
-                                sound.playMusic("overworld_night");
-                            }
-                        } else if (currentMap == 1) { // Dungeon
-                            sound.playMusic("dungeon");
-                        } else if (currentMap == 3) { // Town
+                        if (currentMap == 0) { // Town
                             if (dayTime == 0 || dayTime == 3) {
                                 sound.playMusic("town_day");
                             } else {
                                 sound.playMusic("town_night");
                             }
+                        } else if (currentMap == 1) { // Fields
+                            if (dayTime == 0 || dayTime == 3) {
+                                sound.playMusic("overworld_day");
+                            } else {
+                                sound.playMusic("overworld_night");
+                            }
+                        } else if (currentMap == 2) { // Cave
+                            sound.playMusic("dungeon");
                         } else {
-                            sound.playMusic("merchant_village");
+                            sound.playMusic("overworld_day");
                         }
 
                         currentMusicVolume = musicVolume / 100.0f;
@@ -2571,22 +2571,22 @@ public class GamePanel extends JPanel implements Runnable {
 
     public void returnToMapMusic() {
         sound.stopMusic();
-        if (currentMap == 0) { // Overworld
-            if (dayTime == 0 || dayTime == 3) {
-                sound.playMusic("overworld_day");
-            } else {
-                sound.playMusic("overworld_night");
-            }
-        } else if (currentMap == 1) { // Dungeon
-            sound.playMusic("dungeon");
-        } else if (currentMap == 3) { // Town
+        if (currentMap == 0) { // Town
             if (dayTime == 0 || dayTime == 3) {
                 sound.playMusic("town_day");
             } else {
                 sound.playMusic("town_night");
             }
+        } else if (currentMap == 1) { // Fields
+            if (dayTime == 0 || dayTime == 3) {
+                sound.playMusic("overworld_day");
+            } else {
+                sound.playMusic("overworld_night");
+            }
+        } else if (currentMap == 2) { // Cave
+            sound.playMusic("dungeon");
         } else {
-            sound.playMusic("merchant_village");
+            sound.playMusic("overworld_day");
         }
         currentMusicVolume = musicVolume / 100.0f;
         sound.setMusicVolume(currentMusicVolume);
@@ -3658,9 +3658,9 @@ public class GamePanel extends JPanel implements Runnable {
         // Διάλεξε τυχαίο background ανάλογα με τον χάρτη
         String[] possibleBackgrounds;
         
-        if (currentMap == 0) { // Overworld
+        if (currentMap == 1) { // Overworld
             possibleBackgrounds = new String[]{"field1"};
-        } else if (currentMap == 1) { // Dungeon
+        } else if (currentMap == 2) { // Dungeon
             possibleBackgrounds = new String[]{"dungeon1", "dungeon2"};
         } else {
             possibleBackgrounds = new String[]{"field1"};
@@ -3735,9 +3735,9 @@ public class GamePanel extends JPanel implements Runnable {
         boostVisualStartTime = System.currentTimeMillis();
 
         // ========== ΕΠΙΛΕΞΕ ΤΗΝ ΚΑΤΑΛΛΗΛΗ ΕΙΚΟΝΑ ΕΔΑΦΟΥΣ ==========
-        if (currentMap == 0) {
+        if (currentMap == 1) {
             groundImage = groundGrass;
-        } else if (currentMap == 1) {
+        } else if (currentMap == 2) {
             groundImage = groundDungeon;
         } else {
             groundImage = groundGrass;
@@ -7143,11 +7143,11 @@ public class GamePanel extends JPanel implements Runnable {
 
     public void drawLighting(Graphics2D g2) {
         // ΑΝ ΕΙΜΑΣΤΕ ΣΕ INTERIOR (χάρτες 4,5) ΜΗΝ ΕΦΑΡΜΟΣΕΙΣ ΣΚΟΤΑΔΙ
-        if (currentMap == 2 || currentMap == 4 || currentMap == 5) {
+        if (currentMap == 3 || currentMap == 4 || currentMap == 5) {
             return; // Βγες αμέσως, κανένα εφέ
         }
         // Αν είναι μέρα και δεν έχει αρχίσει ακόμα να σκοτεινιάζει
-        if (currentMap == 1) {
+        if (currentMap == 2) {
             currentDarkness = 150.0f; // Μόνιμο σκοτάδι
             // Το φανάρι λειτουργεί κανονικά
         } else {

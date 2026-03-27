@@ -47,7 +47,7 @@ public class TileManager {
     public TileManager(GamePanel gp) {
         this.gp = gp;
 
-        loadTileData();
+        // loadTileData();
 
         tile = new Tile[fileNames.size()];
         // getTileImage();
@@ -159,7 +159,9 @@ public class TileManager {
         // addLegacyMap("SmallHouse", "res/maps/interior01.txt");
 
 
-        addTiledMapFromTMX("MyFirstTiledMap", "res/maps/map1.tmx");
+        addTiledMapFromTMX("town_01", "res/maps/town_01.tmx");
+        addTiledMapFromTMX("fields_01", "res/maps/fields_01.tmx");
+        addTiledMapFromTMX("cave_01", "res/maps/cave_01.tmx");
     }
 
     public void addLegacyMap(String name, String filePath) {
@@ -567,10 +569,10 @@ public class TileManager {
             AdvancedMapData map = new AdvancedMapData(name, cols, rows);
             map.legacy = false;
 
-            MapLayer water = loadTMXLayer(doc, "water", "water", rows, cols, ranges, false);
             MapLayer underground = loadTMXLayer(doc, "underground", "underground", rows, cols, ranges, false);
             MapLayer ground = loadTMXLayer(doc, "ground", "ground", rows, cols, ranges, false);
             MapLayer decor = loadTMXLayer(doc, "decor", "decor", rows, cols, ranges, false);
+            MapLayer water = loadTMXLayer(doc, "water", "water", rows, cols, ranges, false);
             MapLayer collision = loadTMXLayer(doc, "collision", "collision", rows, cols, ranges, true);
 
             if (ground != null) map.layers.add(ground);
@@ -1373,10 +1375,10 @@ public class TileManager {
     }
 
     private void drawAdvancedMap(Graphics2D g2, AdvancedMapData currentMap) {
-        drawAtlasLayer(g2, currentMap.getLayer("water"));
         drawAtlasLayer(g2, currentMap.getLayer("underground"));
         drawAtlasLayer(g2, currentMap.getLayer("ground"));
         drawAtlasLayer(g2, currentMap.getLayer("decor"));
+        drawAtlasLayer(g2, currentMap.getLayer("water"));
     }
 
     private void drawAtlasLayer(Graphics2D g2, MapLayer layer) {
