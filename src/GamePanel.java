@@ -1178,6 +1178,39 @@ public class GamePanel extends JPanel implements Runnable {
 
             // ----- INVENTORY NAVIGATION -----
             if (gameState == inventoryState) {
+                if (inventory.statusDetailOpen) {
+
+                    if (keyH.escapePressed) {
+                        inventory.statusDetailOpen = false;
+                        playSound("menu_close");
+                        try { Thread.sleep(180); } catch (Exception e) {}
+                        keyH.escapePressed = false;
+                    }
+
+                    if (keyH.upPressed) {
+                        inventory.selectedEquipmentListIndex--;
+                        if (inventory.selectedEquipmentListIndex < 0) inventory.selectedEquipmentListIndex = 0;
+                        playSound("menu_select");
+                        try { Thread.sleep(150); } catch (Exception e) {}
+                        keyH.upPressed = false;
+                    }
+
+                    if (keyH.downPressed) {
+                        inventory.selectedEquipmentListIndex++;
+                        playSound("menu_select");
+                        try { Thread.sleep(150); } catch (Exception e) {}
+                        keyH.downPressed = false;
+                    }
+
+                    // προς το παρόν δεν κάνουμε equip / unequip ακόμα
+                    if (keyH.enterPressed) {
+                        playSound("menu_select");
+                        try { Thread.sleep(150); } catch (Exception e) {}
+                        keyH.enterPressed = false;
+                    }
+
+                    continue;
+                }
 
                 // =========================================
                 // FOCUS 0 = LEFT ROOT MENU
@@ -1399,6 +1432,13 @@ public class GamePanel extends JPanel implements Runnable {
                             try { Thread.sleep(150); } catch (Exception e) {}
                             keyH.downPressed = false;
                         }
+                        if (keyH.enterPressed) {
+                            inventory.statusDetailOpen = true;
+                            inventory.selectedEquipmentListIndex = 0;
+                            playSound("menu_select");
+                            try { Thread.sleep(180); } catch (Exception e) {}
+                            keyH.enterPressed = false;
+                        }
                     }
 
                     // =========================
@@ -1421,7 +1461,7 @@ public class GamePanel extends JPanel implements Runnable {
                     // Back to left menu
                     if (keyH.escapePressed) {
                         inventory.menuFocus = 0;
-                        playSound("menu_back");
+                        playSound("menu_close");
                         try { Thread.sleep(180); } catch (Exception e) {}
                         keyH.escapePressed = false;
                     }
@@ -1910,7 +1950,10 @@ public class GamePanel extends JPanel implements Runnable {
             }
 
             // ========== ESCAPE BUTTON ==========
-            if (keyH.escapePressed) {
+            // IMPORTANT:
+            // Μην καταναλώνεις το Escape εδώ όταν είμαστε στο inventory/menu,
+            // γιατί το status detail window έχει δικό του back logic.
+            if (keyH.escapePressed && gameState != inventoryState) {
                 if (gameState == playState) {
                     gameState = pauseState; // Πήγαινε στο pause menu
                     pauseCommandNum = 0;
@@ -5501,6 +5544,9 @@ public class GamePanel extends JPanel implements Runnable {
 
             if (gameState == inventoryState) {
                 drawOctopathMenu(g2);
+                if (inventory.statusDetailOpen) {
+                    drawStatusDetailWindow(g2);
+                }
             }
             if (gameState == mapState) {
                 drawMapScreen(g2);
@@ -6395,323 +6441,323 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
-    public void drawInventory(Graphics2D g2) {
-        // Σκούρο φόντο
-        g2.setColor(new Color(0, 0, 0, 220));
-        g2.fillRect(0, 0, screenWidth, screenHeight);
+    // public void drawInventory(Graphics2D g2) {
+    //     // Σκούρο φόντο
+    //     g2.setColor(new Color(0, 0, 0, 220));
+    //     g2.fillRect(0, 0, screenWidth, screenHeight);
         
-        int slotSize = 60;
-        int slotSpacingX = 7;  // Οριζόντιο spacing = 8
-        int slotSpacingY = 20; // Κάθετο spacing = 15
+    //     int slotSize = 60;
+    //     int slotSpacingX = 7;  // Οριζόντιο spacing = 8
+    //     int slotSpacingY = 20; // Κάθετο spacing = 15
         
-        // ========== ΑΡΙΣΤΕΡΑ: STORAGE (4x2) ΜΕ ΕΙΚΟΝΑ ==========
-        int storageX = 200;
-        int storageY = 50;
+    //     // ========== ΑΡΙΣΤΕΡΑ: STORAGE (4x2) ΜΕ ΕΙΚΟΝΑ ==========
+    //     int storageX = 200;
+    //     int storageY = 50;
         
-        // Φόρτωσε και ζωγράφισε την εικόνα για storage
-        try {
-            BufferedImage storageBg = ImageIO.read(new File("res/gui/storage_bg.png"));
-            g2.drawImage(storageBg, storageX - 20, storageY - 30, 300, 200, null);
-        } catch (Exception e) {
-            // Αν δεν υπάρχει εικόνα, ζωγράφισε απλό πλαίσιο
-            g2.setColor(new Color(50, 50, 50, 200));
-            g2.fillRoundRect(storageX - 10, storageY - 10, 4 * (slotSize + slotSpacingX) - slotSpacingX + 20, 
-                            2 * (slotSize + slotSpacingY) - slotSpacingY + 20, 15, 15);
-        }
+    //     // Φόρτωσε και ζωγράφισε την εικόνα για storage
+    //     try {
+    //         BufferedImage storageBg = ImageIO.read(new File("res/gui/storage_bg.png"));
+    //         g2.drawImage(storageBg, storageX - 20, storageY - 30, 300, 200, null);
+    //     } catch (Exception e) {
+    //         // Αν δεν υπάρχει εικόνα, ζωγράφισε απλό πλαίσιο
+    //         g2.setColor(new Color(50, 50, 50, 200));
+    //         g2.fillRoundRect(storageX - 10, storageY - 10, 4 * (slotSize + slotSpacingX) - slotSpacingX + 20, 
+    //                         2 * (slotSize + slotSpacingY) - slotSpacingY + 20, 15, 15);
+    //     }
         
-        // Τίτλος
-        g2.setColor(Color.white);
-        g2.setFont(new Font("Arial", Font.BOLD, 18));
-        g2.drawString("STORAGE", storageX + 20, storageY - 15);
+    //     // Τίτλος
+    //     g2.setColor(Color.white);
+    //     g2.setFont(new Font("Arial", Font.BOLD, 18));
+    //     g2.drawString("STORAGE", storageX + 20, storageY - 15);
         
-        // Ζωγράφισε τα 8 slots (4x2)
-        for (int row = 0; row < 2; row++) {
-            for (int col = 0; col < 4; col++) {
-                int index = row * 4 + col;
-                int slotX = storageX + col * (slotSize + slotSpacingX);
-                int slotY = storageY + row * (slotSize + slotSpacingY);
+    //     // Ζωγράφισε τα 8 slots (4x2)
+    //     for (int row = 0; row < 2; row++) {
+    //         for (int col = 0; col < 4; col++) {
+    //             int index = row * 4 + col;
+    //             int slotX = storageX + col * (slotSize + slotSpacingX);
+    //             int slotY = storageY + row * (slotSize + slotSpacingY);
 
                 
-                // Αν υπάρχει item
-                if (index < inventory.storage.length && inventory.storage[index] != null) {
-                    Item item = inventory.storage[index];
+    //             // Αν υπάρχει item
+    //             if (index < inventory.storage.length && inventory.storage[index] != null) {
+    //                 Item item = inventory.storage[index];
                     
-                    // Ζωγράφισε εικόνα item
-                    if (item.image != null) {
-                        g2.drawImage(item.image, slotX + 5, slotY + 5, slotSize - 10, slotSize - 10, null);
-                    }
+    //                 // Ζωγράφισε εικόνα item
+    //                 if (item.image != null) {
+    //                     g2.drawImage(item.image, slotX + 5, slotY + 5, slotSize - 10, slotSize - 10, null);
+    //                 }
                     
-                    // Ποσότητα (αν stackable)
-                    if (item.stackable && item.amount > 1) {
-                        g2.setColor(Color.white);
-                        g2.setFont(new Font("Arial", Font.BOLD, 10));
-                        g2.drawString("x" + item.amount, slotX + 40, slotY + 50);
-                    }
-                }
+    //                 // Ποσότητα (αν stackable)
+    //                 if (item.stackable && item.amount > 1) {
+    //                     g2.setColor(Color.white);
+    //                     g2.setFont(new Font("Arial", Font.BOLD, 10));
+    //                     g2.drawString("x" + item.amount, slotX + 40, slotY + 50);
+    //                 }
+    //             }
                 
-                // ========== ΝΕΟ HIGHLIGHT: Κίτρινο περίγραμμα ==========
-                if (inventory.inventoryMode == 0 && index == inventory.selectedStorageSlot) {
-                    g2.setColor(Color.yellow);
-                    g2.setStroke(new BasicStroke(4)); // Πιο χοντρό περίγραμμα
-                    g2.drawRoundRect(slotX - 2, slotY - 2, slotSize + 2, slotSize +2, 10, 10);
-                }
+    //             // ========== ΝΕΟ HIGHLIGHT: Κίτρινο περίγραμμα ==========
+    //             if (inventory.inventoryMode == 0 && index == inventory.selectedStorageSlot) {
+    //                 g2.setColor(Color.yellow);
+    //                 g2.setStroke(new BasicStroke(4)); // Πιο χοντρό περίγραμμα
+    //                 g2.drawRoundRect(slotX - 2, slotY - 2, slotSize + 2, slotSize +2, 10, 10);
+    //             }
 
-                // ========== TOOLTIP ΓΙΑ ΤΟ ΕΠΙΛΕΓΜΕΝΟ ITEM ==========
-                Item hoveredItem = null;
+    //             // ========== TOOLTIP ΓΙΑ ΤΟ ΕΠΙΛΕΓΜΕΝΟ ITEM ==========
+    //             Item hoveredItem = null;
 
-                if (inventory.inventoryMode == 0) { // Storage mode
-                    if (inventory.selectedStorageSlot >= 0 && 
-                        inventory.selectedStorageSlot < inventory.storage.length) {
-                        hoveredItem = inventory.storage[inventory.selectedStorageSlot];
-                    }
-                } else { // Equipment mode
-                    hoveredItem = inventory.getEquipSlot(inventory.selectedEquipSlot);
-                }
+    //             if (inventory.inventoryMode == 0) { // Storage mode
+    //                 if (inventory.selectedStorageSlot >= 0 && 
+    //                     inventory.selectedStorageSlot < inventory.storage.length) {
+    //                     hoveredItem = inventory.storage[inventory.selectedStorageSlot];
+    //                 }
+    //             } else { // Equipment mode
+    //                 hoveredItem = inventory.getEquipSlot(inventory.selectedEquipSlot);
+    //             }
 
-                if (hoveredItem != null) {
-                    drawItemTooltip(g2, hoveredItem);
-                }
-            }
-        }
+    //             if (hoveredItem != null) {
+    //                 drawItemTooltip(g2, hoveredItem);
+    //             }
+    //         }
+    //     }
         
-        // ========== ΔΕΞΙΑ: EQUIPMENT (3x3) ΜΕ ΕΙΚΟΝΑ ==========
-        int equipX = 500;
-        int equipY = 50;
-        int slotSizeEquip = 55;
-        int slotSpacingEquipX = 17;  // Οριζόντιο spacing = 8
-        int slotSpacingEquipY = 17; // Κάθετο spacing = 15
+    //     // ========== ΔΕΞΙΑ: EQUIPMENT (3x3) ΜΕ ΕΙΚΟΝΑ ==========
+    //     int equipX = 500;
+    //     int equipY = 50;
+    //     int slotSizeEquip = 55;
+    //     int slotSpacingEquipX = 17;  // Οριζόντιο spacing = 8
+    //     int slotSpacingEquipY = 17; // Κάθετο spacing = 15
         
-        // Φόρτωσε και ζωγράφισε την εικόνα για equipment
-        try {
-            BufferedImage equipBg = ImageIO.read(new File("res/gui/equipment_bg.png"));
-            g2.drawImage(equipBg, equipX - 20, equipY - 30, 250, 250, null);
-        } catch (Exception e) {
-            // Αν δεν υπάρχει εικόνα, ζωγράφισε απλό πλαίσιο
-            g2.setColor(new Color(50, 50, 50, 200));
-            g2.fillRoundRect(equipX - 10, equipY - 10, 3 * (slotSizeEquip + slotSpacingEquipX) + 10, 
-                            3 * (slotSizeEquip + slotSpacingEquipY) + 10, 15, 15);
-        }
+    //     // Φόρτωσε και ζωγράφισε την εικόνα για equipment
+    //     try {
+    //         BufferedImage equipBg = ImageIO.read(new File("res/gui/equipment_bg.png"));
+    //         g2.drawImage(equipBg, equipX - 20, equipY - 30, 250, 250, null);
+    //     } catch (Exception e) {
+    //         // Αν δεν υπάρχει εικόνα, ζωγράφισε απλό πλαίσιο
+    //         g2.setColor(new Color(50, 50, 50, 200));
+    //         g2.fillRoundRect(equipX - 10, equipY - 10, 3 * (slotSizeEquip + slotSpacingEquipX) + 10, 
+    //                         3 * (slotSizeEquip + slotSpacingEquipY) + 10, 15, 15);
+    //     }
         
-        // Τίτλος
-        g2.setColor(Color.white);
-        g2.setFont(new Font("Arial", Font.BOLD, 18));
-        g2.drawString("EQUIPMENT", equipX + 20, equipY - 15);
+    //     // Τίτλος
+    //     g2.setColor(Color.white);
+    //     g2.setFont(new Font("Arial", Font.BOLD, 18));
+    //     g2.drawString("EQUIPMENT", equipX + 20, equipY - 15);
         
-        // Ζωγράφισε τα 9 slots (3x3)
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 3; col++) {
-                int index = row * 3 + col;
-                int slotX = equipX + col * (slotSizeEquip + slotSpacingEquipX) + 6; // +2 δεξιά
-                int slotY = equipY + row * (slotSizeEquip + slotSpacingEquipY) - 3; // -2 πάνω
+    //     // Ζωγράφισε τα 9 slots (3x3)
+    //     for (int row = 0; row < 3; row++) {
+    //         for (int col = 0; col < 3; col++) {
+    //             int index = row * 3 + col;
+    //             int slotX = equipX + col * (slotSizeEquip + slotSpacingEquipX) + 6; // +2 δεξιά
+    //             int slotY = equipY + row * (slotSizeEquip + slotSpacingEquipY) - 3; // -2 πάνω
                 
-                // Αν υπάρχει item
-                Item item = inventory.getEquipSlot(index);
-                if (item != null && item.image != null) {
-                    g2.drawImage(item.image, slotX + 5, slotY + 5, slotSizeEquip - 10, slotSizeEquip - 10, null);
-                }
+    //             // Αν υπάρχει item
+    //             Item item = inventory.getEquipSlot(index);
+    //             if (item != null && item.image != null) {
+    //                 g2.drawImage(item.image, slotX + 5, slotY + 5, slotSizeEquip - 10, slotSizeEquip - 10, null);
+    //             }
                 
-                // ========== ΝΕΟ HIGHLIGHT: Κίτρινο περίγραμμα ==========
-                if (inventory.inventoryMode == 1 && index == inventory.selectedEquipSlot) {
-                    g2.setColor(Color.yellow);
-                    g2.setStroke(new BasicStroke(4));
-                    g2.drawRoundRect(slotX - 2, slotY - 2, slotSizeEquip + 2, slotSizeEquip + 2, 10, 10);
-                }
-            }
-        }
+    //             // ========== ΝΕΟ HIGHLIGHT: Κίτρινο περίγραμμα ==========
+    //             if (inventory.inventoryMode == 1 && index == inventory.selectedEquipSlot) {
+    //                 g2.setColor(Color.yellow);
+    //                 g2.setStroke(new BasicStroke(4));
+    //                 g2.drawRoundRect(slotX - 2, slotY - 2, slotSizeEquip + 2, slotSizeEquip + 2, 10, 10);
+    //             }
+    //         }
+    //     }
 
-        // ========== ΚΕΝΤΡΟ: KEY ITEMS (4x2) ==========
-        int keyX = 450;  // Ανάμεσα στα stats και equipment
-        int keyY = 350;
+    //     // ========== ΚΕΝΤΡΟ: KEY ITEMS (4x2) ==========
+    //     int keyX = 450;  // Ανάμεσα στα stats και equipment
+    //     int keyY = 350;
 
-        // Φόρτωσε και ζωγράφισε την εικόνα για key items
-        try {
-            BufferedImage keyBg = ImageIO.read(new File("res/gui/storage_bg.png"));
-            g2.drawImage(keyBg, keyX - 20, keyY - 30, 300, 200, null);
-        } catch (Exception e) {
-            // Fallback
-            g2.setColor(new Color(100, 50, 50, 200));
-            g2.fillRoundRect(keyX - 10, keyY - 10, 4 * (slotSize + slotSpacingX) - slotSpacingX + 20, 
-                            2 * (slotSize + slotSpacingY) - slotSpacingY + 20, 15, 15);
-        }
+    //     // Φόρτωσε και ζωγράφισε την εικόνα για key items
+    //     try {
+    //         BufferedImage keyBg = ImageIO.read(new File("res/gui/storage_bg.png"));
+    //         g2.drawImage(keyBg, keyX - 20, keyY - 30, 300, 200, null);
+    //     } catch (Exception e) {
+    //         // Fallback
+    //         g2.setColor(new Color(100, 50, 50, 200));
+    //         g2.fillRoundRect(keyX - 10, keyY - 10, 4 * (slotSize + slotSpacingX) - slotSpacingX + 20, 
+    //                         2 * (slotSize + slotSpacingY) - slotSpacingY + 20, 15, 15);
+    //     }
 
-        // Τίτλος
-        g2.setColor(Color.white);
-        g2.setFont(new Font("Arial", Font.BOLD, 18));
-        g2.drawString("KEY ITEMS", keyX + 20, keyY - 15);
+    //     // Τίτλος
+    //     g2.setColor(Color.white);
+    //     g2.setFont(new Font("Arial", Font.BOLD, 18));
+    //     g2.drawString("KEY ITEMS", keyX + 20, keyY - 15);
 
-        // Ζωγράφισε τα 8 slots (4x2)
-        for (int row = 0; row < 2; row++) {
-            for (int col = 0; col < 4; col++) {
-                int index = row * 4 + col;
-                int slotX = keyX + col * (slotSize + slotSpacingX);
-                int slotY = keyY + row * (slotSize + slotSpacingY);
+    //     // Ζωγράφισε τα 8 slots (4x2)
+    //     for (int row = 0; row < 2; row++) {
+    //         for (int col = 0; col < 4; col++) {
+    //             int index = row * 4 + col;
+    //             int slotX = keyX + col * (slotSize + slotSpacingX);
+    //             int slotY = keyY + row * (slotSize + slotSpacingY);
                 
-                // Αν υπάρχει item
-                if (index < inventory.keyItems.length && inventory.keyItems[index] != null) {
-                    Item item = inventory.keyItems[index];
-                    if (item.image != null) {
-                        g2.drawImage(item.image, slotX + 5, slotY + 5, slotSize - 10, slotSize - 10, null);
-                    }
-                }
+    //             // Αν υπάρχει item
+    //             if (index < inventory.keyItems.length && inventory.keyItems[index] != null) {
+    //                 Item item = inventory.keyItems[index];
+    //                 if (item.image != null) {
+    //                     g2.drawImage(item.image, slotX + 5, slotY + 5, slotSize - 10, slotSize - 10, null);
+    //                 }
+    //             }
                 
-                // Highlight
-                if (inventory.inventoryMode == 2 && index == inventory.selectedKeyItemSlot) {
-                    g2.setColor(Color.yellow);
-                    g2.setStroke(new BasicStroke(4));
-                    g2.drawRoundRect(slotX - 2, slotY - 2, slotSize + 2, slotSize +2, 10, 10);
-                }
-            }
-        }
+    //             // Highlight
+    //             if (inventory.inventoryMode == 2 && index == inventory.selectedKeyItemSlot) {
+    //                 g2.setColor(Color.yellow);
+    //                 g2.setStroke(new BasicStroke(4));
+    //                 g2.drawRoundRect(slotX - 2, slotY - 2, slotSize + 2, slotSize +2, 10, 10);
+    //             }
+    //         }
+    //     }
         
-        // ========== ΗΡΩΑΣ ΜΕ ΚΑΡΔΙΕΣ ==========
-        int heroX = 50;
-        int heroY = 50;
+    //     // ========== ΗΡΩΑΣ ΜΕ ΚΑΡΔΙΕΣ ==========
+    //     int heroX = 50;
+    //     int heroY = 50;
         
-        // Εικόνα ήρωα
-        g2.drawImage(playerDown1, heroX, heroY, tileSize*2, tileSize*2, null);
+    //     // Εικόνα ήρωα
+    //     g2.drawImage(playerDown1, heroX, heroY, tileSize*2, tileSize*2, null);
         
-        // 3 καρδιές για HP
-        int heartX = heroX - 10;
-        int heartY = heroY + 150;
-        int heartSize = 25;
+    //     // 3 καρδιές για HP
+    //     int heartX = heroX - 10;
+    //     int heartY = heroY + 150;
+    //     int heartSize = 25;
         
-        try {
-            BufferedImage fullHeart = ImageIO.read(new File("res/gui/heart_full.png"));
-            BufferedImage emptyHeart = ImageIO.read(new File("res/gui/heart_empty.png"));
-            BufferedImage halfHeart = ImageIO.read(new File("res/gui/heart_half.png"));
+    //     try {
+    //         BufferedImage fullHeart = ImageIO.read(new File("res/gui/heart_full.png"));
+    //         BufferedImage emptyHeart = ImageIO.read(new File("res/gui/heart_empty.png"));
+    //         BufferedImage halfHeart = ImageIO.read(new File("res/gui/heart_half.png"));
             
-            // Υπολόγισε πόσες καρδιές (κάθε καρδιά = 10 HP)
-            int totalHearts = 3;
-            int hpPerHeart = player.maxHp / totalHearts;
+    //         // Υπολόγισε πόσες καρδιές (κάθε καρδιά = 10 HP)
+    //         int totalHearts = 3;
+    //         int hpPerHeart = player.maxHp / totalHearts;
             
-            for (int i = 0; i < totalHearts; i++) {
-                int heartHp = player.hp - (i * hpPerHeart);
-                if (heartHp >= hpPerHeart) {
-                    g2.drawImage(fullHeart, heartX + i * (heartSize + 5), heartY, heartSize, heartSize, null);
-                } else if (heartHp > 0) {
-                    g2.drawImage(halfHeart, heartX + i * (heartSize + 5), heartY, heartSize, heartSize, null);
-                } else {
-                    g2.drawImage(emptyHeart, heartX + i * (heartSize + 5), heartY, heartSize, heartSize, null);
-                }
-            }
-        } catch (Exception e) {
-            // Αν δεν υπάρχουν εικόνες, ζωγράφισε απλά κυκλάκια
-            g2.setColor(Color.red);
-            for (int i = 0; i < 3; i++) {
-                g2.fillOval(heartX + i * 30, heartY, 20, 20);
-            }
-        }
+    //         for (int i = 0; i < totalHearts; i++) {
+    //             int heartHp = player.hp - (i * hpPerHeart);
+    //             if (heartHp >= hpPerHeart) {
+    //                 g2.drawImage(fullHeart, heartX + i * (heartSize + 5), heartY, heartSize, heartSize, null);
+    //             } else if (heartHp > 0) {
+    //                 g2.drawImage(halfHeart, heartX + i * (heartSize + 5), heartY, heartSize, heartSize, null);
+    //             } else {
+    //                 g2.drawImage(emptyHeart, heartX + i * (heartSize + 5), heartY, heartSize, heartSize, null);
+    //             }
+    //         }
+    //     } catch (Exception e) {
+    //         // Αν δεν υπάρχουν εικόνες, ζωγράφισε απλά κυκλάκια
+    //         g2.setColor(Color.red);
+    //         for (int i = 0; i < 3; i++) {
+    //             g2.fillOval(heartX + i * 30, heartY, 20, 20);
+    //         }
+    //     }
         
-        // 3 ασπίδες για DEFENCE (πάνω από τις καρδιές)
-        int shieldX = heroX - 10;
-        int shieldY = heartY - 40;
+    //     // 3 ασπίδες για DEFENCE (πάνω από τις καρδιές)
+    //     int shieldX = heroX - 10;
+    //     int shieldY = heartY - 40;
         
-        try {
-            BufferedImage shieldFull = ImageIO.read(new File("res/gui/shield_full.png"));
-            BufferedImage shieldEmpty = ImageIO.read(new File("res/gui/shield_empty.png"));
+    //     try {
+    //         BufferedImage shieldFull = ImageIO.read(new File("res/gui/shield_full.png"));
+    //         BufferedImage shieldEmpty = ImageIO.read(new File("res/gui/shield_empty.png"));
             
-            // Υπολόγισε πόσες ασπίδες (κάθε ασπίδα = 5 defense)
-            int totalShields = 3;
-            int defPerShield = 5;
-            int playerDefense = player.defense;
+    //         // Υπολόγισε πόσες ασπίδες (κάθε ασπίδα = 5 defense)
+    //         int totalShields = 3;
+    //         int defPerShield = 5;
+    //         int playerDefense = player.defense;
             
-            for (int i = 0; i < totalShields; i++) {
-                if (playerDefense >= (i + 1) * defPerShield) {
-                    g2.drawImage(shieldFull, shieldX + i * (heartSize + 5), shieldY, heartSize, heartSize, null);
-                } else {
-                    g2.drawImage(shieldEmpty, shieldX + i * (heartSize + 5), shieldY, heartSize, heartSize, null);
-                }
-            }
-        } catch (Exception e) {
-            // Αν δεν υπάρχουν εικόνες, ζωγράφισε απλά τετράγωνα
-            g2.setColor(Color.blue);
-            for (int i = 0; i < 3; i++) {
-                g2.fillRect(shieldX + i * 30, shieldY, 20, 20);
-            }
-        }
+    //         for (int i = 0; i < totalShields; i++) {
+    //             if (playerDefense >= (i + 1) * defPerShield) {
+    //                 g2.drawImage(shieldFull, shieldX + i * (heartSize + 5), shieldY, heartSize, heartSize, null);
+    //             } else {
+    //                 g2.drawImage(shieldEmpty, shieldX + i * (heartSize + 5), shieldY, heartSize, heartSize, null);
+    //             }
+    //         }
+    //     } catch (Exception e) {
+    //         // Αν δεν υπάρχουν εικόνες, ζωγράφισε απλά τετράγωνα
+    //         g2.setColor(Color.blue);
+    //         for (int i = 0; i < 3; i++) {
+    //             g2.fillRect(shieldX + i * 30, shieldY, 20, 20);
+    //         }
+    //     }
         
-        // ========== STATS ΜΕ ΧΡΩΜΑΤΑ ==========
-        int statsX = heroX - 10;
-        int statsY = heartY + 60;
+    //     // ========== STATS ΜΕ ΧΡΩΜΑΤΑ ==========
+    //     int statsX = heroX - 10;
+    //     int statsY = heartY + 60;
 
-        g2.setColor(new Color(50, 50, 50, 200));
-        g2.fillRoundRect(statsX - 20, statsY - 20, 150, 250, 15, 15);
-        g2.setColor(Color.white);
-        g2.setStroke(new BasicStroke(2));
-        g2.drawRoundRect(statsX - 20, statsY - 20, 150, 250, 15, 15);
+    //     g2.setColor(new Color(50, 50, 50, 200));
+    //     g2.fillRoundRect(statsX - 20, statsY - 20, 150, 250, 15, 15);
+    //     g2.setColor(Color.white);
+    //     g2.setStroke(new BasicStroke(2));
+    //     g2.drawRoundRect(statsX - 20, statsY - 20, 150, 250, 15, 15);
 
-        g2.setFont(new Font("Arial", Font.BOLD, 16));
-        g2.drawString("STATS", statsX + 25, statsY);
+    //     g2.setFont(new Font("Arial", Font.BOLD, 16));
+    //     g2.drawString("STATS", statsX + 25, statsY);
 
-        g2.setFont(new Font("Arial", Font.PLAIN, 14));
-        int statLineY = statsY + 25;
+    //     g2.setFont(new Font("Arial", Font.PLAIN, 14));
+    //     int statLineY = statsY + 25;
 
-        // Level (πάντα λευκό)
-        g2.setColor(Color.white);
-        g2.drawString("Level: " + player.level, statsX, statLineY);
+    //     // Level (πάντα λευκό)
+    //     g2.setColor(Color.white);
+    //     g2.drawString("Level: " + player.level, statsX, statLineY);
 
-        // Attack - Πράσινο αν αυξημένο
-        int attackBonus = player.attack - player.baseAttack;
-        if (attackBonus > 0) {
-            g2.setColor(Color.green);
-            g2.drawString("Attack: " + player.attack + " (+" + attackBonus + ")", statsX, statLineY + 20);
-        } else {
-            g2.setColor(Color.white);
-            g2.drawString("Attack: " + player.attack, statsX, statLineY + 20);
-        }
+    //     // Attack - Πράσινο αν αυξημένο
+    //     int attackBonus = player.attack - player.baseAttack;
+    //     if (attackBonus > 0) {
+    //         g2.setColor(Color.green);
+    //         g2.drawString("Attack: " + player.attack + " (+" + attackBonus + ")", statsX, statLineY + 20);
+    //     } else {
+    //         g2.setColor(Color.white);
+    //         g2.drawString("Attack: " + player.attack, statsX, statLineY + 20);
+    //     }
 
-        // Defense - Πράσινο αν αυξημένο
-        int defenseBonus = player.defense - player.baseDefense;
-        if (defenseBonus > 0) {
-            g2.setColor(Color.green);
-            g2.drawString("Defense: " + player.defense + " (+" + defenseBonus + ")", statsX, statLineY + 40);
-        } else {
-            g2.setColor(Color.white);
-            g2.drawString("Defense: " + player.defense, statsX, statLineY + 40);
-        }
+    //     // Defense - Πράσινο αν αυξημένο
+    //     int defenseBonus = player.defense - player.baseDefense;
+    //     if (defenseBonus > 0) {
+    //         g2.setColor(Color.green);
+    //         g2.drawString("Defense: " + player.defense + " (+" + defenseBonus + ")", statsX, statLineY + 40);
+    //     } else {
+    //         g2.setColor(Color.white);
+    //         g2.drawString("Defense: " + player.defense, statsX, statLineY + 40);
+    //     }
 
-        // HP - Κόκκινο (πάντα)
-        g2.setColor(Color.red);
-        g2.drawString("HP: " + player.hp + "/" + player.maxHp, statsX, statLineY + 60);
+    //     // HP - Κόκκινο (πάντα)
+    //     g2.setColor(Color.red);
+    //     g2.drawString("HP: " + player.hp + "/" + player.maxHp, statsX, statLineY + 60);
 
-        // MP - Μπλε (πάντα)
-        g2.setColor(Color.cyan);
-        g2.drawString("MP: " + player.mp + "/" + player.maxMp, statsX, statLineY + 80);
+    //     // MP - Μπλε (πάντα)
+    //     g2.setColor(Color.cyan);
+    //     g2.drawString("MP: " + player.mp + "/" + player.maxMp, statsX, statLineY + 80);
 
-        // Magic Attack - Πράσινο αν αυξημένο
-        int magicBonus = player.magicAttack - player.baseMagicAttack;
-        if (magicBonus > 0) {
-            g2.setColor(Color.green);
-            g2.drawString("Magic: " + player.magicAttack + " (+" + magicBonus + ")", statsX, statLineY + 100);
-        } else {
-            g2.setColor(Color.white);
-            g2.drawString("Magic: " + player.magicAttack, statsX, statLineY + 100);
-        }
+    //     // Magic Attack - Πράσινο αν αυξημένο
+    //     int magicBonus = player.magicAttack - player.baseMagicAttack;
+    //     if (magicBonus > 0) {
+    //         g2.setColor(Color.green);
+    //         g2.drawString("Magic: " + player.magicAttack + " (+" + magicBonus + ")", statsX, statLineY + 100);
+    //     } else {
+    //         g2.setColor(Color.white);
+    //         g2.drawString("Magic: " + player.magicAttack, statsX, statLineY + 100);
+    //     }
 
-        // Speed - Πράσινο αν αυξημένο
-        int speedBonus = player.speed_stat - player.baseSpeed;
-        if (speedBonus > 0) {
-            g2.setColor(Color.green);
-            g2.drawString("Speed: " + player.speed_stat + " (+" + speedBonus + ")", statsX, statLineY + 120);
-        } else {
-            g2.setColor(Color.white);
-            g2.drawString("Speed: " + player.speed_stat, statsX, statLineY + 120);
-        }
+    //     // Speed - Πράσινο αν αυξημένο
+    //     int speedBonus = player.speed_stat - player.baseSpeed;
+    //     if (speedBonus > 0) {
+    //         g2.setColor(Color.green);
+    //         g2.drawString("Speed: " + player.speed_stat + " (+" + speedBonus + ")", statsX, statLineY + 120);
+    //     } else {
+    //         g2.setColor(Color.white);
+    //         g2.drawString("Speed: " + player.speed_stat, statsX, statLineY + 120);
+    //     }
 
-        // EXP - Κίτρινο
-        g2.setColor(Color.yellow);
-        g2.drawString("EXP: " + player.exp + "/" + player.expToNextLevel, statsX, statLineY + 140);
+    //     // EXP - Κίτρινο
+    //     g2.setColor(Color.yellow);
+    //     g2.drawString("EXP: " + player.exp + "/" + player.expToNextLevel, statsX, statLineY + 140);
 
-        // Gold - Χρυσό
-        g2.setColor(new Color(255, 215, 0)); // Gold color
-        g2.drawString("Gold: " + player.gold, statsX, statLineY + 160);
+    //     // Gold - Χρυσό
+    //     g2.setColor(new Color(255, 215, 0)); // Gold color
+    //     g2.drawString("Gold: " + player.gold, statsX, statLineY + 160);
         
-        // ========== ΟΔΗΓΙΕΣ ==========
-        g2.setColor(Color.gray);
-        g2.setFont(new Font("Arial", Font.ITALIC, 12));
-        g2.drawString("SHIFT: Switch between Storage/Equipment", 50, screenHeight - 30);
-        g2.drawString("Arrows: Move | Enter: Use/Equip | I: Close", 50, screenHeight - 15);
-    }
+    //     // ========== ΟΔΗΓΙΕΣ ==========
+    //     g2.setColor(Color.gray);
+    //     g2.setFont(new Font("Arial", Font.ITALIC, 12));
+    //     g2.drawString("SHIFT: Switch between Storage/Equipment", 50, screenHeight - 30);
+    //     g2.drawString("Arrows: Move | Enter: Use/Equip | I: Close", 50, screenHeight - 15);
+    // }
 
     public void drawOctopathMenu(Graphics2D g2) {
         int screenW = screenWidth;
@@ -7228,6 +7274,209 @@ public class GamePanel extends JPanel implements Runnable {
         int mpFill = (maxMp <= 0) ? 0 : (int)((mp / (double)maxMp) * barW);
         g2.setColor(mpColor);
         g2.fillRoundRect(hpBarX, mpBarY, mpFill, barH, 8, 8);
+    }
+
+    public void drawStatusDetailWindow(Graphics2D g2) {
+        int screenW = screenWidth;
+        int screenH = screenHeight;
+
+        Color bg = new Color(0, 0, 0, 220);
+        Color panelDark = new Color(20, 20, 20, 230);
+        Color panelMid = new Color(40, 35, 30, 230);
+        Color border = new Color(180, 150, 90, 180);
+        Color highlight = new Color(180, 130, 60, 180);
+        Color textMain = new Color(240, 230, 210);
+        Color textDim = new Color(180, 170, 150);
+
+        g2.setColor(bg);
+        g2.fillRect(0, 0, screenW, screenH);
+
+        int mainX = 20;
+        int mainY = 20;
+        int mainW = screenW - 40;
+        int mainH = screenH - 90;
+
+        g2.setColor(panelDark);
+        g2.fillRoundRect(mainX, mainY, mainW, mainH, 20, 20);
+        g2.setColor(border);
+        g2.drawRoundRect(mainX, mainY, mainW, mainH, 20, 20);
+
+        int leftX = mainX + 20;
+        int leftY = mainY + 20;
+        int leftW = 180;
+        int leftH = mainH - 40;
+
+        int centerX = leftX + leftW + 15;
+        int centerY = mainY + 20;
+        int centerW = 210;
+        int centerH = mainH - 40;
+
+        int rightX = centerX + centerW + 15;
+        int rightY = mainY + 20;
+        int rightW = mainX + mainW - rightX - 20;
+        int rightH = mainH - 40;
+
+        // left panel
+        g2.setColor(panelMid);
+        g2.fillRoundRect(leftX, leftY, leftW, leftH, 18, 18);
+        g2.setColor(border);
+        g2.drawRoundRect(leftX, leftY, leftW, leftH, 18, 18);
+
+        // center panel
+        g2.setColor(panelMid);
+        g2.fillRoundRect(centerX, centerY, centerW, centerH, 18, 18);
+        g2.setColor(border);
+        g2.drawRoundRect(centerX, centerY, centerW, centerH, 18, 18);
+
+        // right panel
+        g2.setColor(panelMid);
+        g2.fillRoundRect(rightX, rightY, rightW, rightH, 18, 18);
+        g2.setColor(border);
+        g2.drawRoundRect(rightX, rightY, rightW, rightH, 18, 18);
+
+        // current selected character
+        String charName;
+        int level;
+        int hp;
+        int maxHp;
+        int mp;
+        int maxMp;
+        int atk;
+        int def;
+        int mag;
+        int spd;
+        BufferedImage portrait;
+
+        if (inventory.selectedPartyMember == 0) {
+            charName = player.name;
+            level = player.level;
+            hp = player.hp;
+            maxHp = player.maxHp;
+            mp = player.mp;
+            maxMp = player.maxMp;
+            atk = player.attack;
+            def = player.defense;
+            mag = player.magicAttack;
+            spd = player.speed_stat;
+            portrait = heroPortrait32;
+        } else {
+            PartyMember pm = partyMembers.get(inventory.selectedPartyMember - 1);
+            charName = pm.name;
+            level = pm.level;
+            hp = pm.hp;
+            maxHp = pm.maxHp;
+            mp = pm.mp;
+            maxMp = pm.maxMp;
+            atk = pm.attack;
+            def = pm.defense;
+            mag = pm.magicAttack;
+            spd = pm.speed_stat;
+
+            if (inventory.selectedPartyMember == 1) {
+                portrait = assassinPortrait32;
+            } else {
+                portrait = magePortrait32;
+            }
+        }
+
+        // ===== LEFT PANEL =====
+        g2.setColor(textMain);
+        g2.setFont(g2.getFont().deriveFont(Font.BOLD, 22f));
+        g2.drawString(charName, leftX + 20, leftY + 35);
+
+        if (portrait != null) {
+            g2.drawImage(portrait, leftX + 16, leftY + 58, 84, 100, null);
+        }
+
+        g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 18f));
+        g2.setColor(textDim);
+        g2.drawString("Lv. " + level, leftX + 16, leftY + 180);
+        g2.drawString("HP: " + hp + "/" + maxHp, leftX + 16, leftY + 210);
+        g2.drawString("SP: " + mp + "/" + maxMp, leftX + 16, leftY + 238);
+        g2.drawString("ATK: " + atk, leftX + 16, leftY + 270);
+        g2.drawString("DEF: " + def, leftX + 16, leftY + 298);
+        g2.drawString("MAG: " + mag, leftX + 16, leftY + 326);
+        g2.drawString("SPD: " + spd, leftX + 16, leftY + 354);
+
+        // ===== CENTER PANEL =====
+        g2.setColor(textMain);
+        g2.setFont(g2.getFont().deriveFont(Font.BOLD, 20f));
+        g2.drawString("Equipment List", centerX + 20, centerY + 35);
+
+        g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 16f));
+
+        ArrayList<Item> allEquipItems = new ArrayList<>();
+
+        for (int i = 0; i < inventory.storage.length; i++) {
+            if (inventory.storage[i] != null) {
+                Item item = inventory.storage[i];
+                if (item.attackBonus != 0 || item.defenseBonus != 0 || item.magicBonus != 0 ||
+                    item.hpBonus != 0 || item.mpBonus != 0 || item.speedBonus != 0) {
+                    allEquipItems.add(item);
+                }
+            }
+        }
+
+        int listStartY = centerY + 80;
+        int visibleRows = 10;
+        int scrollOffset = 0;
+
+        if (inventory.selectedEquipmentListIndex >= visibleRows) {
+            scrollOffset = inventory.selectedEquipmentListIndex - visibleRows + 1;
+        }
+
+        for (int i = 0; i < visibleRows; i++) {
+            int itemIndex = i + scrollOffset;
+            int drawY = listStartY + (i * 32);
+
+            if (itemIndex >= allEquipItems.size()) break;
+
+            Item item = allEquipItems.get(itemIndex);
+            boolean selected = (itemIndex == inventory.selectedEquipmentListIndex);
+
+            if (selected) {
+                g2.setColor(highlight);
+                g2.fillRoundRect(centerX + 15, drawY - 20, centerW - 30, 28, 10, 10);
+            }
+
+            g2.setColor(textMain);
+            g2.drawString(item.name, centerX + 25, drawY);
+        }
+
+        // ===== RIGHT PANEL =====
+        g2.setColor(textMain);
+        g2.setFont(g2.getFont().deriveFont(Font.BOLD, 20f));
+        g2.drawString("Equipped", rightX + 20, rightY + 35);
+
+        int gridX = rightX + 16;
+        int gridY = rightY + 70;
+        int slotSize = 56;
+        int gap = 8;
+
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 3; col++) {
+                int slotIndex = row * 3 + col;
+                int slotX = gridX + col * (slotSize + gap);
+                int slotY = gridY + row * (slotSize + gap);
+
+                g2.setColor(new Color(20, 20, 20, 220));
+                g2.fillRoundRect(slotX, slotY, slotSize, slotSize, 12, 12);
+                g2.setColor(border);
+                g2.drawRoundRect(slotX, slotY, slotSize, slotSize, 12, 12);
+
+                Item equipped = inventory.getEquipSlot(slotIndex);
+                if (equipped != null && equipped.image != null) {
+                    g2.drawImage(equipped.image, slotX + 8, slotY + 8, 48, 48, null);
+                }
+            }
+        }
+
+        // help bar
+        g2.setColor(new Color(0, 0, 0, 230));
+        g2.fillRect(0, screenH - 70, screenW, 70);
+        g2.setColor(textMain);
+        g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 20f));
+        g2.drawString("↑↓ Select Item   Enter Action   Esc Back", 25, screenH - 28);
     }
 
     public void drawItemTooltip(Graphics2D g2, Item item) {

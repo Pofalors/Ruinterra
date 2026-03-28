@@ -28,6 +28,9 @@ public class Inventory {
     public int selectedItemCategory = 0; // 0=Consumables, 1=Key Items
     public int selectedPartyMember = 0;  // για Status / Equipment αργότερα
     public boolean hideDetails = false;
+    // ===== STATUS FULLSCREEN WINDOW =====
+    public boolean statusDetailOpen = false;
+    public int selectedEquipmentListIndex = 0;
     
     public Inventory() {
         for (int i = 0; i < storage.length; i++) {
