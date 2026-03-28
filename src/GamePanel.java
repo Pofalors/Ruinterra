@@ -30,6 +30,7 @@ import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.awt.FontMetrics;
 
 public class GamePanel extends JPanel implements Runnable {
     // Ρυθμίσεις οθόνης
@@ -93,6 +94,20 @@ public class GamePanel extends JPanel implements Runnable {
     public Inventory inventory = new Inventory();
     public boolean showInventory = false; // Να εμφανίζεται το inventory
     public final int inventoryState = 2; // Νέο game state
+    // ===== OCTOPATH-STYLE MAIN MENU =====
+    public String[] mainMenuOptions = {
+        "Items",
+        "Equipment",
+        "Status",
+        "World Map",
+        "Journal",
+        "Save",
+        "Options"
+    };
+    // ===== MENU PORTRAITS =====
+    public BufferedImage heroPortrait32;
+    public BufferedImage assassinPortrait32;
+    public BufferedImage magePortrait32;
     //public ArrayList<ItemOnGround> itemsOnGround = new ArrayList<>();
     public ArrayList<ArrayList<ItemOnGround>> itemsOnGround = new ArrayList<>();
     public String itemTooltip = "";
@@ -457,6 +472,15 @@ public class GamePanel extends JPanel implements Runnable {
             currentPlayerImage = playerDown1;
             
             System.out.println("Όλες οι εικόνες φορτώθηκαν επιτυχώς!");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        
+        // MENU PORTRAITS
+        try {
+            heroPortrait32 = ImageIO.read(new File("res/menu/hero_portrait_32.png"));
+            assassinPortrait32 = ImageIO.read(new File("res/menu/assassin_portrait_32.png"));
+            magePortrait32 = ImageIO.read(new File("res/menu/mage_portrait_32.png"));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -914,13 +938,27 @@ public class GamePanel extends JPanel implements Runnable {
                 if (gameState == playState) {
                     gameState = inventoryState;
                     showInventory = true;
+
+                    // ===== RESET MENU STATE =====
+                    inventory.menuSection = 0;          // Items
+                    inventory.menuFocus = 0;            // left command list
+                    inventory.selectedItemCategory = 0; // Consumables
+                    inventory.selectedPartyMember = 0;
+                    inventory.hideDetails = false;
+
+                    // κράτα προσωρινά και τα παλιά selections reset
+                    inventory.selectedStorageSlot = 0;
+                    inventory.selectedEquipSlot = 0;
+                    inventory.selectedKeyItemSlot = 0;
+                    inventory.inventoryMode = 0;
+
                     playSound("menu_open");
                 } else if (gameState == inventoryState) {
                     gameState = playState;
                     showInventory = false;
                     playSound("menu_close");
                 }
-                
+
                 try {
                     Thread.sleep(200);
                     keyH.iPressed = false;
@@ -1140,194 +1178,252 @@ public class GamePanel extends JPanel implements Runnable {
 
             // ----- INVENTORY NAVIGATION -----
             if (gameState == inventoryState) {
-                // Αλλαγή mode με Shift 
-                if (keyH.shiftPressed) {
-                    inventory.inventoryMode = (inventory.inventoryMode == 0) ? 1 : 0;
-                    playSound("menu_select");
-                    
-                    // Αν πάμε σε equipment mode, επέλεξε το πρώτο slot
-                    if (inventory.inventoryMode == 1) {
-                        inventory.selectedEquipSlot = 0;
-                    } else {
-                        inventory.selectedStorageSlot = 0;
-                    }
-                    
-                    try { Thread.sleep(200); } catch (Exception e) {}
-                    keyH.shiftPressed = false;
-                }               
-                if (inventory.inventoryMode == 0) { // Storage mode
-                    // Πλοήγηση στο 4x2 grid
+
+                // =========================================
+                // FOCUS 0 = LEFT ROOT MENU
+                // FOCUS 1 = CENTER CONTENT
+                // =========================================
+
+                if (inventory.menuFocus == 0) {
+
                     if (keyH.upPressed) {
-                        inventory.selectedStorageSlot -= 4;
-                        if (inventory.selectedStorageSlot < 0) inventory.selectedStorageSlot = 0;
+                        inventory.menuSection--;
+                        if (inventory.menuSection < 0) {
+                            inventory.menuSection = mainMenuOptions.length - 1;
+                        }
                         playSound("menu_select");
                         try { Thread.sleep(150); } catch (Exception e) {}
                         keyH.upPressed = false;
                     }
+
                     if (keyH.downPressed) {
-                        inventory.selectedStorageSlot += 4;
-                        if (inventory.selectedStorageSlot >= 8) inventory.selectedStorageSlot = 7;
+                        inventory.menuSection++;
+                        if (inventory.menuSection >= mainMenuOptions.length) {
+                            inventory.menuSection = 0;
+                        }
                         playSound("menu_select");
                         try { Thread.sleep(150); } catch (Exception e) {}
                         keyH.downPressed = false;
                     }
-                    if (keyH.leftPressed) {
-                        inventory.selectedStorageSlot--;
-                        if (inventory.selectedStorageSlot < 0) inventory.selectedStorageSlot = 0;
-                        playSound("menu_select");
-                        try { Thread.sleep(150); } catch (Exception e) {}
-                        keyH.leftPressed = false;
-                    }
-                    if (keyH.rightPressed) {
-                        inventory.selectedStorageSlot++;
-                        if (inventory.selectedStorageSlot >= 8) inventory.selectedStorageSlot = 7;
-                        playSound("menu_select");
-                        try { Thread.sleep(150); } catch (Exception e) {}
-                        keyH.rightPressed = false;
-                    }
-                    
-                    // Χρήση item με Enter
-                    if (keyH.enterPressed) {
-                        Item selected = inventory.storage[inventory.selectedStorageSlot];
-                        if (selected != null) {
-                            if (selected.healAmount > 0) { // Potion
-                                playSound("use_items");
-                                player.heal(selected.healAmount);
-                                inventory.removeFromStorage(inventory.selectedStorageSlot);
-                                saveInventoryAndGold();
-                                savePartyStats();
-                                startDialogue("Ήπιες " + selected.name + "!");
-                                gameState = dialogueState;
-                            } else { // Equippable item
-                                int targetSlot = -1;
-                                
-                                if (selected.name.contains("Sword") || selected.name.contains("Blade")) {
-                                    targetSlot = 3; // SWORD
-                                } else if (selected.name.contains("Shield")) {
-                                    targetSlot = 5; // SHIELD
-                                } else if (selected.name.contains("Helmet") || selected.name.contains("Hat")) {
-                                    targetSlot = 1; // HELMET
-                                } else if (selected.name.contains("Chest") || selected.name.contains("Armor")) {
-                                    targetSlot = 4; // CHEST
-                                } else if (selected.name.contains("Gloves") || selected.name.contains("Gauntlets")) {
-                                    targetSlot = 6; // GLOVES
-                                } else if (selected.name.contains("Belt")) {
-                                    targetSlot = 7; // BELT
-                                } else if (selected.name.contains("Boots") || selected.name.contains("Shoes")) {
-                                    targetSlot = 8; // BOOTS
-                                } else if (selected.name.contains("Ring")) {
-                                    targetSlot = 0; // RING
-                                } else if (selected.name.contains("Necklace") || selected.name.contains("Amulet")) {
-                                    targetSlot = 2; // NECKLACE
-                                }
-                                
-                                if (targetSlot != -1) {
-                                    // Πριν εξοπλίσεις, αφαίρεσε τα μπόνους του παλιού item (αν υπάρχει)
-                                    Item oldItem = inventory.getEquipSlot(targetSlot);
-                                    player.recalcStats();
-                                    if (oldItem != null) {
-                                        player.attack -= oldItem.attackBonus;
-                                        player.defense -= oldItem.defenseBonus;
-                                        player.magicAttack -= oldItem.magicBonus;
-                                        player.maxHp -= oldItem.hpBonus;
-                                        player.maxMp -= oldItem.mpBonus;
-                                        player.speed_stat -= oldItem.speedBonus;
-                                        
-                                        // Αν το maxHp μειώθηκε, προσάρμοσε και το τρέχον hp
-                                        if (player.hp > player.maxHp) {
-                                            player.hp = player.maxHp;
-                                        }
-                                        if (player.mp > player.maxMp) {
-                                            player.mp = player.maxMp;
-                                        }
-                                    }
-                                    
-                                    // Εξόπλισε το νέο item
-                                    playSound("equip");
-                                    inventory.equipItem(inventory.selectedStorageSlot, targetSlot);
-                                    
-                                    // Πρόσθεσε τα μπόνους του νέου item
-                                    player.attack += selected.attackBonus;
-                                    player.defense += selected.defenseBonus;
-                                    player.magicAttack += selected.magicBonus;
-                                    player.maxHp += selected.hpBonus;
-                                    player.maxMp += selected.mpBonus;
-                                    player.speed_stat += selected.speedBonus;
-                                    
-                                    // Αύξησε hp/mp αν χρειάζεται
-                                    player.hp += selected.hpBonus;
-                                    player.mp += selected.mpBonus;
-                                    
-                                    saveInventoryAndGold();
-                                    savePartyStats();
-                                    saveEquipment();
-                                
-                                } else {
-                                    inventory.inventoryMode = 1;
-                                    inventory.selectedEquipSlot = 0;
-                                }
-                            }
+
+                    if (keyH.rightPressed || keyH.enterPressed) {
+                        inventory.menuFocus = 1;
+
+                        // reset selections ανά section
+                        if (inventory.menuSection == 0) { // Items
+                            inventory.selectedItemCategory = 0;
+                            inventory.selectedStorageSlot = 0;
+                            inventory.selectedKeyItemSlot = 0;
+                            inventory.inventoryMode = 0;
                         }
-                        try { Thread.sleep(200); } catch (Exception e) {}
-                        saveInventoryAndGold();
+                        else if (inventory.menuSection == 1) { // Equipment
+                            inventory.selectedEquipSlot = 0;
+                            inventory.inventoryMode = 1;
+                        }
+                        else if (inventory.menuSection == 2) { // Status
+                            inventory.selectedPartyMember = 0;
+                        }
+
+                        playSound("menu_select");
+                        try { Thread.sleep(180); } catch (Exception e) {}
+                        keyH.rightPressed = false;
                         keyH.enterPressed = false;
+                    }
+
+                    if (keyH.escapePressed) {
+                        gameState = playState;
+                        showInventory = false;
+                        playSound("menu_close");
+                        try { Thread.sleep(180); } catch (Exception e) {}
+                        keyH.escapePressed = false;
                     }
                 }
-                else { // Equipment mode
-                    // Πλοήγηση στο 3x3 grid
-                    if (keyH.upPressed) {
-                        inventory.selectedEquipSlot -= 3;
-                        if (inventory.selectedEquipSlot < 0) inventory.selectedEquipSlot = 0;
-                        playSound("menu_select");
-                        try { Thread.sleep(150); } catch (Exception e) {}
-                        keyH.upPressed = false;
-                    }
-                    if (keyH.downPressed) {
-                        inventory.selectedEquipSlot += 3;
-                        if (inventory.selectedEquipSlot >= 9) inventory.selectedEquipSlot = 8;
-                        playSound("menu_select");
-                        try { Thread.sleep(150); } catch (Exception e) {}
-                        keyH.downPressed = false;
-                    }
-                    if (keyH.leftPressed) {
-                        inventory.selectedEquipSlot--;
-                        if (inventory.selectedEquipSlot < 0) inventory.selectedEquipSlot = 0;
-                        playSound("menu_select");
-                        try { Thread.sleep(150); } catch (Exception e) {}
-                        keyH.leftPressed = false;
-                    }
-                    if (keyH.rightPressed) {
-                        inventory.selectedEquipSlot++;
-                        if (inventory.selectedEquipSlot >= 9) inventory.selectedEquipSlot = 8;
-                        playSound("menu_select");
-                        try { Thread.sleep(150); } catch (Exception e) {}
-                        keyH.rightPressed = false;
-                    }
-                    
-                    if (keyH.enterPressed) {
-                        Item selected = inventory.getEquipSlot(inventory.selectedEquipSlot);
-                        if (selected != null) {
-                            playSound("unequip");
-                            // Αφαίρεσε τα μπόνους
-                            player.attack -= selected.attackBonus;
-                            player.defense -= selected.defenseBonus;
-                            player.magicAttack -= selected.magicBonus;
-                            player.maxHp -= selected.hpBonus;
-                            player.maxMp -= selected.mpBonus;
-                            player.speed_stat -= selected.speedBonus;
-                            
-                            if (player.hp > player.maxHp) player.hp = player.maxHp;
-                            if (player.mp > player.maxMp) player.mp = player.maxMp;
-                            
-                            inventory.unequipItem(inventory.selectedEquipSlot);
-                            player.recalcStats();
 
-                            saveInventoryAndGold();
-                            savePartyStats();
-                            saveEquipment();
+                else if (inventory.menuFocus == 1) {
+
+                    // =========================
+                    // ITEMS SECTION
+                    // =========================
+                    if (inventory.menuSection == 0) {
+
+                        // αλλαγή category: Consumables / Key Items
+                        if (keyH.leftPressed) {
+                            inventory.selectedItemCategory--;
+                            if (inventory.selectedItemCategory < 0) inventory.selectedItemCategory = 0;
+                            inventory.inventoryMode = (inventory.selectedItemCategory == 0) ? 0 : 2;
+                            playSound("menu_select");
+                            try { Thread.sleep(150); } catch (Exception e) {}
+                            keyH.leftPressed = false;
                         }
-                        try { Thread.sleep(200); } catch (Exception e) {}
-                        keyH.enterPressed = false;
+
+                        if (keyH.rightPressed) {
+                            inventory.selectedItemCategory++;
+                            if (inventory.selectedItemCategory > 1) inventory.selectedItemCategory = 1;
+                            inventory.inventoryMode = (inventory.selectedItemCategory == 0) ? 0 : 2;
+                            playSound("menu_select");
+                            try { Thread.sleep(150); } catch (Exception e) {}
+                            keyH.rightPressed = false;
+                        }
+
+                        // Consumables grid
+                        if (inventory.selectedItemCategory == 0) {
+                            if (keyH.upPressed) {
+                                inventory.selectedStorageSlot -= 4;
+                                if (inventory.selectedStorageSlot < 0) inventory.selectedStorageSlot = 0;
+                                playSound("menu_select");
+                                try { Thread.sleep(150); } catch (Exception e) {}
+                                keyH.upPressed = false;
+                            }
+                            if (keyH.downPressed) {
+                                inventory.selectedStorageSlot += 4;
+                                if (inventory.selectedStorageSlot >= 8) inventory.selectedStorageSlot = 7;
+                                playSound("menu_select");
+                                try { Thread.sleep(150); } catch (Exception e) {}
+                                keyH.downPressed = false;
+                            }
+                            if (keyH.enterPressed) {
+                                Item selected = inventory.storage[inventory.selectedStorageSlot];
+                                if (selected != null) {
+                                    if (selected.healAmount > 0) {
+                                        playSound("use_items");
+                                        player.heal(selected.healAmount);
+                                        inventory.removeFromStorage(inventory.selectedStorageSlot);
+                                        saveInventoryAndGold();
+                                        savePartyStats();
+                                        startDialogue("Ήπιες " + selected.name + "!");
+                                        gameState = dialogueState;
+                                    }
+                                }
+                                try { Thread.sleep(180); } catch (Exception e) {}
+                                keyH.enterPressed = false;
+                            }
+                        }
+
+                        // Key Items grid
+                        else {
+                            if (keyH.upPressed) {
+                                inventory.selectedKeyItemSlot -= 4;
+                                if (inventory.selectedKeyItemSlot < 0) inventory.selectedKeyItemSlot = 0;
+                                playSound("menu_select");
+                                try { Thread.sleep(150); } catch (Exception e) {}
+                                keyH.upPressed = false;
+                            }
+                            if (keyH.downPressed) {
+                                inventory.selectedKeyItemSlot += 4;
+                                if (inventory.selectedKeyItemSlot >= 8) inventory.selectedKeyItemSlot = 7;
+                                playSound("menu_select");
+                                try { Thread.sleep(150); } catch (Exception e) {}
+                                keyH.downPressed = false;
+                            }
+                        }
+                    }
+
+                    // =========================
+                    // EQUIPMENT SECTION
+                    // =========================
+                    else if (inventory.menuSection == 1) {
+
+                        if (keyH.upPressed) {
+                            inventory.selectedEquipSlot -= 3;
+                            if (inventory.selectedEquipSlot < 0) inventory.selectedEquipSlot = 0;
+                            playSound("menu_select");
+                            try { Thread.sleep(150); } catch (Exception e) {}
+                            keyH.upPressed = false;
+                        }
+                        if (keyH.downPressed) {
+                            inventory.selectedEquipSlot += 3;
+                            if (inventory.selectedEquipSlot >= 9) inventory.selectedEquipSlot = 8;
+                            playSound("menu_select");
+                            try { Thread.sleep(150); } catch (Exception e) {}
+                            keyH.downPressed = false;
+                        }
+                        if (keyH.leftPressed) {
+                            inventory.selectedEquipSlot--;
+                            if (inventory.selectedEquipSlot < 0) inventory.selectedEquipSlot = 0;
+                            playSound("menu_select");
+                            try { Thread.sleep(150); } catch (Exception e) {}
+                            keyH.leftPressed = false;
+                        }
+                        if (keyH.rightPressed) {
+                            inventory.selectedEquipSlot++;
+                            if (inventory.selectedEquipSlot >= 9) inventory.selectedEquipSlot = 8;
+                            playSound("menu_select");
+                            try { Thread.sleep(150); } catch (Exception e) {}
+                            keyH.rightPressed = false;
+                        }
+
+                        if (keyH.enterPressed) {
+                            Item selected = inventory.getEquipSlot(inventory.selectedEquipSlot);
+                            if (selected != null) {
+                                playSound("unequip");
+                                player.attack -= selected.attackBonus;
+                                player.defense -= selected.defenseBonus;
+                                player.magicAttack -= selected.magicBonus;
+                                player.maxHp -= selected.hpBonus;
+                                player.maxMp -= selected.mpBonus;
+                                player.speed_stat -= selected.speedBonus;
+
+                                if (player.hp > player.maxHp) player.hp = player.maxHp;
+                                if (player.mp > player.maxMp) player.mp = player.maxMp;
+
+                                inventory.unequipItem(inventory.selectedEquipSlot);
+                                player.recalcStats();
+
+                                saveInventoryAndGold();
+                                savePartyStats();
+                                saveEquipment();
+                            }
+                            try { Thread.sleep(180); } catch (Exception e) {}
+                            keyH.enterPressed = false;
+                        }
+                    }
+
+                    // =========================
+                    // STATUS SECTION
+                    // =========================
+                    else if (inventory.menuSection == 2) {
+                        if (keyH.upPressed) {
+                            inventory.selectedPartyMember--;
+                            if (inventory.selectedPartyMember < 0) inventory.selectedPartyMember = 0;
+                            playSound("menu_select");
+                            try { Thread.sleep(150); } catch (Exception e) {}
+                            keyH.upPressed = false;
+                        }
+                        if (keyH.downPressed) {
+                            inventory.selectedPartyMember++;
+                            int maxPartyIndex = partyMembers.size(); // 0 = hero, 1.. = party members
+                            if (inventory.selectedPartyMember > maxPartyIndex) {
+                                inventory.selectedPartyMember = maxPartyIndex;
+                            }
+                            playSound("menu_select");
+                            try { Thread.sleep(150); } catch (Exception e) {}
+                            keyH.downPressed = false;
+                        }
+                    }
+
+                    // =========================
+                    // SAVE SECTION
+                    // =========================
+                    else if (inventory.menuSection == 5) {
+                        if (keyH.enterPressed) {
+                            savePlayerState();
+                            saveInventoryAndGold();
+                            saveQuests();
+                            savePartyStats();
+                            saveOpenedChests();
+                            saveEquipment();
+                            startDialogue("Το παιχνίδι αποθηκεύτηκε!");
+                            gameState = dialogueState;
+                            keyH.enterPressed = false;
+                        }
+                    }
+
+                    // Back to left menu
+                    if (keyH.escapePressed) {
+                        inventory.menuFocus = 0;
+                        playSound("menu_back");
+                        try { Thread.sleep(180); } catch (Exception e) {}
+                        keyH.escapePressed = false;
                     }
                 }
             }
@@ -5404,7 +5500,7 @@ public class GamePanel extends JPanel implements Runnable {
             }
 
             if (gameState == inventoryState) {
-                drawInventory(g2);
+                drawOctopathMenu(g2);
             }
             if (gameState == mapState) {
                 drawMapScreen(g2);
@@ -6615,6 +6711,523 @@ public class GamePanel extends JPanel implements Runnable {
         g2.setFont(new Font("Arial", Font.ITALIC, 12));
         g2.drawString("SHIFT: Switch between Storage/Equipment", 50, screenHeight - 30);
         g2.drawString("Arrows: Move | Enter: Use/Equip | I: Close", 50, screenHeight - 15);
+    }
+
+    public void drawOctopathMenu(Graphics2D g2) {
+        int screenW = screenWidth;
+        int screenH = screenHeight;
+
+        // =========================
+        // BACKDROP
+        // =========================
+        g2.setColor(new Color(0, 0, 0, 170));
+        g2.fillRect(0, 0, screenW, screenH);
+
+        // =========================
+        // PANEL SIZES
+        // =========================
+        int leftX = 20;
+        int leftY = 20;
+        int leftW = 200;
+        int leftH = screenH - 110;
+
+        int rightW = 230;
+        int rightX = screenW - rightW - 20;
+        int rightY = 20;
+        int rightH = screenH - 110;
+
+        int centerX = leftX + leftW + 15;
+        int centerY = 20;
+        int centerW = rightX - centerX - 15;
+        int centerH = screenH - 110;
+
+        int bottomX = 0;
+        int bottomY = screenH - 70;
+        int bottomW = screenW;
+        int bottomH = 70;
+
+        // =========================
+        // PANEL BACKGROUNDS
+        // =========================
+        Color panelDark = new Color(20, 20, 20, 200);
+        Color panelMid = new Color(40, 35, 30, 210);
+        Color border = new Color(180, 150, 90, 180);
+        Color highlight = new Color(210, 180, 90, 220);
+        Color textMain = new Color(240, 230, 210);
+        Color textDim = new Color(180, 170, 150);
+
+        // Left panel
+        g2.setColor(panelDark);
+        g2.fillRoundRect(leftX, leftY, leftW, leftH, 20, 20);
+        g2.setColor(border);
+        g2.drawRoundRect(leftX, leftY, leftW, leftH, 20, 20);
+
+        // Center panel
+        g2.setColor(panelDark);
+        g2.fillRoundRect(centerX, centerY, centerW, centerH, 20, 20);
+        g2.setColor(border);
+        g2.drawRoundRect(centerX, centerY, centerW, centerH, 20, 20);
+
+        // center sub-areas
+        int contentTopY = centerY + 50;
+        int contentTopH = 260;
+
+        int contentBottomY = contentTopY + contentTopH + 15;
+        int contentBottomH = centerH - (contentBottomY - centerY) - 20;
+
+        // divider line
+        g2.setColor(new Color(180, 150, 90, 100));
+        g2.drawLine(centerX + 15, contentBottomY - 8, centerX + centerW - 15, contentBottomY - 8);
+
+        // Right party panel
+        g2.setColor(panelDark);
+        g2.fillRoundRect(rightX, rightY, rightW, rightH, 20, 20);
+        g2.setColor(border);
+        g2.drawRoundRect(rightX, rightY, rightW, rightH, 20, 20);
+
+        // Bottom help bar
+        g2.setColor(new Color(0, 0, 0, 230));
+        g2.fillRect(bottomX, bottomY, bottomW, bottomH);
+
+        // =========================
+        // LEFT ROOT MENU
+        // =========================
+        g2.setFont(g2.getFont().deriveFont(Font.BOLD, 28f));
+        g2.setColor(textMain);
+        g2.drawString("Menu", leftX + 20, leftY + 40);
+
+        g2.setFont(g2.getFont().deriveFont(Font.BOLD, 22f));
+        int optionY = leftY + 90;
+
+        for (int i = 0; i < mainMenuOptions.length; i++) {
+            boolean selected = (inventory.menuFocus == 0 && inventory.menuSection == i);
+
+            if (selected) {
+                g2.setColor(new Color(180, 130, 60, 180));
+                g2.fillRoundRect(leftX + 10, optionY - 24, leftW - 20, 36, 14, 14);
+                g2.setColor(highlight);
+            } else {
+                g2.setColor(textMain);
+            }
+
+            g2.drawString(mainMenuOptions[i], leftX + 25, optionY);
+            optionY += 52;
+        }
+
+        // =========================
+        // CENTER PANEL HEADER
+        // =========================
+        g2.setFont(g2.getFont().deriveFont(Font.BOLD, 24f));
+        g2.setColor(textMain);
+        g2.drawString(mainMenuOptions[inventory.menuSection], centerX + 20, centerY + 35);
+
+        // =========================
+        // CENTER PANEL CONTENT
+        // =========================
+        g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 18f));
+
+        if (inventory.menuSection == 0) {
+            // ITEMS
+            String catA = "Consumables";
+            String catB = "Key Items";
+
+            boolean catASelected = (inventory.selectedItemCategory == 0);
+            boolean catBSelected = (inventory.selectedItemCategory == 1);
+
+            if (inventory.menuFocus == 1 && catASelected) {
+                g2.setColor(new Color(180, 130, 60, 180));
+                g2.fillRoundRect(centerX + 15, centerY + 50, 130, 28, 10, 10);
+            }
+            if (inventory.menuFocus == 1 && catBSelected) {
+                g2.setColor(new Color(180, 130, 60, 180));
+                g2.fillRoundRect(centerX + 155, centerY + 50, 120, 28, 10, 10);
+            }
+
+            g2.setColor(textMain);
+            g2.drawString(catA, centerX + 25, centerY + 70);
+            g2.drawString(catB, centerX + 165, centerY + 70);
+
+            int listY = contentTopY + 70;
+
+            if (inventory.selectedItemCategory == 0) {
+                for (int i = 0; i < inventory.storage.length; i++) {
+                    boolean selected = (inventory.menuFocus == 1 && inventory.selectedStorageSlot == i);
+                    Item item = inventory.storage[i];
+                    String text = (item == null) ? "-" : item.name;
+
+                    if (selected) {
+                        g2.setColor(new Color(180, 130, 60, 160));
+                        g2.fillRoundRect(centerX + 15, listY - 20, centerW - 30, 28, 10, 10);
+                    }
+
+                    g2.setColor(item == null ? textDim : textMain);
+                    g2.drawString(text, centerX + 25, listY);
+                    listY += 32;
+                }
+            } else {
+                for (int i = 0; i < inventory.keyItems.length; i++) {
+                    boolean selected = (inventory.menuFocus == 1 && inventory.selectedKeyItemSlot == i);
+                    Item item = inventory.keyItems[i];
+                    String text = (item == null) ? "-" : item.name;
+
+                    if (selected) {
+                        g2.setColor(new Color(180, 130, 60, 160));
+                        g2.fillRoundRect(centerX + 15, listY - 20, centerW - 30, 28, 10, 10);
+                    }
+
+                    g2.setColor(item == null ? textDim : textMain);
+                    g2.drawString(text, centerX + 25, listY);
+                    listY += 32;
+                }
+            }
+        }
+
+        else if (inventory.menuSection == 1) {
+            // EQUIPMENT
+            String[] equipLabels = {
+                "Weapon", "Armor", "Helm",
+                "Accessory 1", "Accessory 2", "Accessory 3",
+                "Extra 1", "Extra 2", "Extra 3"
+            };
+
+            int listY = contentTopY + 40;
+            for (int i = 0; i < equipLabels.length; i++) {
+                boolean selected = (inventory.menuFocus == 1 && inventory.selectedEquipSlot == i);
+
+                if (selected) {
+                    g2.setColor(new Color(180, 130, 60, 160));
+                    g2.fillRoundRect(centerX + 15, listY - 20, centerW - 30, 28, 10, 10);
+                }
+
+                Item item = inventory.getEquipSlot(i);
+                String itemName = (item == null) ? "-" : item.name;
+
+                g2.setColor(textMain);
+                g2.drawString(equipLabels[i] + ": " + itemName, centerX + 25, listY);
+                listY += 32;
+            }
+        }
+
+        else if (inventory.menuSection == 2) {
+            // STATUS
+            int listY = contentTopY + 50;
+
+            g2.setColor(textMain);
+            g2.drawString("Party Members", centerX + 20, listY);
+            listY += 40;
+
+            // hero
+            boolean heroSelected = (inventory.menuFocus == 1 && inventory.selectedPartyMember == 0);
+            if (heroSelected) {
+                g2.setColor(new Color(180, 130, 60, 160));
+                g2.fillRoundRect(centerX + 15, listY - 20, centerW - 30, 28, 10, 10);
+            }
+            g2.setColor(textMain);
+            g2.drawString(player.name + " (Leader)", centerX + 25, listY);
+            listY += 32;
+
+            for (int i = 0; i < partyMembers.size(); i++) {
+                boolean selected = (inventory.menuFocus == 1 && inventory.selectedPartyMember == i + 1);
+                if (selected) {
+                    g2.setColor(new Color(180, 130, 60, 160));
+                    g2.fillRoundRect(centerX + 15, listY - 20, centerW - 30, 28, 10, 10);
+                }
+
+                g2.setColor(textMain);
+                g2.drawString(partyMembers.get(i).name, centerX + 25, listY);
+                listY += 32;
+            }
+        }
+
+        else if (inventory.menuSection == 3) {
+            g2.setColor(textDim);
+            g2.drawString("World Map", centerX + 20, centerY + 90);
+            g2.drawString("Coming soon...", centerX + 20, centerY + 130);
+        }
+
+        else if (inventory.menuSection == 4) {
+            g2.setColor(textDim);
+            g2.drawString("Journal", centerX + 20, centerY + 90);
+            g2.drawString("Coming soon...", centerX + 20, centerY + 130);
+        }
+
+        else if (inventory.menuSection == 5) {
+            g2.setColor(textMain);
+            g2.drawString("Save Game", centerX + 20, centerY + 90);
+            g2.setColor(textDim);
+            g2.drawString("Press Enter to save.", centerX + 20, centerY + 130);
+        }
+
+        else if (inventory.menuSection == 6) {
+            g2.setColor(textDim);
+            g2.drawString("Options", centerX + 20, centerY + 90);
+            g2.drawString("Coming soon...", centerX + 20, centerY + 130);
+        }
+
+        // =========================
+        // DETAILS INSIDE CENTER PANEL
+        // =========================
+        g2.setFont(g2.getFont().deriveFont(Font.BOLD, 22f));
+        g2.setColor(textMain);
+        g2.drawString("Details", centerX + 20, contentBottomY + 25);
+
+        g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 18f));
+
+        if (inventory.menuSection == 0) {
+            Item selected = null;
+
+            if (inventory.selectedItemCategory == 0) {
+                selected = inventory.storage[inventory.selectedStorageSlot];
+            } else {
+                selected = inventory.keyItems[inventory.selectedKeyItemSlot];
+            }
+
+            if (selected != null) {
+                g2.setColor(textMain);
+                g2.drawString(selected.name, centerX + 20, contentBottomY + 70);
+
+                g2.setColor(textDim);
+                g2.drawString("Item selected.", centerX + 20, contentBottomY + 110);
+
+                if (selected.healAmount > 0) {
+                    g2.drawString("Heals: " + selected.healAmount, centerX + 20, contentBottomY + 145);
+                }
+                if (selected.attackBonus != 0) {
+                    g2.drawString("ATK: +" + selected.attackBonus, centerX + 20, contentBottomY + 175);
+                }
+                if (selected.defenseBonus != 0) {
+                    g2.drawString("DEF: +" + selected.defenseBonus, centerX + 20, contentBottomY + 205);
+                }
+                if (selected.magicBonus != 0) {
+                    g2.drawString("MAG: +" + selected.magicBonus, centerX + 20, contentBottomY + 235);
+                }
+                if (selected.hpBonus != 0) {
+                    g2.drawString("HP: +" + selected.hpBonus, centerX + 20, contentBottomY + 265);
+                }
+                if (selected.mpBonus != 0) {
+                    g2.drawString("MP: +" + selected.mpBonus, centerX + 20, contentBottomY + 295);
+                }
+                if (selected.speedBonus != 0) {
+                    g2.drawString("SPD: +" + selected.speedBonus, centerX + 20, contentBottomY + 325);
+                }
+            } else {
+                g2.setColor(textDim);
+                g2.drawString("No item selected.", centerX + 20, contentBottomY + 70);
+            }
+        }
+
+        else if (inventory.menuSection == 1) {
+            Item selected = inventory.getEquipSlot(inventory.selectedEquipSlot);
+
+            if (selected != null) {
+                g2.setColor(textMain);
+                g2.drawString(selected.name, centerX + 20, contentBottomY + 70);
+
+                g2.setColor(textDim);
+                g2.drawString("ATK: +" + selected.attackBonus, centerX + 20, contentBottomY + 110);
+                g2.drawString("DEF: +" + selected.defenseBonus, centerX + 20, contentBottomY + 140);
+                g2.drawString("MAG: +" + selected.magicBonus, centerX + 20, contentBottomY + 170);
+                g2.drawString("HP: +" + selected.hpBonus, centerX + 20, contentBottomY + 200);
+                g2.drawString("MP: +" + selected.mpBonus, centerX + 20, contentBottomY + 230);
+                g2.drawString("SPD: +" + selected.speedBonus, centerX + 20, contentBottomY + 260);
+            } else {
+                g2.setColor(textDim);
+                g2.drawString("Empty slot.", centerX + 20, contentBottomY + 70);
+            }
+        }
+
+        else if (inventory.menuSection == 2) {
+            String charName;
+            int hp;
+            int maxHp;
+            int mp;
+            int maxMp;
+            int atk;
+            int def;
+            int mag;
+            int spd;
+
+            if (inventory.selectedPartyMember == 0) {
+                charName = player.name;
+                hp = player.hp;
+                maxHp = player.maxHp;
+                mp = player.mp;
+                maxMp = player.maxMp;
+                atk = player.attack;
+                def = player.defense;
+                mag = player.magicAttack;
+                spd = player.speed_stat;
+            } else {
+                PartyMember pm = partyMembers.get(inventory.selectedPartyMember - 1);
+                charName = pm.name;
+                hp = pm.hp;
+                maxHp = pm.maxHp;
+                mp = pm.mp;
+                maxMp = pm.maxMp;
+                atk = pm.attack;
+                def = pm.defense;
+                mag = pm.magicAttack;
+                spd = pm.speed_stat;
+            }
+
+            g2.setColor(textMain);
+            g2.drawString(charName, centerX + 20, contentBottomY + 70);
+
+            g2.setColor(textDim);
+            g2.drawString("HP: " + hp + "/" + maxHp, centerX + 20, contentBottomY + 110);
+            g2.drawString("MP: " + mp + "/" + maxMp, centerX + 20, contentBottomY + 140);
+            g2.drawString("ATK: " + atk, centerX + 20, contentBottomY + 170);
+            g2.drawString("DEF: " + def, centerX + 20, contentBottomY + 200);
+            g2.drawString("MAG: " + mag, centerX + 20, contentBottomY + 230);
+            g2.drawString("SPD: " + spd, centerX + 20, contentBottomY + 260);
+        }
+
+        else if (inventory.menuSection == 5) {
+            g2.setColor(textDim);
+            g2.drawString("Save your current progress.", centerX + 20, contentBottomY + 70);
+        }
+
+        // =========================
+        // RIGHT PARTY PANEL
+        // =========================
+        g2.setFont(g2.getFont().deriveFont(Font.BOLD, 22f));
+        g2.setColor(textMain);
+        g2.drawString("Party", rightX + 20, rightY + 35);
+
+        int partyY = rightY + 80;
+        // hero
+        drawPartyPanelEntry(
+            g2,
+            rightX + 20,
+            partyY,
+            heroPortrait32,
+            player.name,
+            player.level,
+            player.hp,
+            player.maxHp,
+            player.mp,
+            player.maxMp
+        );
+        partyY += 120;
+
+        // party members
+        for (int i = 0; i < partyMembers.size(); i++) {
+            PartyMember pm = partyMembers.get(i);
+
+            BufferedImage portrait = null;
+
+            if (i == 0) {
+                portrait = assassinPortrait32;
+            } else if (i == 1) {
+                portrait = magePortrait32;
+            }
+
+            drawPartyPanelEntry(
+                g2,
+                rightX + 20,
+                partyY,
+                portrait,
+                pm.name,
+                pm.level,
+                pm.hp,
+                pm.maxHp,
+                pm.mp,
+                pm.maxMp
+            );
+
+            partyY += 120;
+        }
+
+        // =========================
+        // BOTTOM HELP BAR
+        // =========================
+        g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 20f));
+        g2.setColor(textMain);
+        g2.drawString("↑↓ Select   → / Enter Confirm   Esc Back   I Close Menu", 25, bottomY + 42);
+    }
+
+    private void drawWrappedText(Graphics2D g2, String text, int x, int y, int maxWidth, int lineHeight) {
+        if (text == null || text.isEmpty()) return;
+
+        FontMetrics fm = g2.getFontMetrics();
+        String[] words = text.split(" ");
+        String line = "";
+        int drawY = y;
+
+        for (String word : words) {
+            String testLine = line.isEmpty() ? word : line + " " + word;
+            if (fm.stringWidth(testLine) > maxWidth) {
+                g2.drawString(line, x, drawY);
+                line = word;
+                drawY += lineHeight;
+            } else {
+                line = testLine;
+            }
+        }
+
+        if (!line.isEmpty()) {
+            g2.drawString(line, x, drawY);
+        }
+    }
+
+    private void drawPartyPanelEntry(Graphics2D g2, int x, int y, BufferedImage portrait, String name, int level, int hp, int maxHp, int mp, int maxMp) {
+        Color textMain = new Color(240, 230, 210);
+        Color textDim = new Color(180, 170, 150);
+        Color hpColor = new Color(70, 180, 90);
+        Color mpColor = new Color(70, 140, 220);
+        Color barBack = new Color(50, 50, 50, 220);
+
+        // portrait frame
+        if (portrait != null) {
+            g2.drawImage(portrait, x - 10, y + 46, 64, 64, null);
+        } else {
+            g2.setColor(textDim);
+            g2.drawString("?", x + 16, y + 30);
+        }
+
+        int textX = x + 62;
+
+        g2.setColor(textMain);
+        g2.setFont(g2.getFont().deriveFont(Font.BOLD, 18f));
+        g2.drawString(name, textX, y + 18);
+
+        g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 14f));
+        g2.setColor(textDim);
+        g2.drawString("Lv. " + level, textX, y + 40);
+
+        // HP label
+        g2.drawString("HP", textX, y + 64);
+        g2.setColor(textMain);
+        g2.drawString(hp + "/" + maxHp, textX + 35, y + 64);
+
+        // HP bar
+        int barW = 120;
+        int barH = 10;
+        int hpBarX = textX;
+        int hpBarY = y + 72;
+
+        g2.setColor(barBack);
+        g2.fillRoundRect(hpBarX, hpBarY, barW, barH, 8, 8);
+
+        int hpFill = (maxHp <= 0) ? 0 : (int)((hp / (double)maxHp) * barW);
+        g2.setColor(hpColor);
+        g2.fillRoundRect(hpBarX, hpBarY, hpFill, barH, 8, 8);
+
+        // MP label
+        g2.setColor(textDim);
+        g2.drawString("SP", textX, y + 98);
+        g2.setColor(textMain);
+        g2.drawString(mp + "/" + maxMp, textX + 35, y + 98);
+
+        // MP bar
+        int mpBarY = y + 106;
+
+        g2.setColor(barBack);
+        g2.fillRoundRect(hpBarX, mpBarY, barW, barH, 8, 8);
+
+        int mpFill = (maxMp <= 0) ? 0 : (int)((mp / (double)maxMp) * barW);
+        g2.setColor(mpColor);
+        g2.fillRoundRect(hpBarX, mpBarY, mpFill, barH, 8, 8);
     }
 
     public void drawItemTooltip(Graphics2D g2, Item item) {

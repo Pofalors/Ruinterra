@@ -22,6 +22,12 @@ public class Inventory {
     public int selectedEquipSlot = 0;
     public int selectedKeyItemSlot = 0;
     public int inventoryMode = 0; // 0=Storage, 1=Equipment, 2=KeyItems
+    // ===== OCTOPATH-STYLE MENU STATE =====
+    public int menuSection = 0;         // 0=Items, 1=Equipment, 2=Status, 3=WorldMap, 4=Journal, 5=Save, 6=Options
+    public int menuFocus = 0;           // 0=left command list, 1=center content
+    public int selectedItemCategory = 0; // 0=Consumables, 1=Key Items
+    public int selectedPartyMember = 0;  // για Status / Equipment αργότερα
+    public boolean hideDetails = false;
     
     public Inventory() {
         for (int i = 0; i < storage.length; i++) {
