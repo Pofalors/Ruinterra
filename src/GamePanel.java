@@ -108,6 +108,7 @@ public class GamePanel extends JPanel implements Runnable {
     public BufferedImage heroPortrait32;
     public BufferedImage assassinPortrait32;
     public BufferedImage magePortrait32;
+    public BufferedImage equipmentGridBg;
     //public ArrayList<ItemOnGround> itemsOnGround = new ArrayList<>();
     public ArrayList<ArrayList<ItemOnGround>> itemsOnGround = new ArrayList<>();
     public String itemTooltip = "";
@@ -486,6 +487,7 @@ public class GamePanel extends JPanel implements Runnable {
             heroPortrait32 = ImageIO.read(new File("res/menu/hero_portrait_32.png"));
             assassinPortrait32 = ImageIO.read(new File("res/menu/assassin_portrait_32.png"));
             magePortrait32 = ImageIO.read(new File("res/menu/mage_portrait_32.png"));
+            equipmentGridBg = ImageIO.read(new File("res/gui/equipment_bg.png"));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -1183,7 +1185,6 @@ public class GamePanel extends JPanel implements Runnable {
 
             // ========== CHEST LOOT WINDOW ==========
             if (gameState == chestLootState) {
-                playSound("dialogue_start");
                 if (keyH.enterPressed || keyH.escapePressed) {
                     gameState = playState;
                     chestLootItems.clear();
@@ -2998,65 +2999,7 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     private Item createItemFromId(String itemId) throws Exception {
-        if (itemId == null || itemId.isEmpty()) return null;
-
-        if (itemId.equalsIgnoreCase("health_potion")) {
-            Item item = new Item("Health Potion");
-            item.stackable = true;
-            item.healAmount = 20;
-            item.price = 50;
-            item.loadImage("res/items/health_potion.png");
-            return item;
-        }
-
-        if (itemId.equalsIgnoreCase("mana_potion")) {
-            Item item = new Item("Mana Potion");
-            item.stackable = true;
-            item.mpBonus = 20;
-            item.price = 40;
-            item.loadImage("res/items/potion_blue.png");
-            return item;
-        }
-
-        if (itemId.equalsIgnoreCase("iron_sword")) {
-            Item item = new Item("Iron Sword");
-            item.attackBonus = 5;
-            item.price = 200;
-            item.loadImage("res/items/iron_sword.png");
-            return item;
-        }
-
-        if (itemId.equalsIgnoreCase("leather_armor")) {
-            Item item = new Item("Leather Armor");
-            item.defenseBonus = 3;
-            item.price = 150;
-            item.loadImage("res/items/leather_armor.png");
-            return item;
-        }
-
-        if (itemId.equalsIgnoreCase("leather_boots")) {
-            Item item = new Item("Leather Boots");
-            item.defenseBonus = 1;
-            item.price = 100;
-            item.loadImage("res/items/leather_boots.png");
-            return item;
-        }
-
-        if (itemId.equalsIgnoreCase("goblin_ear")) {
-            Item item = new Item("Goblin Ear");
-            item.stackable = true;
-            item.loadImage("res/items/goblin_ear.png");
-            return item;
-        }
-
-        if (itemId.equalsIgnoreCase("lantern")) {
-            Item item = new Item("Lantern");
-            item.isKeyItem = true;
-            item.loadImage("res/items/lantern.png");
-            return item;
-        }
-
-        return null;
+        return ItemFactory.createById(itemId);
     }
 
     private void handleNPCInteraction(ArrayList<Entity> currentMapNPCs) {
@@ -3193,8 +3136,10 @@ public class GamePanel extends JPanel implements Runnable {
                     }
 
                     saveInventoryAndGold();
+                    
 
-                    playSound("item");
+                    sound.playBattleSE("item");
+                    //playSound("item");
 
                     openChestLootWindow(rewards, rewardAmounts);
 
@@ -3429,72 +3374,7 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     private Item createItemFromSaveName(String itemName) throws Exception {
-        if (itemName == null || itemName.isEmpty()) return null;
-
-        if (itemName.equalsIgnoreCase("Health Potion")) {
-            Item item = new Item("Health Potion");
-            item.stackable = true;
-            item.healAmount = 20;
-            item.price = 50;
-            item.loadImage("res/items/health_potion.png");
-            return item;
-        }
-
-        if (itemName.equalsIgnoreCase("Mana Potion")) {
-            Item item = new Item("Mana Potion");
-            item.stackable = true;
-            item.mpBonus = 20;
-            item.price = 40;
-            item.loadImage("res/items/potion_blue.png");
-            return item;
-        }
-
-        if (itemName.equalsIgnoreCase("Iron Sword")) {
-            Item item = new Item("Iron Sword");
-            item.attackBonus = 5;
-            item.price = 200;
-            item.loadImage("res/items/iron_sword.png");
-            return item;
-        }
-
-        if (itemName.equalsIgnoreCase("leather_armor")) {
-            Item item = new Item("Leather Armor");
-            item.defenseBonus = 3;
-            item.price = 150;
-            item.loadImage("res/items/leather_armor.png");
-            return item;
-        }
-
-        if (itemName.equalsIgnoreCase("leather_boots")) {
-            Item item = new Item("Leather Boots");
-            item.defenseBonus = 1;
-            item.price = 100;
-            item.loadImage("res/items/leather_boots.png");
-            return item;
-        }
-
-        if (itemName.equalsIgnoreCase("Goblin Ear")) {
-            Item item = new Item("Goblin Ear");
-            item.stackable = true;
-            item.loadImage("res/items/goblin_ear.png");
-            return item;
-        }
-
-        if (itemName.equalsIgnoreCase("Lantern")) {
-            Item item = new Item("Lantern");
-            item.isKeyItem = true;
-            item.loadImage("res/items/lantern.png");
-            return item;
-        }
-
-        if (itemName.equalsIgnoreCase("World Map")) {
-            Item item = new Item("World Map");
-            item.isKeyItem = true;
-            item.loadImage("res/items/map.png");
-            return item;
-        }
-
-        return null;
+        return ItemFactory.createBySaveName(itemName);
     }
 
     private void saveQuests() {
@@ -7435,17 +7315,33 @@ public class GamePanel extends JPanel implements Runnable {
             selectedEquipListItem = allEquipItems.get(inventory.selectedEquipmentListIndex);
         }
 
-        int targetHighlightSlot = getEquipSlotForItem(selectedEquipListItem);
-
         // ===== RIGHT PANEL =====
         g2.setColor(textMain);
         g2.setFont(g2.getFont().deriveFont(Font.BOLD, 20f));
         g2.drawString("Equipped", rightX + 20, rightY + 35);
 
-        int gridX = rightX + 16;
-        int gridY = rightY + 70;
+        // Θέση του custom 3x3 background
+        int bgX = rightX + 10;
+        int bgY = rightY + 55;
+        int bgW = 240;
+        int bgH = 240;
+
+        // Ζωγράφισε το custom background image
+        if (equipmentGridBg != null) {
+            g2.drawImage(equipmentGridBg, bgX, bgY, bgW, bgH, null);
+        } else {
+            // fallback αν λείπει η εικόνα
+            g2.setColor(new Color(20, 20, 20, 220));
+            g2.fillRoundRect(bgX, bgY, bgW, bgH, 16, 16);
+            g2.setColor(border);
+            g2.drawRoundRect(bgX, bgY, bgW, bgH, 16, 16);
+        }
+
+        // Slot positions ΠΑΝΩ στο custom image
+        int gridX = bgX + 22;
+        int gridY = bgY + 24;
         int slotSize = 56;
-        int gap = 8;
+        int gap = 12;
 
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 3; col++) {
@@ -7453,22 +7349,9 @@ public class GamePanel extends JPanel implements Runnable {
                 int slotX = gridX + col * (slotSize + gap);
                 int slotY = gridY + row * (slotSize + gap);
 
-                boolean isTargetSlot = (slotIndex == targetHighlightSlot);
-
-                if (isTargetSlot) {
-                    g2.setColor(new Color(180, 130, 60, 210));
-                    g2.fillRoundRect(slotX, slotY, slotSize, slotSize, 12, 12);
-                } else {
-                    g2.setColor(new Color(20, 20, 20, 220));
-                    g2.fillRoundRect(slotX, slotY, slotSize, slotSize, 12, 12);
-                }
-
-                g2.setColor(border);
-                g2.drawRoundRect(slotX, slotY, slotSize, slotSize, 12, 12);
-
                 Item equipped = inventory.getEquipSlot(slotIndex);
                 if (equipped != null && equipped.image != null) {
-                    g2.drawImage(equipped.image, slotX + 8, slotY + 8, 48, 48, null);
+                    g2.drawImage(equipped.image, slotX + 4, slotY + 4, 48, 48, null);
                 }
             }
         }
