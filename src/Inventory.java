@@ -31,6 +31,9 @@ public class Inventory {
     // ===== STATUS FULLSCREEN WINDOW =====
     public boolean statusDetailOpen = false;
     public int selectedEquipmentListIndex = 0;
+    // ===== STATUS EQUIP POPUP =====
+    public boolean statusEquipPopupOpen = false;
+    public int statusEquipPopupOption = 0; // 0=Yes, 1=No
     
     public Inventory() {
         for (int i = 0; i < storage.length; i++) {

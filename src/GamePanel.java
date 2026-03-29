@@ -1178,292 +1178,339 @@ public class GamePanel extends JPanel implements Runnable {
 
             // ----- INVENTORY NAVIGATION -----
             if (gameState == inventoryState) {
+
                 if (inventory.statusDetailOpen) {
 
-                    if (keyH.escapePressed) {
-                        inventory.statusDetailOpen = false;
-                        playSound("menu_close");
-                        try { Thread.sleep(180); } catch (Exception e) {}
-                        keyH.escapePressed = false;
-                    }
-
-                    if (keyH.upPressed) {
-                        inventory.selectedEquipmentListIndex--;
-                        if (inventory.selectedEquipmentListIndex < 0) inventory.selectedEquipmentListIndex = 0;
-                        playSound("menu_select");
-                        try { Thread.sleep(150); } catch (Exception e) {}
-                        keyH.upPressed = false;
-                    }
-
-                    if (keyH.downPressed) {
-                        inventory.selectedEquipmentListIndex++;
-                        playSound("menu_select");
-                        try { Thread.sleep(150); } catch (Exception e) {}
-                        keyH.downPressed = false;
-                    }
-
-                    // προς το παρόν δεν κάνουμε equip / unequip ακόμα
-                    if (keyH.enterPressed) {
-                        playSound("menu_select");
-                        try { Thread.sleep(150); } catch (Exception e) {}
-                        keyH.enterPressed = false;
-                    }
-
-                    continue;
-                }
-
-                // =========================================
-                // FOCUS 0 = LEFT ROOT MENU
-                // FOCUS 1 = CENTER CONTENT
-                // =========================================
-
-                if (inventory.menuFocus == 0) {
-
-                    if (keyH.upPressed) {
-                        inventory.menuSection--;
-                        if (inventory.menuSection < 0) {
-                            inventory.menuSection = mainMenuOptions.length - 1;
-                        }
-                        playSound("menu_select");
-                        try { Thread.sleep(150); } catch (Exception e) {}
-                        keyH.upPressed = false;
-                    }
-
-                    if (keyH.downPressed) {
-                        inventory.menuSection++;
-                        if (inventory.menuSection >= mainMenuOptions.length) {
-                            inventory.menuSection = 0;
-                        }
-                        playSound("menu_select");
-                        try { Thread.sleep(150); } catch (Exception e) {}
-                        keyH.downPressed = false;
-                    }
-
-                    if (keyH.rightPressed || keyH.enterPressed) {
-                        inventory.menuFocus = 1;
-
-                        // reset selections ανά section
-                        if (inventory.menuSection == 0) { // Items
-                            inventory.selectedItemCategory = 0;
-                            inventory.selectedStorageSlot = 0;
-                            inventory.selectedKeyItemSlot = 0;
-                            inventory.inventoryMode = 0;
-                        }
-                        else if (inventory.menuSection == 1) { // Equipment
-                            inventory.selectedEquipSlot = 0;
-                            inventory.inventoryMode = 1;
-                        }
-                        else if (inventory.menuSection == 2) { // Status
-                            inventory.selectedPartyMember = 0;
-                        }
-
-                        playSound("menu_select");
-                        try { Thread.sleep(180); } catch (Exception e) {}
-                        keyH.rightPressed = false;
-                        keyH.enterPressed = false;
-                    }
-
-                    if (keyH.escapePressed) {
-                        gameState = playState;
-                        showInventory = false;
-                        playSound("menu_close");
-                        try { Thread.sleep(180); } catch (Exception e) {}
-                        keyH.escapePressed = false;
-                    }
-                }
-
-                else if (inventory.menuFocus == 1) {
-
                     // =========================
-                    // ITEMS SECTION
+                    // POPUP MODE
                     // =========================
-                    if (inventory.menuSection == 0) {
+                    if (inventory.statusEquipPopupOpen) {
 
-                        // αλλαγή category: Consumables / Key Items
-                        if (keyH.leftPressed) {
-                            inventory.selectedItemCategory--;
-                            if (inventory.selectedItemCategory < 0) inventory.selectedItemCategory = 0;
-                            inventory.inventoryMode = (inventory.selectedItemCategory == 0) ? 0 : 2;
+                        if (keyH.leftPressed || keyH.rightPressed) {
+                            inventory.statusEquipPopupOption = (inventory.statusEquipPopupOption == 0) ? 1 : 0;
                             playSound("menu_select");
                             try { Thread.sleep(150); } catch (Exception e) {}
                             keyH.leftPressed = false;
-                        }
-
-                        if (keyH.rightPressed) {
-                            inventory.selectedItemCategory++;
-                            if (inventory.selectedItemCategory > 1) inventory.selectedItemCategory = 1;
-                            inventory.inventoryMode = (inventory.selectedItemCategory == 0) ? 0 : 2;
-                            playSound("menu_select");
-                            try { Thread.sleep(150); } catch (Exception e) {}
                             keyH.rightPressed = false;
                         }
 
-                        // Consumables grid
-                        if (inventory.selectedItemCategory == 0) {
+                        if (keyH.escapePressed) {
+                            inventory.statusEquipPopupOpen = false;
+                            inventory.statusEquipPopupOption = 0;
+                            playSound("menu_close");
+                            try { Thread.sleep(180); } catch (Exception e) {}
+                            keyH.escapePressed = false;
+                        }
+
+                        if (keyH.enterPressed) {
+                            if (inventory.statusEquipPopupOption == 0) { // YES
+                                handleStatusEquipAction();
+                            }
+
+                            inventory.statusEquipPopupOpen = false;
+                            inventory.statusEquipPopupOption = 0;
+
+                            playSound("menu_select");
+                            try { Thread.sleep(180); } catch (Exception e) {}
+                            keyH.enterPressed = false;
+                        }
+                    }
+
+                    // =========================
+                    // STATUS DETAIL NORMAL MODE
+                    // =========================
+                    else {
+                        if (keyH.escapePressed) {
+                            inventory.statusDetailOpen = false;
+                            playSound("menu_close");
+                            try { Thread.sleep(180); } catch (Exception e) {}
+                            keyH.escapePressed = false;
+                        }
+
+                        ArrayList<Item> allEquipItems = getStatusEquipmentDisplayList();
+                        int maxIndex = allEquipItems.size() - 1;
+                        if (maxIndex < 0) maxIndex = 0;
+
+                        if (keyH.upPressed) {
+                            inventory.selectedEquipmentListIndex--;
+                            if (inventory.selectedEquipmentListIndex < 0) inventory.selectedEquipmentListIndex = 0;
+                            playSound("menu_select");
+                            try { Thread.sleep(150); } catch (Exception e) {}
+                            keyH.upPressed = false;
+                        }
+
+                        if (keyH.downPressed) {
+                            inventory.selectedEquipmentListIndex++;
+                            if (inventory.selectedEquipmentListIndex > maxIndex) {
+                                inventory.selectedEquipmentListIndex = maxIndex;
+                            }
+                            playSound("menu_select");
+                            try { Thread.sleep(150); } catch (Exception e) {}
+                            keyH.downPressed = false;
+                        }
+
+                        if (keyH.enterPressed && !allEquipItems.isEmpty()) {
+                            inventory.statusEquipPopupOpen = true;
+                            inventory.statusEquipPopupOption = 0;
+                            playSound("menu_select");
+                            try { Thread.sleep(150); } catch (Exception e) {}
+                            keyH.enterPressed = false;
+                        }
+                    }
+                }
+
+                // =========================================
+                // ONLY when status detail is NOT open
+                // =========================================
+                else {
+
+                    if (inventory.menuFocus == 0) {
+
+                        if (keyH.upPressed) {
+                            inventory.menuSection--;
+                            if (inventory.menuSection < 0) {
+                                inventory.menuSection = mainMenuOptions.length - 1;
+                            }
+                            playSound("menu_select");
+                            try { Thread.sleep(150); } catch (Exception e) {}
+                            keyH.upPressed = false;
+                        }
+
+                        if (keyH.downPressed) {
+                            inventory.menuSection++;
+                            if (inventory.menuSection >= mainMenuOptions.length) {
+                                inventory.menuSection = 0;
+                            }
+                            playSound("menu_select");
+                            try { Thread.sleep(150); } catch (Exception e) {}
+                            keyH.downPressed = false;
+                        }
+
+                        if (keyH.rightPressed || keyH.enterPressed) {
+                            inventory.menuFocus = 1;
+
+                            if (inventory.menuSection == 0) {
+                                inventory.selectedItemCategory = 0;
+                                inventory.selectedStorageSlot = 0;
+                                inventory.selectedKeyItemSlot = 0;
+                                inventory.inventoryMode = 0;
+                            }
+                            else if (inventory.menuSection == 1) {
+                                inventory.selectedEquipSlot = 0;
+                                inventory.inventoryMode = 1;
+                            }
+                            else if (inventory.menuSection == 2) {
+                                inventory.selectedPartyMember = 0;
+                            }
+
+                            playSound("menu_select");
+                            try { Thread.sleep(180); } catch (Exception e) {}
+                            keyH.rightPressed = false;
+                            keyH.enterPressed = false;
+                        }
+
+                        if (keyH.escapePressed) {
+                            gameState = playState;
+                            showInventory = false;
+                            playSound("menu_close");
+                            try { Thread.sleep(180); } catch (Exception e) {}
+                            keyH.escapePressed = false;
+                        }
+                    }
+                    
+                    else if (inventory.menuFocus == 1) {
+
+                        // =========================
+                        // ITEMS SECTION
+                        // =========================
+                        if (inventory.menuSection == 0) {
+
+                            // αλλαγή category: Consumables / Key Items
+                            if (keyH.leftPressed) {
+                                inventory.selectedItemCategory--;
+                                if (inventory.selectedItemCategory < 0) inventory.selectedItemCategory = 0;
+                                inventory.inventoryMode = (inventory.selectedItemCategory == 0) ? 0 : 2;
+                                playSound("menu_select");
+                                try { Thread.sleep(150); } catch (Exception e) {}
+                                keyH.leftPressed = false;
+                            }
+
+                            if (keyH.rightPressed) {
+                                inventory.selectedItemCategory++;
+                                if (inventory.selectedItemCategory > 1) inventory.selectedItemCategory = 1;
+                                inventory.inventoryMode = (inventory.selectedItemCategory == 0) ? 0 : 2;
+                                playSound("menu_select");
+                                try { Thread.sleep(150); } catch (Exception e) {}
+                                keyH.rightPressed = false;
+                            }
+
+                            // Consumables grid
+                            if (inventory.selectedItemCategory == 0) {
+                                if (keyH.upPressed) {
+                                    inventory.selectedStorageSlot -= 4;
+                                    if (inventory.selectedStorageSlot < 0) inventory.selectedStorageSlot = 0;
+                                    playSound("menu_select");
+                                    try { Thread.sleep(150); } catch (Exception e) {}
+                                    keyH.upPressed = false;
+                                }
+                                if (keyH.downPressed) {
+                                    inventory.selectedStorageSlot += 4;
+                                    if (inventory.selectedStorageSlot >= 8) inventory.selectedStorageSlot = 7;
+                                    playSound("menu_select");
+                                    try { Thread.sleep(150); } catch (Exception e) {}
+                                    keyH.downPressed = false;
+                                }
+                                if (keyH.enterPressed) {
+                                    Item selected = inventory.storage[inventory.selectedStorageSlot];
+                                    if (selected != null) {
+                                        if (selected.healAmount > 0) {
+                                            playSound("use_items");
+                                            player.heal(selected.healAmount);
+                                            inventory.removeFromStorage(inventory.selectedStorageSlot);
+                                            saveInventoryAndGold();
+                                            savePartyStats();
+                                            startDialogue("Ήπιες " + selected.name + "!");
+                                            gameState = dialogueState;
+                                        }
+                                    }
+                                    try { Thread.sleep(180); } catch (Exception e) {}
+                                    keyH.enterPressed = false;
+                                }
+                            }
+
+                            // Key Items grid
+                            else {
+                                if (keyH.upPressed) {
+                                    inventory.selectedKeyItemSlot -= 4;
+                                    if (inventory.selectedKeyItemSlot < 0) inventory.selectedKeyItemSlot = 0;
+                                    playSound("menu_select");
+                                    try { Thread.sleep(150); } catch (Exception e) {}
+                                    keyH.upPressed = false;
+                                }
+                                if (keyH.downPressed) {
+                                    inventory.selectedKeyItemSlot += 4;
+                                    if (inventory.selectedKeyItemSlot >= 8) inventory.selectedKeyItemSlot = 7;
+                                    playSound("menu_select");
+                                    try { Thread.sleep(150); } catch (Exception e) {}
+                                    keyH.downPressed = false;
+                                }
+                            }
+                        }
+
+                        // =========================
+                        // EQUIPMENT SECTION
+                        // =========================
+                        else if (inventory.menuSection == 1) {
+
                             if (keyH.upPressed) {
-                                inventory.selectedStorageSlot -= 4;
-                                if (inventory.selectedStorageSlot < 0) inventory.selectedStorageSlot = 0;
+                                inventory.selectedEquipSlot -= 3;
+                                if (inventory.selectedEquipSlot < 0) inventory.selectedEquipSlot = 0;
                                 playSound("menu_select");
                                 try { Thread.sleep(150); } catch (Exception e) {}
                                 keyH.upPressed = false;
                             }
                             if (keyH.downPressed) {
-                                inventory.selectedStorageSlot += 4;
-                                if (inventory.selectedStorageSlot >= 8) inventory.selectedStorageSlot = 7;
+                                inventory.selectedEquipSlot += 3;
+                                if (inventory.selectedEquipSlot >= 9) inventory.selectedEquipSlot = 8;
                                 playSound("menu_select");
                                 try { Thread.sleep(150); } catch (Exception e) {}
                                 keyH.downPressed = false;
                             }
+                            if (keyH.leftPressed) {
+                                inventory.selectedEquipSlot--;
+                                if (inventory.selectedEquipSlot < 0) inventory.selectedEquipSlot = 0;
+                                playSound("menu_select");
+                                try { Thread.sleep(150); } catch (Exception e) {}
+                                keyH.leftPressed = false;
+                            }
+                            if (keyH.rightPressed) {
+                                inventory.selectedEquipSlot++;
+                                if (inventory.selectedEquipSlot >= 9) inventory.selectedEquipSlot = 8;
+                                playSound("menu_select");
+                                try { Thread.sleep(150); } catch (Exception e) {}
+                                keyH.rightPressed = false;
+                            }
+
                             if (keyH.enterPressed) {
-                                Item selected = inventory.storage[inventory.selectedStorageSlot];
+                                Item selected = inventory.getEquipSlot(inventory.selectedEquipSlot);
                                 if (selected != null) {
-                                    if (selected.healAmount > 0) {
-                                        playSound("use_items");
-                                        player.heal(selected.healAmount);
-                                        inventory.removeFromStorage(inventory.selectedStorageSlot);
-                                        saveInventoryAndGold();
-                                        savePartyStats();
-                                        startDialogue("Ήπιες " + selected.name + "!");
-                                        gameState = dialogueState;
-                                    }
+                                    playSound("unequip");
+                                    player.attack -= selected.attackBonus;
+                                    player.defense -= selected.defenseBonus;
+                                    player.magicAttack -= selected.magicBonus;
+                                    player.maxHp -= selected.hpBonus;
+                                    player.maxMp -= selected.mpBonus;
+                                    player.speed_stat -= selected.speedBonus;
+
+                                    if (player.hp > player.maxHp) player.hp = player.maxHp;
+                                    if (player.mp > player.maxMp) player.mp = player.maxMp;
+
+                                    inventory.unequipItem(inventory.selectedEquipSlot);
+                                    player.recalcStats();
+
+                                    saveInventoryAndGold();
+                                    savePartyStats();
+                                    saveEquipment();
                                 }
                                 try { Thread.sleep(180); } catch (Exception e) {}
                                 keyH.enterPressed = false;
                             }
                         }
 
-                        // Key Items grid
-                        else {
+                        // =========================
+                        // STATUS SECTION
+                        // =========================
+                        else if (inventory.menuSection == 2) {
                             if (keyH.upPressed) {
-                                inventory.selectedKeyItemSlot -= 4;
-                                if (inventory.selectedKeyItemSlot < 0) inventory.selectedKeyItemSlot = 0;
+                                inventory.selectedPartyMember--;
+                                if (inventory.selectedPartyMember < 0) inventory.selectedPartyMember = 0;
                                 playSound("menu_select");
                                 try { Thread.sleep(150); } catch (Exception e) {}
                                 keyH.upPressed = false;
                             }
                             if (keyH.downPressed) {
-                                inventory.selectedKeyItemSlot += 4;
-                                if (inventory.selectedKeyItemSlot >= 8) inventory.selectedKeyItemSlot = 7;
+                                inventory.selectedPartyMember++;
+                                int maxPartyIndex = partyMembers.size(); // 0 = hero, 1.. = party members
+                                if (inventory.selectedPartyMember > maxPartyIndex) {
+                                    inventory.selectedPartyMember = maxPartyIndex;
+                                }
                                 playSound("menu_select");
                                 try { Thread.sleep(150); } catch (Exception e) {}
                                 keyH.downPressed = false;
                             }
-                        }
-                    }
-
-                    // =========================
-                    // EQUIPMENT SECTION
-                    // =========================
-                    else if (inventory.menuSection == 1) {
-
-                        if (keyH.upPressed) {
-                            inventory.selectedEquipSlot -= 3;
-                            if (inventory.selectedEquipSlot < 0) inventory.selectedEquipSlot = 0;
-                            playSound("menu_select");
-                            try { Thread.sleep(150); } catch (Exception e) {}
-                            keyH.upPressed = false;
-                        }
-                        if (keyH.downPressed) {
-                            inventory.selectedEquipSlot += 3;
-                            if (inventory.selectedEquipSlot >= 9) inventory.selectedEquipSlot = 8;
-                            playSound("menu_select");
-                            try { Thread.sleep(150); } catch (Exception e) {}
-                            keyH.downPressed = false;
-                        }
-                        if (keyH.leftPressed) {
-                            inventory.selectedEquipSlot--;
-                            if (inventory.selectedEquipSlot < 0) inventory.selectedEquipSlot = 0;
-                            playSound("menu_select");
-                            try { Thread.sleep(150); } catch (Exception e) {}
-                            keyH.leftPressed = false;
-                        }
-                        if (keyH.rightPressed) {
-                            inventory.selectedEquipSlot++;
-                            if (inventory.selectedEquipSlot >= 9) inventory.selectedEquipSlot = 8;
-                            playSound("menu_select");
-                            try { Thread.sleep(150); } catch (Exception e) {}
-                            keyH.rightPressed = false;
+                            if (keyH.enterPressed) {
+                                inventory.statusDetailOpen = true;
+                                inventory.selectedEquipmentListIndex = 0;
+                                playSound("menu_select");
+                                try { Thread.sleep(180); } catch (Exception e) {}
+                                keyH.enterPressed = false;
+                            }
                         }
 
-                        if (keyH.enterPressed) {
-                            Item selected = inventory.getEquipSlot(inventory.selectedEquipSlot);
-                            if (selected != null) {
-                                playSound("unequip");
-                                player.attack -= selected.attackBonus;
-                                player.defense -= selected.defenseBonus;
-                                player.magicAttack -= selected.magicBonus;
-                                player.maxHp -= selected.hpBonus;
-                                player.maxMp -= selected.mpBonus;
-                                player.speed_stat -= selected.speedBonus;
-
-                                if (player.hp > player.maxHp) player.hp = player.maxHp;
-                                if (player.mp > player.maxMp) player.mp = player.maxMp;
-
-                                inventory.unequipItem(inventory.selectedEquipSlot);
-                                player.recalcStats();
-
+                        // =========================
+                        // SAVE SECTION
+                        // =========================
+                        else if (inventory.menuSection == 5) {
+                            if (keyH.enterPressed) {
+                                savePlayerState();
                                 saveInventoryAndGold();
+                                saveQuests();
                                 savePartyStats();
+                                saveOpenedChests();
                                 saveEquipment();
+                                startDialogue("Το παιχνίδι αποθηκεύτηκε!");
+                                gameState = dialogueState;
+                                keyH.enterPressed = false;
                             }
+                        }
+
+                        // Back to left menu
+                        if (keyH.escapePressed) {
+                            inventory.menuFocus = 0;
+                            playSound("menu_close");
                             try { Thread.sleep(180); } catch (Exception e) {}
-                            keyH.enterPressed = false;
+                            keyH.escapePressed = false;
                         }
-                    }
-
-                    // =========================
-                    // STATUS SECTION
-                    // =========================
-                    else if (inventory.menuSection == 2) {
-                        if (keyH.upPressed) {
-                            inventory.selectedPartyMember--;
-                            if (inventory.selectedPartyMember < 0) inventory.selectedPartyMember = 0;
-                            playSound("menu_select");
-                            try { Thread.sleep(150); } catch (Exception e) {}
-                            keyH.upPressed = false;
-                        }
-                        if (keyH.downPressed) {
-                            inventory.selectedPartyMember++;
-                            int maxPartyIndex = partyMembers.size(); // 0 = hero, 1.. = party members
-                            if (inventory.selectedPartyMember > maxPartyIndex) {
-                                inventory.selectedPartyMember = maxPartyIndex;
-                            }
-                            playSound("menu_select");
-                            try { Thread.sleep(150); } catch (Exception e) {}
-                            keyH.downPressed = false;
-                        }
-                        if (keyH.enterPressed) {
-                            inventory.statusDetailOpen = true;
-                            inventory.selectedEquipmentListIndex = 0;
-                            playSound("menu_select");
-                            try { Thread.sleep(180); } catch (Exception e) {}
-                            keyH.enterPressed = false;
-                        }
-                    }
-
-                    // =========================
-                    // SAVE SECTION
-                    // =========================
-                    else if (inventory.menuSection == 5) {
-                        if (keyH.enterPressed) {
-                            savePlayerState();
-                            saveInventoryAndGold();
-                            saveQuests();
-                            savePartyStats();
-                            saveOpenedChests();
-                            saveEquipment();
-                            startDialogue("Το παιχνίδι αποθηκεύτηκε!");
-                            gameState = dialogueState;
-                            keyH.enterPressed = false;
-                        }
-                    }
-
-                    // Back to left menu
-                    if (keyH.escapePressed) {
-                        inventory.menuFocus = 0;
-                        playSound("menu_close");
-                        try { Thread.sleep(180); } catch (Exception e) {}
-                        keyH.escapePressed = false;
                     }
                 }
             }
@@ -5544,8 +5591,13 @@ public class GamePanel extends JPanel implements Runnable {
 
             if (gameState == inventoryState) {
                 drawOctopathMenu(g2);
+
                 if (inventory.statusDetailOpen) {
                     drawStatusDetailWindow(g2);
+                }
+
+                if (inventory.statusDetailOpen && inventory.statusEquipPopupOpen) {
+                    drawStatusEquipPopup(g2);
                 }
             }
             if (gameState == mapState) {
@@ -6759,6 +6811,10 @@ public class GamePanel extends JPanel implements Runnable {
     //     g2.drawString("Arrows: Move | Enter: Use/Equip | I: Close", 50, screenHeight - 15);
     // }
 
+    // ====================================
+    //      DRAW MENU HELPERS
+    // =================================== 
+
     public void drawOctopathMenu(Graphics2D g2) {
         int screenW = screenWidth;
         int screenH = screenHeight;
@@ -7405,17 +7461,7 @@ public class GamePanel extends JPanel implements Runnable {
 
         g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 16f));
 
-        ArrayList<Item> allEquipItems = new ArrayList<>();
-
-        for (int i = 0; i < inventory.storage.length; i++) {
-            if (inventory.storage[i] != null) {
-                Item item = inventory.storage[i];
-                if (item.attackBonus != 0 || item.defenseBonus != 0 || item.magicBonus != 0 ||
-                    item.hpBonus != 0 || item.mpBonus != 0 || item.speedBonus != 0) {
-                    allEquipItems.add(item);
-                }
-            }
-        }
+        ArrayList<Item> allEquipItems = getStatusEquipmentDisplayList();
 
         int listStartY = centerY + 80;
         int visibleRows = 10;
@@ -7433,14 +7479,22 @@ public class GamePanel extends JPanel implements Runnable {
 
             Item item = allEquipItems.get(itemIndex);
             boolean selected = (itemIndex == inventory.selectedEquipmentListIndex);
+            boolean equipped = isItemEquipped(item);
 
             if (selected) {
                 g2.setColor(highlight);
                 g2.fillRoundRect(centerX + 15, drawY - 20, centerW - 30, 28, 10, 10);
             }
 
-            g2.setColor(textMain);
-            g2.drawString(item.name, centerX + 25, drawY);
+            if (equipped) {
+                g2.setColor(new Color(220, 190, 100));
+                g2.drawString("[E]", centerX + 25, drawY);
+                g2.setColor(textMain);
+                g2.drawString(item.name, centerX + 60, drawY);
+            } else {
+                g2.setColor(textMain);
+                g2.drawString(item.name, centerX + 25, drawY);
+            }
         }
 
         // ===== RIGHT PANEL =====
@@ -7478,6 +7532,251 @@ public class GamePanel extends JPanel implements Runnable {
         g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 20f));
         g2.drawString("↑↓ Select Item   Enter Action   Esc Back", 25, screenH - 28);
     }
+
+    private void drawStatusEquipPopup(Graphics2D g2) {
+        ArrayList<Item> allEquipItems = getStatusEquipmentDisplayList();
+        if (allEquipItems.isEmpty()) return;
+        if (inventory.selectedEquipmentListIndex < 0) return;
+        if (inventory.selectedEquipmentListIndex >= allEquipItems.size()) return;
+
+        Item selected = allEquipItems.get(inventory.selectedEquipmentListIndex);
+        if (selected == null) return;
+
+        boolean equipped = isItemEquipped(selected);
+
+        Color border = new Color(180, 150, 90, 180);
+        Color highlight = new Color(180, 130, 60, 180);
+        Color textMain = new Color(240, 230, 210);
+        Color textDim = new Color(180, 170, 150);
+
+        int popW = 320;
+        int popH = 140;
+        int popX = (screenWidth - popW) / 2;
+        int popY = (screenHeight - popH) / 2;
+
+        // backdrop behind popup
+        g2.setColor(new Color(0, 0, 0, 120));
+        g2.fillRect(0, 0, screenWidth, screenHeight);
+
+        // popup body
+        g2.setColor(new Color(15, 15, 15, 240));
+        g2.fillRoundRect(popX, popY, popW, popH, 18, 18);
+
+        g2.setColor(border);
+        g2.drawRoundRect(popX, popY, popW, popH, 18, 18);
+
+        g2.setColor(textMain);
+        g2.setFont(g2.getFont().deriveFont(Font.BOLD, 20f));
+
+        if (equipped) {
+            g2.drawString("Unequip this item?", popX + 30, popY + 38);
+        } else {
+            g2.drawString("Equip this item?", popX + 48, popY + 38);
+        }
+
+        g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 18f));
+        g2.setColor(textDim);
+        g2.drawString(selected.name, popX + 30, popY + 68);
+
+        boolean yesSelected = (inventory.statusEquipPopupOption == 0);
+        boolean noSelected = (inventory.statusEquipPopupOption == 1);
+
+        if (yesSelected) {
+            g2.setColor(highlight);
+            g2.fillRoundRect(popX + 50, popY + 92, 80, 28, 10, 10);
+        }
+        if (noSelected) {
+            g2.setColor(highlight);
+            g2.fillRoundRect(popX + 190, popY + 92, 80, 28, 10, 10);
+        }
+
+        g2.setColor(textMain);
+        g2.drawString("Yes", popX + 74, popY + 112);
+        g2.drawString("No", popX + 220, popY + 112);
+    }
+
+    private boolean isItemEquipped(Item item) {
+        if (item == null) return false;
+
+        for (int i = 0; i < 9; i++) {
+            Item equipped = inventory.getEquipSlot(i);
+            if (equipped == item) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private ArrayList<Item> getStatusEquipmentDisplayList() {
+        ArrayList<Item> result = new ArrayList<>();
+
+        // πρώτα από storage
+        for (int i = 0; i < inventory.storage.length; i++) {
+            Item item = inventory.storage[i];
+            if (item != null && isEquippableItem(item)) {
+                if (!containsItemByName(result, item)) {
+                    result.add(item);
+                }
+            }
+        }
+
+        // μετά από equipped slots
+        for (int i = 0; i < 9; i++) {
+            Item equipped = inventory.getEquipSlot(i);
+            if (equipped != null && isEquippableItem(equipped)) {
+                if (!containsItemByName(result, equipped)) {
+                    result.add(equipped);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private boolean isEquippableItem(Item item) {
+        if (item == null) return false;
+
+        return item.attackBonus != 0 ||
+            item.defenseBonus != 0 ||
+            item.magicBonus != 0 ||
+            item.hpBonus != 0 ||
+            item.mpBonus != 0 ||
+            item.speedBonus != 0;
+    }
+
+    private boolean containsItemByName(ArrayList<Item> list, Item item) {
+        if (item == null || item.name == null) return false;
+
+        for (Item existing : list) {
+            if (existing != null && existing.name != null && existing.name.equals(item.name)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private int getEquipSlotForItem(Item item) {
+        if (item == null || item.name == null) return -1;
+
+        String name = item.name;
+
+        if (name.contains("Sword") || name.contains("Blade")) {
+            return 3; // SWORD
+        } else if (name.contains("Shield")) {
+            return 5; // SHIELD
+        } else if (name.contains("Helmet") || name.contains("Hat")) {
+            return 1; // HELMET
+        } else if (name.contains("Chest") || name.contains("Armor")) {
+            return 4; // CHEST
+        } else if (name.contains("Gloves") || name.contains("Gauntlets")) {
+            return 6; // GLOVES
+        } else if (name.contains("Belt")) {
+            return 7; // BELT
+        } else if (name.contains("Boots") || name.contains("Shoes")) {
+            return 8; // BOOTS
+        } else if (name.contains("Ring")) {
+            return 0; // RING
+        } else if (name.contains("Necklace") || name.contains("Amulet")) {
+            return 2; // NECKLACE
+        }
+
+        return -1;
+    }
+
+    private void applyEquipBonusesToPlayer(Item item) {
+        if (item == null) return;
+
+        player.attack += item.attackBonus;
+        player.defense += item.defenseBonus;
+        player.magicAttack += item.magicBonus;
+        player.maxHp += item.hpBonus;
+        player.maxMp += item.mpBonus;
+        player.speed_stat += item.speedBonus;
+
+        player.hp += item.hpBonus;
+        player.mp += item.mpBonus;
+    }
+
+    private void removeEquipBonusesFromPlayer(Item item) {
+        if (item == null) return;
+
+        player.attack -= item.attackBonus;
+        player.defense -= item.defenseBonus;
+        player.magicAttack -= item.magicBonus;
+        player.maxHp -= item.hpBonus;
+        player.maxMp -= item.mpBonus;
+        player.speed_stat -= item.speedBonus;
+
+        if (player.hp > player.maxHp) player.hp = player.maxHp;
+        if (player.mp > player.maxMp) player.mp = player.maxMp;
+    }
+
+    private void handleStatusEquipAction() {
+        ArrayList<Item> allEquipItems = getStatusEquipmentDisplayList();
+
+        if (allEquipItems.isEmpty()) return;
+        if (inventory.selectedEquipmentListIndex < 0) inventory.selectedEquipmentListIndex = 0;
+        if (inventory.selectedEquipmentListIndex >= allEquipItems.size()) {
+            inventory.selectedEquipmentListIndex = allEquipItems.size() - 1;
+        }
+
+        Item selected = allEquipItems.get(inventory.selectedEquipmentListIndex);
+        if (selected == null) return;
+
+        boolean equipped = isItemEquipped(selected);
+
+        if (equipped) {
+            int equippedSlot = -1;
+            for (int i = 0; i < 9; i++) {
+                if (inventory.getEquipSlot(i) == selected) {
+                    equippedSlot = i;
+                    break;
+                }
+            }
+
+            if (equippedSlot != -1) {
+                playSound("unequip");
+                removeEquipBonusesFromPlayer(selected);
+                inventory.unequipItem(equippedSlot);
+
+                saveInventoryAndGold();
+                savePartyStats();
+                saveEquipment();
+            }
+        } else {
+            int targetSlot = getEquipSlotForItem(selected);
+            if (targetSlot == -1) return;
+
+            Item oldItem = inventory.getEquipSlot(targetSlot);
+            if (oldItem != null) {
+                removeEquipBonusesFromPlayer(oldItem);
+            }
+
+            int storageIndex = -1;
+            for (int i = 0; i < inventory.storage.length; i++) {
+                if (inventory.storage[i] == selected) {
+                    storageIndex = i;
+                    break;
+                }
+            }
+
+            if (storageIndex != -1) {
+                playSound("equip");
+                inventory.equipItem(storageIndex, targetSlot);
+                applyEquipBonusesToPlayer(selected);
+
+                saveInventoryAndGold();
+                savePartyStats();
+                saveEquipment();
+            }
+        }
+    }
+
+    // ====================================
+    //      END OF DRAW MENU HELPERS
+    // =================================== 
 
     public void drawItemTooltip(Graphics2D g2, Item item) {
         int tooltipX = 200;
