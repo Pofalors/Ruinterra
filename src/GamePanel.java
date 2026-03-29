@@ -112,6 +112,10 @@ public class GamePanel extends JPanel implements Runnable {
     public ArrayList<ArrayList<ItemOnGround>> itemsOnGround = new ArrayList<>();
     public String itemTooltip = "";
     public int tooltipTimer = 0;
+    // ===== CHEST LOOT WINDOW =====
+    public ArrayList<Item> chestLootItems = new ArrayList<>();
+    public ArrayList<Integer> chestLootAmounts = new ArrayList<>();
+    public int chestLootSelectedIndex = 0;
 
     // ========== ΗΧΟΣ ==========
     public Sound sound = new Sound();
@@ -180,6 +184,7 @@ public class GamePanel extends JPanel implements Runnable {
     public final int quitConfirmState = 9;
     public final int pauseControlsState = 10;
     public final int shopState = 11;
+    public final int chestLootState = 13;
 
     // επιλογές διαλόγου
     public String[] dialogueOptions = new String[3];
@@ -1173,6 +1178,24 @@ public class GamePanel extends JPanel implements Runnable {
                     }
                     
                     keyH.enterPressed = false;
+                }
+            }
+
+            // ========== CHEST LOOT WINDOW ==========
+            if (gameState == chestLootState) {
+                playSound("dialogue_start");
+                if (keyH.enterPressed || keyH.escapePressed) {
+                    gameState = playState;
+                    chestLootItems.clear();
+                    chestLootAmounts.clear();
+                    chestLootSelectedIndex = 0;
+
+                    playSound("menu_close");
+
+                    keyH.enterPressed = false;
+                    keyH.escapePressed = false;
+
+                    try { Thread.sleep(180); } catch (Exception e) {}
                 }
             }
 
@@ -2897,10 +2920,35 @@ public class GamePanel extends JPanel implements Runnable {
             int worldY = row * tileSize;
 
             String chestId = obj.getProperty("chestId");
-            String itemId = obj.getProperty("item");
-            int amount = obj.getPropertyInt("amount", 1);
 
-            Chest chest = new Chest(chestId, worldX, worldY, itemId, amount);
+            // νέο multi-item format
+            String itemsCsv = obj.getProperty("items");
+            String amountsCsv = obj.getProperty("amounts");
+
+            // παλιό single-item fallback
+            String singleItemId = obj.getProperty("item");
+            int singleAmount = obj.getPropertyInt("amount", 1);
+
+            ArrayList<String> rewardItemIds;
+            ArrayList<Integer> rewardAmounts;
+
+            // Αν υπάρχει νέο multi-item property, χρησιμοποίησέ το
+            if (itemsCsv != null && !itemsCsv.trim().isEmpty()) {
+                rewardItemIds = parseChestItemIds(itemsCsv);
+                rewardAmounts = parseChestAmounts(amountsCsv, rewardItemIds.size());
+            }
+            // Αλλιώς χρησιμοποίησε το παλιό single-item format
+            else {
+                rewardItemIds = new ArrayList<>();
+                rewardAmounts = new ArrayList<>();
+
+                if (singleItemId != null && !singleItemId.trim().isEmpty()) {
+                    rewardItemIds.add(singleItemId.trim());
+                    rewardAmounts.add(singleAmount);
+                }
+            }
+
+            Chest chest = new Chest(chestId, worldX, worldY, rewardItemIds, rewardAmounts);
 
             if (chestId != null && !chestId.isEmpty() && openedChestIds.contains(chestId)) {
                 chest.opened = true;
@@ -2908,8 +2956,45 @@ public class GamePanel extends JPanel implements Runnable {
 
             chests.get(mapIndex).add(chest);
 
-            System.out.println("Chest spawned: " + itemId);
+            System.out.println("Chest spawned with rewards: " + rewardItemIds);
         }
+    }
+
+    private ArrayList<String> parseChestItemIds(String csv) {
+        ArrayList<String> result = new ArrayList<>();
+
+        if (csv == null || csv.trim().isEmpty()) return result;
+
+        String[] parts = csv.split(",");
+        for (String part : parts) {
+            String value = part.trim();
+            if (!value.isEmpty()) {
+                result.add(value);
+            }
+        }
+
+        return result;
+    }
+
+    private ArrayList<Integer> parseChestAmounts(String csv, int expectedSize) {
+        ArrayList<Integer> result = new ArrayList<>();
+
+        if (csv != null && !csv.trim().isEmpty()) {
+            String[] parts = csv.split(",");
+            for (String part : parts) {
+                try {
+                    result.add(Integer.parseInt(part.trim()));
+                } catch (Exception e) {
+                    result.add(1);
+                }
+            }
+        }
+
+        while (result.size() < expectedSize) {
+            result.add(1);
+        }
+
+        return result;
     }
 
     private Item createItemFromId(String itemId) throws Exception {
@@ -2938,6 +3023,22 @@ public class GamePanel extends JPanel implements Runnable {
             item.attackBonus = 5;
             item.price = 200;
             item.loadImage("res/items/iron_sword.png");
+            return item;
+        }
+
+        if (itemId.equalsIgnoreCase("leather_armor")) {
+            Item item = new Item("Leather Armor");
+            item.defenseBonus = 3;
+            item.price = 150;
+            item.loadImage("res/items/leather_armor.png");
+            return item;
+        }
+
+        if (itemId.equalsIgnoreCase("leather_boots")) {
+            Item item = new Item("Leather Boots");
+            item.defenseBonus = 1;
+            item.price = 100;
+            item.loadImage("res/items/leather_boots.png");
             return item;
         }
 
@@ -3046,6 +3147,10 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
+    //============================
+    //     CHEST HELPERS
+    // ===========================
+
     private void handleChestInteraction() {
         ArrayList<Chest> currentChests = chests.get(currentMap);
 
@@ -3061,12 +3166,26 @@ public class GamePanel extends JPanel implements Runnable {
                 chest.opened = true;
 
                 try {
-                    Item item = createItemFromId(chest.itemId);
-                    if (item == null) return;
+                    ArrayList<Item> rewards = new ArrayList<>();
+                    ArrayList<Integer> rewardAmounts = new ArrayList<>();
 
-                    item.amount = chest.amount;
+                    for (int i = 0; i < chest.itemIds.size(); i++) {
+                        String rewardItemId = chest.itemIds.get(i);
 
-                    inventory.addItem(item);
+                        int rewardAmount = 1;
+                        if (i < chest.amounts.size()) {
+                            rewardAmount = chest.amounts.get(i);
+                        }
+
+                        Item item = createItemFromId(rewardItemId);
+                        if (item == null) continue;
+
+                        item.amount = rewardAmount;
+                        inventory.addItem(item);
+
+                        rewards.add(item);
+                        rewardAmounts.add(rewardAmount);
+                    }
 
                     if (chest.chestId != null && !chest.chestId.isEmpty()) {
                         openedChestIds.add(chest.chestId);
@@ -3077,8 +3196,7 @@ public class GamePanel extends JPanel implements Runnable {
 
                     playSound("item");
 
-                    startDialogue("Βρήκες " + item.name + " x" + chest.amount + "!");
-                    gameState = dialogueState;
+                    openChestLootWindow(rewards, rewardAmounts);
 
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -3128,6 +3246,30 @@ public class GamePanel extends JPanel implements Runnable {
             e.printStackTrace();
         }
     }
+
+    private void openChestLootWindow(ArrayList<Item> rewards, ArrayList<Integer> amounts) {
+        chestLootItems.clear();
+        chestLootAmounts.clear();
+
+        if (rewards != null) {
+            chestLootItems.addAll(rewards);
+        }
+
+        if (amounts != null) {
+            chestLootAmounts.addAll(amounts);
+        }
+
+        chestLootSelectedIndex = 0;
+        gameState = chestLootState;
+    }
+
+    //============================
+    //    END OF CHEST HELPERS
+    // ===========================
+
+    // ===========================
+    //     SAVE/LOAD HELPERS
+    // ===========================
 
     private void savePlayerState() {
         try {
@@ -3312,6 +3454,22 @@ public class GamePanel extends JPanel implements Runnable {
             item.attackBonus = 5;
             item.price = 200;
             item.loadImage("res/items/iron_sword.png");
+            return item;
+        }
+
+        if (itemName.equalsIgnoreCase("leather_armor")) {
+            Item item = new Item("Leather Armor");
+            item.defenseBonus = 3;
+            item.price = 150;
+            item.loadImage("res/items/leather_armor.png");
+            return item;
+        }
+
+        if (itemName.equalsIgnoreCase("leather_boots")) {
+            Item item = new Item("Leather Boots");
+            item.defenseBonus = 1;
+            item.price = 100;
+            item.loadImage("res/items/leather_boots.png");
             return item;
         }
 
@@ -3567,6 +3725,10 @@ public class GamePanel extends JPanel implements Runnable {
             e.printStackTrace();
         }
     }
+
+    // ====================================
+    //     END OF SAVE/LOAD HELPERS
+    // ====================================
 
     private void setEquipSlotDirect(int slot, Item item) {
         switch(slot) {
@@ -5606,6 +5768,9 @@ public class GamePanel extends JPanel implements Runnable {
             if (gameState == shopState) {
                 drawShopScreen(g2);
             }
+            if (gameState == chestLootState) {
+                drawChestLootWindow(g2);
+            }
         }
         // ========== ΠΡΟΣΘΕΣΕ ΤΟ FADE EFFECT ΓΙΑ ΟΛΕΣ ΤΙΣ ΚΑΤΑΣΤΑΣΕΙΣ ==========
         // Αυτό ζωγραφίζεται ΠΑΝΤΑ από πάνω, ανεξάρτητα από το gameState
@@ -5616,6 +5781,10 @@ public class GamePanel extends JPanel implements Runnable {
         
         g2.dispose(); // Καθάρισε (καλή πρακτική)
     }
+    
+    // ==================================
+    //   DRAW METHODS AND THEIR HELPERS
+    // ==================================
 
     // ==== ζωγραφίζεις το παιχνίδι ===== 
     public void drawGame(Graphics2D g2) {
@@ -6493,323 +6662,85 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
-    // public void drawInventory(Graphics2D g2) {
-    //     // Σκούρο φόντο
-    //     g2.setColor(new Color(0, 0, 0, 220));
-    //     g2.fillRect(0, 0, screenWidth, screenHeight);
-        
-    //     int slotSize = 60;
-    //     int slotSpacingX = 7;  // Οριζόντιο spacing = 8
-    //     int slotSpacingY = 20; // Κάθετο spacing = 15
-        
-    //     // ========== ΑΡΙΣΤΕΡΑ: STORAGE (4x2) ΜΕ ΕΙΚΟΝΑ ==========
-    //     int storageX = 200;
-    //     int storageY = 50;
-        
-    //     // Φόρτωσε και ζωγράφισε την εικόνα για storage
-    //     try {
-    //         BufferedImage storageBg = ImageIO.read(new File("res/gui/storage_bg.png"));
-    //         g2.drawImage(storageBg, storageX - 20, storageY - 30, 300, 200, null);
-    //     } catch (Exception e) {
-    //         // Αν δεν υπάρχει εικόνα, ζωγράφισε απλό πλαίσιο
-    //         g2.setColor(new Color(50, 50, 50, 200));
-    //         g2.fillRoundRect(storageX - 10, storageY - 10, 4 * (slotSize + slotSpacingX) - slotSpacingX + 20, 
-    //                         2 * (slotSize + slotSpacingY) - slotSpacingY + 20, 15, 15);
-    //     }
-        
-    //     // Τίτλος
-    //     g2.setColor(Color.white);
-    //     g2.setFont(new Font("Arial", Font.BOLD, 18));
-    //     g2.drawString("STORAGE", storageX + 20, storageY - 15);
-        
-    //     // Ζωγράφισε τα 8 slots (4x2)
-    //     for (int row = 0; row < 2; row++) {
-    //         for (int col = 0; col < 4; col++) {
-    //             int index = row * 4 + col;
-    //             int slotX = storageX + col * (slotSize + slotSpacingX);
-    //             int slotY = storageY + row * (slotSize + slotSpacingY);
+    public void drawChestLootWindow(Graphics2D g2) {
+        int screenW = screenWidth;
+        int screenH = screenHeight;
 
-                
-    //             // Αν υπάρχει item
-    //             if (index < inventory.storage.length && inventory.storage[index] != null) {
-    //                 Item item = inventory.storage[index];
-                    
-    //                 // Ζωγράφισε εικόνα item
-    //                 if (item.image != null) {
-    //                     g2.drawImage(item.image, slotX + 5, slotY + 5, slotSize - 10, slotSize - 10, null);
-    //                 }
-                    
-    //                 // Ποσότητα (αν stackable)
-    //                 if (item.stackable && item.amount > 1) {
-    //                     g2.setColor(Color.white);
-    //                     g2.setFont(new Font("Arial", Font.BOLD, 10));
-    //                     g2.drawString("x" + item.amount, slotX + 40, slotY + 50);
-    //                 }
-    //             }
-                
-    //             // ========== ΝΕΟ HIGHLIGHT: Κίτρινο περίγραμμα ==========
-    //             if (inventory.inventoryMode == 0 && index == inventory.selectedStorageSlot) {
-    //                 g2.setColor(Color.yellow);
-    //                 g2.setStroke(new BasicStroke(4)); // Πιο χοντρό περίγραμμα
-    //                 g2.drawRoundRect(slotX - 2, slotY - 2, slotSize + 2, slotSize +2, 10, 10);
-    //             }
+        Color bg = new Color(0, 0, 0, 210);
+        Color panelDark = new Color(20, 20, 20, 235);
+        Color panelMid = new Color(40, 35, 30, 235);
+        Color border = new Color(180, 150, 90, 180);
+        Color textMain = new Color(240, 230, 210);
+        Color textDim = new Color(180, 170, 150);
+        Color highlight = new Color(180, 130, 60, 180);
 
-    //             // ========== TOOLTIP ΓΙΑ ΤΟ ΕΠΙΛΕΓΜΕΝΟ ITEM ==========
-    //             Item hoveredItem = null;
+        g2.setColor(bg);
+        g2.fillRect(0, 0, screenW, screenH);
 
-    //             if (inventory.inventoryMode == 0) { // Storage mode
-    //                 if (inventory.selectedStorageSlot >= 0 && 
-    //                     inventory.selectedStorageSlot < inventory.storage.length) {
-    //                     hoveredItem = inventory.storage[inventory.selectedStorageSlot];
-    //                 }
-    //             } else { // Equipment mode
-    //                 hoveredItem = inventory.getEquipSlot(inventory.selectedEquipSlot);
-    //             }
+        int panelW = 520;
+        int panelH = 340;
+        int panelX = (screenW - panelW) / 2;
+        int panelY = (screenH - panelH) / 2;
 
-    //             if (hoveredItem != null) {
-    //                 drawItemTooltip(g2, hoveredItem);
-    //             }
-    //         }
-    //     }
-        
-    //     // ========== ΔΕΞΙΑ: EQUIPMENT (3x3) ΜΕ ΕΙΚΟΝΑ ==========
-    //     int equipX = 500;
-    //     int equipY = 50;
-    //     int slotSizeEquip = 55;
-    //     int slotSpacingEquipX = 17;  // Οριζόντιο spacing = 8
-    //     int slotSpacingEquipY = 17; // Κάθετο spacing = 15
-        
-    //     // Φόρτωσε και ζωγράφισε την εικόνα για equipment
-    //     try {
-    //         BufferedImage equipBg = ImageIO.read(new File("res/gui/equipment_bg.png"));
-    //         g2.drawImage(equipBg, equipX - 20, equipY - 30, 250, 250, null);
-    //     } catch (Exception e) {
-    //         // Αν δεν υπάρχει εικόνα, ζωγράφισε απλό πλαίσιο
-    //         g2.setColor(new Color(50, 50, 50, 200));
-    //         g2.fillRoundRect(equipX - 10, equipY - 10, 3 * (slotSizeEquip + slotSpacingEquipX) + 10, 
-    //                         3 * (slotSizeEquip + slotSpacingEquipY) + 10, 15, 15);
-    //     }
-        
-    //     // Τίτλος
-    //     g2.setColor(Color.white);
-    //     g2.setFont(new Font("Arial", Font.BOLD, 18));
-    //     g2.drawString("EQUIPMENT", equipX + 20, equipY - 15);
-        
-    //     // Ζωγράφισε τα 9 slots (3x3)
-    //     for (int row = 0; row < 3; row++) {
-    //         for (int col = 0; col < 3; col++) {
-    //             int index = row * 3 + col;
-    //             int slotX = equipX + col * (slotSizeEquip + slotSpacingEquipX) + 6; // +2 δεξιά
-    //             int slotY = equipY + row * (slotSizeEquip + slotSpacingEquipY) - 3; // -2 πάνω
-                
-    //             // Αν υπάρχει item
-    //             Item item = inventory.getEquipSlot(index);
-    //             if (item != null && item.image != null) {
-    //                 g2.drawImage(item.image, slotX + 5, slotY + 5, slotSizeEquip - 10, slotSizeEquip - 10, null);
-    //             }
-                
-    //             // ========== ΝΕΟ HIGHLIGHT: Κίτρινο περίγραμμα ==========
-    //             if (inventory.inventoryMode == 1 && index == inventory.selectedEquipSlot) {
-    //                 g2.setColor(Color.yellow);
-    //                 g2.setStroke(new BasicStroke(4));
-    //                 g2.drawRoundRect(slotX - 2, slotY - 2, slotSizeEquip + 2, slotSizeEquip + 2, 10, 10);
-    //             }
-    //         }
-    //     }
+        g2.setColor(panelDark);
+        g2.fillRoundRect(panelX, panelY, panelW, panelH, 24, 24);
+        g2.setColor(border);
+        g2.drawRoundRect(panelX, panelY, panelW, panelH, 24, 24);
 
-    //     // ========== ΚΕΝΤΡΟ: KEY ITEMS (4x2) ==========
-    //     int keyX = 450;  // Ανάμεσα στα stats και equipment
-    //     int keyY = 350;
+        // title
+        g2.setColor(textMain);
+        g2.setFont(g2.getFont().deriveFont(Font.BOLD, 28f));
+        g2.drawString("Chest Rewards", panelX + 30, panelY + 42);
 
-    //     // Φόρτωσε και ζωγράφισε την εικόνα για key items
-    //     try {
-    //         BufferedImage keyBg = ImageIO.read(new File("res/gui/storage_bg.png"));
-    //         g2.drawImage(keyBg, keyX - 20, keyY - 30, 300, 200, null);
-    //     } catch (Exception e) {
-    //         // Fallback
-    //         g2.setColor(new Color(100, 50, 50, 200));
-    //         g2.fillRoundRect(keyX - 10, keyY - 10, 4 * (slotSize + slotSpacingX) - slotSpacingX + 20, 
-    //                         2 * (slotSize + slotSpacingY) - slotSpacingY + 20, 15, 15);
-    //     }
+        // divider
+        g2.setColor(new Color(180, 150, 90, 100));
+        g2.drawLine(panelX + 20, panelY + 60, panelX + panelW - 20, panelY + 60);
 
-    //     // Τίτλος
-    //     g2.setColor(Color.white);
-    //     g2.setFont(new Font("Arial", Font.BOLD, 18));
-    //     g2.drawString("KEY ITEMS", keyX + 20, keyY - 15);
+        // loot entries
+        int startY = panelY + 100;
+        int rowHeight = 54;
 
-    //     // Ζωγράφισε τα 8 slots (4x2)
-    //     for (int row = 0; row < 2; row++) {
-    //         for (int col = 0; col < 4; col++) {
-    //             int index = row * 4 + col;
-    //             int slotX = keyX + col * (slotSize + slotSpacingX);
-    //             int slotY = keyY + row * (slotSize + slotSpacingY);
-                
-    //             // Αν υπάρχει item
-    //             if (index < inventory.keyItems.length && inventory.keyItems[index] != null) {
-    //                 Item item = inventory.keyItems[index];
-    //                 if (item.image != null) {
-    //                     g2.drawImage(item.image, slotX + 5, slotY + 5, slotSize - 10, slotSize - 10, null);
-    //                 }
-    //             }
-                
-    //             // Highlight
-    //             if (inventory.inventoryMode == 2 && index == inventory.selectedKeyItemSlot) {
-    //                 g2.setColor(Color.yellow);
-    //                 g2.setStroke(new BasicStroke(4));
-    //                 g2.drawRoundRect(slotX - 2, slotY - 2, slotSize + 2, slotSize +2, 10, 10);
-    //             }
-    //         }
-    //     }
-        
-    //     // ========== ΗΡΩΑΣ ΜΕ ΚΑΡΔΙΕΣ ==========
-    //     int heroX = 50;
-    //     int heroY = 50;
-        
-    //     // Εικόνα ήρωα
-    //     g2.drawImage(playerDown1, heroX, heroY, tileSize*2, tileSize*2, null);
-        
-    //     // 3 καρδιές για HP
-    //     int heartX = heroX - 10;
-    //     int heartY = heroY + 150;
-    //     int heartSize = 25;
-        
-    //     try {
-    //         BufferedImage fullHeart = ImageIO.read(new File("res/gui/heart_full.png"));
-    //         BufferedImage emptyHeart = ImageIO.read(new File("res/gui/heart_empty.png"));
-    //         BufferedImage halfHeart = ImageIO.read(new File("res/gui/heart_half.png"));
-            
-    //         // Υπολόγισε πόσες καρδιές (κάθε καρδιά = 10 HP)
-    //         int totalHearts = 3;
-    //         int hpPerHeart = player.maxHp / totalHearts;
-            
-    //         for (int i = 0; i < totalHearts; i++) {
-    //             int heartHp = player.hp - (i * hpPerHeart);
-    //             if (heartHp >= hpPerHeart) {
-    //                 g2.drawImage(fullHeart, heartX + i * (heartSize + 5), heartY, heartSize, heartSize, null);
-    //             } else if (heartHp > 0) {
-    //                 g2.drawImage(halfHeart, heartX + i * (heartSize + 5), heartY, heartSize, heartSize, null);
-    //             } else {
-    //                 g2.drawImage(emptyHeart, heartX + i * (heartSize + 5), heartY, heartSize, heartSize, null);
-    //             }
-    //         }
-    //     } catch (Exception e) {
-    //         // Αν δεν υπάρχουν εικόνες, ζωγράφισε απλά κυκλάκια
-    //         g2.setColor(Color.red);
-    //         for (int i = 0; i < 3; i++) {
-    //             g2.fillOval(heartX + i * 30, heartY, 20, 20);
-    //         }
-    //     }
-        
-    //     // 3 ασπίδες για DEFENCE (πάνω από τις καρδιές)
-    //     int shieldX = heroX - 10;
-    //     int shieldY = heartY - 40;
-        
-    //     try {
-    //         BufferedImage shieldFull = ImageIO.read(new File("res/gui/shield_full.png"));
-    //         BufferedImage shieldEmpty = ImageIO.read(new File("res/gui/shield_empty.png"));
-            
-    //         // Υπολόγισε πόσες ασπίδες (κάθε ασπίδα = 5 defense)
-    //         int totalShields = 3;
-    //         int defPerShield = 5;
-    //         int playerDefense = player.defense;
-            
-    //         for (int i = 0; i < totalShields; i++) {
-    //             if (playerDefense >= (i + 1) * defPerShield) {
-    //                 g2.drawImage(shieldFull, shieldX + i * (heartSize + 5), shieldY, heartSize, heartSize, null);
-    //             } else {
-    //                 g2.drawImage(shieldEmpty, shieldX + i * (heartSize + 5), shieldY, heartSize, heartSize, null);
-    //             }
-    //         }
-    //     } catch (Exception e) {
-    //         // Αν δεν υπάρχουν εικόνες, ζωγράφισε απλά τετράγωνα
-    //         g2.setColor(Color.blue);
-    //         for (int i = 0; i < 3; i++) {
-    //             g2.fillRect(shieldX + i * 30, shieldY, 20, 20);
-    //         }
-    //     }
-        
-    //     // ========== STATS ΜΕ ΧΡΩΜΑΤΑ ==========
-    //     int statsX = heroX - 10;
-    //     int statsY = heartY + 60;
+        g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 20f));
 
-    //     g2.setColor(new Color(50, 50, 50, 200));
-    //     g2.fillRoundRect(statsX - 20, statsY - 20, 150, 250, 15, 15);
-    //     g2.setColor(Color.white);
-    //     g2.setStroke(new BasicStroke(2));
-    //     g2.drawRoundRect(statsX - 20, statsY - 20, 150, 250, 15, 15);
+        for (int i = 0; i < chestLootItems.size(); i++) {
+            Item item = chestLootItems.get(i);
 
-    //     g2.setFont(new Font("Arial", Font.BOLD, 16));
-    //     g2.drawString("STATS", statsX + 25, statsY);
+            int amount = 1;
+            if (i < chestLootAmounts.size()) {
+                amount = chestLootAmounts.get(i);
+            }
 
-    //     g2.setFont(new Font("Arial", Font.PLAIN, 14));
-    //     int statLineY = statsY + 25;
+            int rowY = startY + (i * rowHeight);
 
-    //     // Level (πάντα λευκό)
-    //     g2.setColor(Color.white);
-    //     g2.drawString("Level: " + player.level, statsX, statLineY);
+            if (i == chestLootSelectedIndex) {
+                g2.setColor(highlight);
+                g2.fillRoundRect(panelX + 20, rowY - 24, panelW - 40, 38, 12, 12);
+            }
 
-    //     // Attack - Πράσινο αν αυξημένο
-    //     int attackBonus = player.attack - player.baseAttack;
-    //     if (attackBonus > 0) {
-    //         g2.setColor(Color.green);
-    //         g2.drawString("Attack: " + player.attack + " (+" + attackBonus + ")", statsX, statLineY + 20);
-    //     } else {
-    //         g2.setColor(Color.white);
-    //         g2.drawString("Attack: " + player.attack, statsX, statLineY + 20);
-    //     }
+            // item icon
+            if (item != null && item.image != null) {
+                g2.drawImage(item.image, panelX + 30, rowY - 18, 32, 32, null);
+            }
 
-    //     // Defense - Πράσινο αν αυξημένο
-    //     int defenseBonus = player.defense - player.baseDefense;
-    //     if (defenseBonus > 0) {
-    //         g2.setColor(Color.green);
-    //         g2.drawString("Defense: " + player.defense + " (+" + defenseBonus + ")", statsX, statLineY + 40);
-    //     } else {
-    //         g2.setColor(Color.white);
-    //         g2.drawString("Defense: " + player.defense, statsX, statLineY + 40);
-    //     }
+            // item text
+            g2.setColor(textMain);
+            if (item != null) {
+                g2.drawString(item.name, panelX + 80, rowY);
+                g2.setColor(textDim);
+                g2.drawString("x" + amount, panelX + panelW - 80, rowY);
+            }
+        }
 
-    //     // HP - Κόκκινο (πάντα)
-    //     g2.setColor(Color.red);
-    //     g2.drawString("HP: " + player.hp + "/" + player.maxHp, statsX, statLineY + 60);
+        // help bar
+        g2.setColor(panelMid);
+        g2.fillRoundRect(panelX + 20, panelY + panelH - 60, panelW - 40, 36, 14, 14);
+        g2.setColor(border);
+        g2.drawRoundRect(panelX + 20, panelY + panelH - 60, panelW - 40, 36, 14, 14);
 
-    //     // MP - Μπλε (πάντα)
-    //     g2.setColor(Color.cyan);
-    //     g2.drawString("MP: " + player.mp + "/" + player.maxMp, statsX, statLineY + 80);
-
-    //     // Magic Attack - Πράσινο αν αυξημένο
-    //     int magicBonus = player.magicAttack - player.baseMagicAttack;
-    //     if (magicBonus > 0) {
-    //         g2.setColor(Color.green);
-    //         g2.drawString("Magic: " + player.magicAttack + " (+" + magicBonus + ")", statsX, statLineY + 100);
-    //     } else {
-    //         g2.setColor(Color.white);
-    //         g2.drawString("Magic: " + player.magicAttack, statsX, statLineY + 100);
-    //     }
-
-    //     // Speed - Πράσινο αν αυξημένο
-    //     int speedBonus = player.speed_stat - player.baseSpeed;
-    //     if (speedBonus > 0) {
-    //         g2.setColor(Color.green);
-    //         g2.drawString("Speed: " + player.speed_stat + " (+" + speedBonus + ")", statsX, statLineY + 120);
-    //     } else {
-    //         g2.setColor(Color.white);
-    //         g2.drawString("Speed: " + player.speed_stat, statsX, statLineY + 120);
-    //     }
-
-    //     // EXP - Κίτρινο
-    //     g2.setColor(Color.yellow);
-    //     g2.drawString("EXP: " + player.exp + "/" + player.expToNextLevel, statsX, statLineY + 140);
-
-    //     // Gold - Χρυσό
-    //     g2.setColor(new Color(255, 215, 0)); // Gold color
-    //     g2.drawString("Gold: " + player.gold, statsX, statLineY + 160);
-        
-    //     // ========== ΟΔΗΓΙΕΣ ==========
-    //     g2.setColor(Color.gray);
-    //     g2.setFont(new Font("Arial", Font.ITALIC, 12));
-    //     g2.drawString("SHIFT: Switch between Storage/Equipment", 50, screenHeight - 30);
-    //     g2.drawString("Arrows: Move | Enter: Use/Equip | I: Close", 50, screenHeight - 15);
-    // }
+        g2.setColor(textDim);
+        g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 18f));
+        g2.drawString("Press Enter or Esc to continue", panelX + 110, panelY + panelH - 35);
+    }
 
     // ====================================
     //      DRAW MENU HELPERS
@@ -7497,6 +7428,15 @@ public class GamePanel extends JPanel implements Runnable {
             }
         }
 
+        Item selectedEquipListItem = null;
+        if (!allEquipItems.isEmpty() &&
+            inventory.selectedEquipmentListIndex >= 0 &&
+            inventory.selectedEquipmentListIndex < allEquipItems.size()) {
+            selectedEquipListItem = allEquipItems.get(inventory.selectedEquipmentListIndex);
+        }
+
+        int targetHighlightSlot = getEquipSlotForItem(selectedEquipListItem);
+
         // ===== RIGHT PANEL =====
         g2.setColor(textMain);
         g2.setFont(g2.getFont().deriveFont(Font.BOLD, 20f));
@@ -7513,8 +7453,16 @@ public class GamePanel extends JPanel implements Runnable {
                 int slotX = gridX + col * (slotSize + gap);
                 int slotY = gridY + row * (slotSize + gap);
 
-                g2.setColor(new Color(20, 20, 20, 220));
-                g2.fillRoundRect(slotX, slotY, slotSize, slotSize, 12, 12);
+                boolean isTargetSlot = (slotIndex == targetHighlightSlot);
+
+                if (isTargetSlot) {
+                    g2.setColor(new Color(180, 130, 60, 210));
+                    g2.fillRoundRect(slotX, slotY, slotSize, slotSize, 12, 12);
+                } else {
+                    g2.setColor(new Color(20, 20, 20, 220));
+                    g2.fillRoundRect(slotX, slotY, slotSize, slotSize, 12, 12);
+                }
+
                 g2.setColor(border);
                 g2.drawRoundRect(slotX, slotY, slotSize, slotSize, 12, 12);
 
@@ -8301,6 +8249,10 @@ public class GamePanel extends JPanel implements Runnable {
         g2.setColor(new Color(255, 215, 0));
         g2.drawString("Price: " + item.price + "G", x + 15, y + height - 20);
     }
+
+    // =================================
+    //      END OF DRAW METHODS
+    // =================================
 
     public void drawLighting(Graphics2D g2) {
         // ΑΝ ΕΙΜΑΣΤΕ ΣΕ INTERIOR (χάρτες 4,5) ΜΗΝ ΕΦΑΡΜΟΣΕΙΣ ΣΚΟΤΑΔΙ

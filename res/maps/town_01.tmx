@@ -321,9 +321,9 @@
  <objectgroup id="10" name="chests">
   <object id="11" name="chest1" x="525" y="204.083">
    <properties>
-    <property name="amount" type="int" value="1"/>
-    <property name="chestId" value="town_sword"/>
-    <property name="item" value="iron_sword"/>
+    <property name="amount" value="1,1,1"/>
+    <property name="chestId" value="town_chest_01"/>
+    <property name="items" value="iron_sword,leather_armor,leather_boots"/>
    </properties>
    <point/>
   </object>
