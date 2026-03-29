@@ -1,4 +1,2 @@
 gold=0
-Iron Sword|1
-Leather Armor|1
 Leather Boots|1

@@ -109,6 +109,7 @@ public class GamePanel extends JPanel implements Runnable {
     public BufferedImage assassinPortrait32;
     public BufferedImage magePortrait32;
     public BufferedImage equipmentGridBg;
+    public BufferedImage menuPointer;
     //public ArrayList<ItemOnGround> itemsOnGround = new ArrayList<>();
     public ArrayList<ArrayList<ItemOnGround>> itemsOnGround = new ArrayList<>();
     public String itemTooltip = "";
@@ -415,7 +416,6 @@ public class GamePanel extends JPanel implements Runnable {
         boolean loadedSave = loadPlayerState();
         loadInventoryAndGold();
         loadQuests();
-        loadEquipment();
 
         if (!loadedSave) {
             TiledObjectData spawn = tileM.findMapObjectByName(currentMap, "player_spawn");
@@ -447,6 +447,7 @@ public class GamePanel extends JPanel implements Runnable {
 
         // ΤΩΡΑ που υπάρχουν όλοι, φόρτωσε party stats
         loadPartyStats();
+        loadEquipment();
 
         for (int i = 0; i < maxMaps; i++) {
             spawnTiledNPCs(i);
@@ -488,6 +489,7 @@ public class GamePanel extends JPanel implements Runnable {
             assassinPortrait32 = ImageIO.read(new File("res/menu/assassin_portrait_32.png"));
             magePortrait32 = ImageIO.read(new File("res/menu/mage_portrait_32.png"));
             equipmentGridBg = ImageIO.read(new File("res/gui/equipment_bg.png"));
+            menuPointer = ImageIO.read(new File("res/gui/menu_pointer.png"));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -3549,10 +3551,23 @@ public class GamePanel extends JPanel implements Runnable {
                     new java.io.FileWriter("res/save/equipment.txt")
             );
 
+            // 0 = Hero
             for (int slot = 0; slot < 9; slot++) {
-                Item item = inventory.getEquipSlot(slot);
+                Item item = getCharacterEquipSlot(player, slot);
                 if (item != null) {
-                    writer.println(slot + "|" + item.name);
+                    writer.println("0|" + slot + "|" + item.name);
+                }
+            }
+
+            // 1.. = party members
+            for (int p = 0; p < partyMembers.size(); p++) {
+                PartyMember member = partyMembers.get(p);
+
+                for (int slot = 0; slot < 9; slot++) {
+                    Item item = getCharacterEquipSlot(member, slot);
+                    if (item != null) {
+                        writer.println((p + 1) + "|" + slot + "|" + item.name);
+                    }
                 }
             }
 
@@ -3578,25 +3593,27 @@ public class GamePanel extends JPanel implements Runnable {
                 if (line.isEmpty() || !line.contains("|")) continue;
 
                 String[] parts = line.split("\\|");
-                int slot = Integer.parseInt(parts[0]);
-                String itemName = parts[1];
+                if (parts.length < 3) continue;
+
+                int ownerIndex = Integer.parseInt(parts[0]);
+                int slot = Integer.parseInt(parts[1]);
+                String itemName = parts[2];
 
                 Item item = createItemFromSaveName(itemName);
                 if (item == null) continue;
 
-                // ⚠️ Εδώ βάζουμε απευθείας στο σωστό slot
-                setEquipSlotDirect(slot, item);
+                Entity targetCharacter;
 
-                // IMPORTANT: εφαρμόζουμε stats
-                player.attack += item.attackBonus;
-                player.defense += item.defenseBonus;
-                player.magicAttack += item.magicBonus;
-                player.maxHp += item.hpBonus;
-                player.maxMp += item.mpBonus;
-                player.speed_stat += item.speedBonus;
+                if (ownerIndex == 0) {
+                    targetCharacter = player;
+                } else {
+                    int partyIndex = ownerIndex - 1;
+                    if (partyIndex < 0 || partyIndex >= partyMembers.size()) continue;
+                    targetCharacter = partyMembers.get(partyIndex);
+                }
 
-                player.hp += item.hpBonus;
-                player.mp += item.mpBonus;
+                setCharacterEquipSlot(targetCharacter, slot, item);
+                applyEquipBonuses(targetCharacter, item);
             }
 
             br.close();
@@ -7290,21 +7307,20 @@ public class GamePanel extends JPanel implements Runnable {
 
             Item item = allEquipItems.get(itemIndex);
             boolean selected = (itemIndex == inventory.selectedEquipmentListIndex);
-            boolean equipped = isItemEquipped(item);
+            String ownerMarker = getEquipOwnerMarker(item);
 
             if (selected) {
-                g2.setColor(highlight);
-                g2.fillRoundRect(centerX + 15, drawY - 20, centerW - 30, 28, 10, 10);
+                drawPointer(g2, centerX + 14, drawY - 18);
             }
 
-            if (equipped) {
+            // πάντα το item name πρώτο
+            g2.setColor(textMain);
+            g2.drawString(item.name, centerX + 45, drawY);
+
+            // και αν υπάρχει owner marker, ζωγράφισέ το δεξιά
+            if (!ownerMarker.isEmpty()) {
                 g2.setColor(new Color(220, 190, 100));
-                g2.drawString("[E]", centerX + 25, drawY);
-                g2.setColor(textMain);
-                g2.drawString(item.name, centerX + 60, drawY);
-            } else {
-                g2.setColor(textMain);
-                g2.drawString(item.name, centerX + 25, drawY);
+                g2.drawString(ownerMarker, centerX + centerW - 55, drawY);
             }
         }
 
@@ -7349,9 +7365,11 @@ public class GamePanel extends JPanel implements Runnable {
                 int slotX = gridX + col * (slotSize + gap);
                 int slotY = gridY + row * (slotSize + gap);
 
-                Item equipped = inventory.getEquipSlot(slotIndex);
+                Entity selectedCharacter = getSelectedStatusCharacter();
+                Item equipped = getCharacterEquipSlot(selectedCharacter, slotIndex);
+
                 if (equipped != null && equipped.image != null) {
-                    g2.drawImage(equipped.image, slotX + 4, slotY + 4, 48, 48, null);
+                    g2.drawImage(equipped.image, slotX + 8, slotY + 8, 48, 48, null);
                 }
             }
         }
@@ -7364,6 +7382,17 @@ public class GamePanel extends JPanel implements Runnable {
         g2.drawString("↑↓ Select Item   Enter Action   Esc Back", 25, screenH - 28);
     }
 
+    private void drawPointer(Graphics2D g2, int x, int y) {
+        if (menuPointer != null) {
+            g2.drawImage(menuPointer, x, y, 24, 24, null);
+        } else {
+            // fallback αν λείπει το sprite
+            g2.setColor(new Color(255, 220, 140));
+            g2.setFont(g2.getFont().deriveFont(Font.BOLD, 20f));
+            g2.drawString(">", x + 4, y + 18);
+        }
+    }
+
     private void drawStatusEquipPopup(Graphics2D g2) {
         ArrayList<Item> allEquipItems = getStatusEquipmentDisplayList();
         if (allEquipItems.isEmpty()) return;
@@ -7372,8 +7401,6 @@ public class GamePanel extends JPanel implements Runnable {
 
         Item selected = allEquipItems.get(inventory.selectedEquipmentListIndex);
         if (selected == null) return;
-
-        boolean equipped = isItemEquipped(selected);
 
         Color border = new Color(180, 150, 90, 180);
         Color highlight = new Color(180, 130, 60, 180);
@@ -7399,26 +7426,32 @@ public class GamePanel extends JPanel implements Runnable {
         g2.setColor(textMain);
         g2.setFont(g2.getFont().deriveFont(Font.BOLD, 20f));
 
-        if (equipped) {
-            g2.drawString("Unequip this item?", popX + 30, popY + 38);
-        } else {
+        int ownerIndex = getItemEquippedOwnerIndex(selected);
+        int selectedCharacterIndex = getSelectedStatusCharacterIndex();
+
+        if (ownerIndex == -1) {
             g2.drawString("Equip this item?", popX + 48, popY + 38);
+        }
+        else if (ownerIndex == selectedCharacterIndex) {
+            g2.drawString("Unequip this item?", popX + 30, popY + 38);
+        }
+        else {
+            String ownerName = getEquipOwnerName(selected);
+            g2.drawString("Take this item from " + ownerName + "?", popX + 18, popY + 38);
         }
 
         g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 18f));
         g2.setColor(textDim);
-        g2.drawString(selected.name, popX + 30, popY + 68);
+        g2.drawString(selected.name, popX + 100, popY + 68);
 
         boolean yesSelected = (inventory.statusEquipPopupOption == 0);
         boolean noSelected = (inventory.statusEquipPopupOption == 1);
 
         if (yesSelected) {
-            g2.setColor(highlight);
-            g2.fillRoundRect(popX + 50, popY + 92, 80, 28, 10, 10);
+            drawPointer(g2, popX + 36, popY + 92);
         }
         if (noSelected) {
-            g2.setColor(highlight);
-            g2.fillRoundRect(popX + 190, popY + 92, 80, 28, 10, 10);
+            drawPointer(g2, popX + 176, popY + 92);
         }
 
         g2.setColor(textMain);
@@ -7427,12 +7460,25 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     private boolean isItemEquipped(Item item) {
-        if (item == null) return false;
+        if (item == null || item.name == null) return false;
 
+        // Hero
         for (int i = 0; i < 9; i++) {
-            Item equipped = inventory.getEquipSlot(i);
-            if (equipped == item) {
+            Item equipped = getCharacterEquipSlot(player, i);
+            if (equipped != null && equipped.name != null && equipped.name.equals(item.name)) {
                 return true;
+            }
+        }
+
+        // Party members
+        for (int p = 0; p < partyMembers.size(); p++) {
+            PartyMember member = partyMembers.get(p);
+
+            for (int i = 0; i < 9; i++) {
+                Item equipped = getCharacterEquipSlot(member, i);
+                if (equipped != null && equipped.name != null && equipped.name.equals(item.name)) {
+                    return true;
+                }
             }
         }
 
@@ -7442,7 +7488,7 @@ public class GamePanel extends JPanel implements Runnable {
     private ArrayList<Item> getStatusEquipmentDisplayList() {
         ArrayList<Item> result = new ArrayList<>();
 
-        // πρώτα από storage
+        // 1. items από storage
         for (int i = 0; i < inventory.storage.length; i++) {
             Item item = inventory.storage[i];
             if (item != null && isEquippableItem(item)) {
@@ -7452,12 +7498,26 @@ public class GamePanel extends JPanel implements Runnable {
             }
         }
 
-        // μετά από equipped slots
+        // 2. items από Hero equips
         for (int i = 0; i < 9; i++) {
-            Item equipped = inventory.getEquipSlot(i);
+            Item equipped = getCharacterEquipSlot(player, i);
             if (equipped != null && isEquippableItem(equipped)) {
                 if (!containsItemByName(result, equipped)) {
                     result.add(equipped);
+                }
+            }
+        }
+
+        // 3. items από τα equips όλων των party members
+        for (int p = 0; p < partyMembers.size(); p++) {
+            PartyMember member = partyMembers.get(p);
+
+            for (int i = 0; i < 9; i++) {
+                Item equipped = getCharacterEquipSlot(member, i);
+                if (equipped != null && isEquippableItem(equipped)) {
+                    if (!containsItemByName(result, equipped)) {
+                        result.add(equipped);
+                    }
                 }
             }
         }
@@ -7516,32 +7576,110 @@ public class GamePanel extends JPanel implements Runnable {
         return -1;
     }
 
-    private void applyEquipBonusesToPlayer(Item item) {
-        if (item == null) return;
+    private Entity getSelectedStatusCharacter() {
+        if (inventory.selectedPartyMember == 0) {
+            return player;
+        }
 
-        player.attack += item.attackBonus;
-        player.defense += item.defenseBonus;
-        player.magicAttack += item.magicBonus;
-        player.maxHp += item.hpBonus;
-        player.maxMp += item.mpBonus;
-        player.speed_stat += item.speedBonus;
+        int idx = inventory.selectedPartyMember - 1;
+        if (idx >= 0 && idx < partyMembers.size()) {
+            return partyMembers.get(idx);
+        }
 
-        player.hp += item.hpBonus;
-        player.mp += item.mpBonus;
+        return player;
     }
 
-    private void removeEquipBonusesFromPlayer(Item item) {
-        if (item == null) return;
+    private int getSelectedStatusCharacterIndex() {
+        return inventory.selectedPartyMember;
+    }
 
-        player.attack -= item.attackBonus;
-        player.defense -= item.defenseBonus;
-        player.magicAttack -= item.magicBonus;
-        player.maxHp -= item.hpBonus;
-        player.maxMp -= item.mpBonus;
-        player.speed_stat -= item.speedBonus;
+    private Item getCharacterEquipSlot(Entity character, int slot) {
+        if (character == null) return null;
+        if (slot < 0 || slot >= character.equipped.size()) return null;
+        return character.equipped.get(slot);
+    }
 
-        if (player.hp > player.maxHp) player.hp = player.maxHp;
-        if (player.mp > player.maxMp) player.mp = player.maxMp;
+    private void setCharacterEquipSlot(Entity character, int slot, Item item) {
+        if (character == null) return;
+        if (slot < 0 || slot >= character.equipped.size()) return;
+        character.equipped.set(slot, item);
+    }
+
+    private void applyEquipBonuses(Entity character, Item item) {
+        if (character == null || item == null) return;
+
+        character.attack += item.attackBonus;
+        character.defense += item.defenseBonus;
+        character.magicAttack += item.magicBonus;
+        character.maxHp += item.hpBonus;
+        character.maxMp += item.mpBonus;
+        character.speed_stat += item.speedBonus;
+
+        character.hp += item.hpBonus;
+        character.mp += item.mpBonus;
+    }
+
+    private void removeEquipBonuses(Entity character, Item item) {
+        if (character == null || item == null) return;
+
+        character.attack -= item.attackBonus;
+        character.defense -= item.defenseBonus;
+        character.magicAttack -= item.magicBonus;
+        character.maxHp -= item.hpBonus;
+        character.maxMp -= item.mpBonus;
+        character.speed_stat -= item.speedBonus;
+
+        if (character.hp > character.maxHp) character.hp = character.maxHp;
+        if (character.mp > character.maxMp) character.mp = character.maxMp;
+    }
+
+    private int getItemEquippedOwnerIndex(Item item) {
+        if (item == null || item.name == null) return -1;
+
+        // 0 = Hero
+        for (int i = 0; i < 9; i++) {
+            Item equipped = getCharacterEquipSlot(player, i);
+            if (equipped != null && equipped.name != null && equipped.name.equals(item.name)) {
+                return 0;
+            }
+        }
+
+        // 1.. = party members
+        for (int p = 0; p < partyMembers.size(); p++) {
+            PartyMember member = partyMembers.get(p);
+
+            for (int i = 0; i < 9; i++) {
+                Item equipped = getCharacterEquipSlot(member, i);
+                if (equipped != null && equipped.name != null && equipped.name.equals(item.name)) {
+                    return p + 1;
+                }
+            }
+        }
+
+        return -1;
+    }
+
+    private String getEquipOwnerMarker(Item item) {
+        int ownerIndex = getItemEquippedOwnerIndex(item);
+
+        if (ownerIndex == 0) return "[H]";
+        if (ownerIndex == 1) return "[A]";
+        if (ownerIndex == 2) return "[M]";
+
+        return "";
+    }
+
+    private String getEquipOwnerName(Item item) {
+        int ownerIndex = getItemEquippedOwnerIndex(item);
+
+        if (ownerIndex == 0) return player.name;
+
+        int partyIndex = ownerIndex - 1;
+        if (partyIndex >= 0 && partyIndex < partyMembers.size()) {
+            return partyMembers.get(partyIndex).name;
+        }
+
+        return "";
     }
 
     private void handleStatusEquipAction() {
@@ -7553,56 +7691,107 @@ public class GamePanel extends JPanel implements Runnable {
             inventory.selectedEquipmentListIndex = allEquipItems.size() - 1;
         }
 
+        Entity selectedCharacter = getSelectedStatusCharacter();
+        int selectedCharacterIndex = getSelectedStatusCharacterIndex();
+
         Item selected = allEquipItems.get(inventory.selectedEquipmentListIndex);
-        if (selected == null) return;
+        if (selectedCharacter == null || selected == null) return;
 
-        boolean equipped = isItemEquipped(selected);
+        int targetSlot = getEquipSlotForItem(selected);
+        if (targetSlot == -1) return;
 
-        if (equipped) {
-            int equippedSlot = -1;
-            for (int i = 0; i < 9; i++) {
-                if (inventory.getEquipSlot(i) == selected) {
-                    equippedSlot = i;
-                    break;
-                }
+        int ownerIndex = getItemEquippedOwnerIndex(selected);
+
+        // =========================================
+        // CASE 1: item not equipped by anyone
+        // =========================================
+        if (ownerIndex == -1) {
+            Item currentItemInSlot = getCharacterEquipSlot(selectedCharacter, targetSlot);
+
+            // βγάλε το current item από το slot και γύρνα το inventory
+            if (currentItemInSlot != null) {
+                removeEquipBonuses(selectedCharacter, currentItemInSlot);
+                inventory.addItem(currentItemInSlot);
+                setCharacterEquipSlot(selectedCharacter, targetSlot, null);
             }
 
-            if (equippedSlot != -1) {
-                playSound("unequip");
-                removeEquipBonusesFromPlayer(selected);
-                inventory.unequipItem(equippedSlot);
-
-                saveInventoryAndGold();
-                savePartyStats();
-                saveEquipment();
-            }
-        } else {
-            int targetSlot = getEquipSlotForItem(selected);
-            if (targetSlot == -1) return;
-
-            Item oldItem = inventory.getEquipSlot(targetSlot);
-            if (oldItem != null) {
-                removeEquipBonusesFromPlayer(oldItem);
-            }
-
+            // βρες το selected item στο storage
             int storageIndex = -1;
             for (int i = 0; i < inventory.storage.length; i++) {
-                if (inventory.storage[i] == selected) {
+                Item storageItem = inventory.storage[i];
+                if (storageItem != null && storageItem.name != null &&
+                    storageItem.name.equals(selected.name)) {
                     storageIndex = i;
                     break;
                 }
             }
 
             if (storageIndex != -1) {
-                playSound("equip");
-                inventory.equipItem(storageIndex, targetSlot);
-                applyEquipBonusesToPlayer(selected);
+                Item itemToEquip = inventory.storage[storageIndex];
+                inventory.storage[storageIndex] = null;
 
-                saveInventoryAndGold();
-                savePartyStats();
-                saveEquipment();
+                setCharacterEquipSlot(selectedCharacter, targetSlot, itemToEquip);
+                applyEquipBonuses(selectedCharacter, itemToEquip);
+                playSound("equip");
             }
         }
+
+        // =========================================
+        // CASE 2: item equipped by selected character -> unequip
+        // =========================================
+        else if (ownerIndex == selectedCharacterIndex) {
+            Item currentItem = getCharacterEquipSlot(selectedCharacter, targetSlot);
+
+            if (currentItem != null) {
+                removeEquipBonuses(selectedCharacter, currentItem);
+
+                if (inventory.addItem(currentItem)) {
+                    setCharacterEquipSlot(selectedCharacter, targetSlot, null);
+                    playSound("unequip");
+                }
+            }
+        }
+
+        // =========================================
+        // CASE 3: item equipped by another character -> transfer
+        // =========================================
+        else {
+            Entity oldOwner;
+
+            if (ownerIndex == 0) {
+                oldOwner = player;
+            } else {
+                int partyIndex = ownerIndex - 1;
+                if (partyIndex < 0 || partyIndex >= partyMembers.size()) return;
+                oldOwner = partyMembers.get(partyIndex);
+            }
+
+            Item itemFromOldOwner = getCharacterEquipSlot(oldOwner, targetSlot);
+            Item currentItemInSelectedSlot = getCharacterEquipSlot(selectedCharacter, targetSlot);
+
+            if (itemFromOldOwner == null) return;
+
+            // 1. βγάλε το item από τον old owner
+            removeEquipBonuses(oldOwner, itemFromOldOwner);
+            setCharacterEquipSlot(oldOwner, targetSlot, null);
+
+            // 2. αν ο selected character είχε item στο ίδιο slot, γύρνα το inventory
+            if (currentItemInSelectedSlot != null) {
+                removeEquipBonuses(selectedCharacter, currentItemInSelectedSlot);
+                inventory.addItem(currentItemInSelectedSlot);
+                setCharacterEquipSlot(selectedCharacter, targetSlot, null);
+            }
+
+            // 3. βάλε το transferred item στον selected character
+            setCharacterEquipSlot(selectedCharacter, targetSlot, itemFromOldOwner);
+            applyEquipBonuses(selectedCharacter, itemFromOldOwner);
+
+            playSound("equip");
+        }
+
+        saveInventoryAndGold();
+        savePartyStats();
+        saveEquipment();
     }
 
     // ====================================

@@ -56,9 +56,14 @@ public class Entity {
     public int baseSpeed = 8;
     
     public ArrayList<Quest> quests = new ArrayList<>();
+    public ArrayList<Item> equipped = new ArrayList<>(9);
     
     public Entity(GamePanel gp) {
         this.gp = gp;
+
+        for (int i = 0; i < 9; i++) {
+            equipped.add(null);
+        }
         
         // Αρχικοποίησε base stats (ίδια με τα αρχικά)
         baseLevel = level;

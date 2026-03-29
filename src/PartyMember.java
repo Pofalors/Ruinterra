@@ -9,7 +9,6 @@ public class PartyMember extends Entity {
     public int expToNextLevel;
     public int level;
     public int baseAttack, baseDefense, baseMagicAttack, baseSpeed;
-    public ArrayList<Item> equipped = new ArrayList<>(9);
     
     public PartyMember(GamePanel gp, String name, String className) {
         super(gp);
