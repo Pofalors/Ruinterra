@@ -130,6 +130,11 @@ public class GamePanel extends JPanel implements Runnable {
     public BufferedImage itemCatNecklacesIcon;
     public BufferedImage itemCatConsumablesIcon;
     public BufferedImage itemCatScrollsIcon;
+    public BufferedImage worldMapBackground;
+    public BufferedImage worldMapTownIcon;
+    public BufferedImage worldMapPathIcon;
+    public BufferedImage worldMapForestIcon;
+    public BufferedImage worldMapCaveIcon;
     //public ArrayList<ItemOnGround> itemsOnGround = new ArrayList<>();
     public ArrayList<ArrayList<ItemOnGround>> itemsOnGround = new ArrayList<>();
     public String itemTooltip = "";
@@ -138,6 +143,37 @@ public class GamePanel extends JPanel implements Runnable {
     public ArrayList<Item> chestLootItems = new ArrayList<>();
     public ArrayList<Integer> chestLootAmounts = new ArrayList<>();
     public int chestLootSelectedIndex = 0;
+    // ===== WORLD MAP REGIONS =====
+    public static class WorldMapRegion {
+        public String id;
+        public String displayName;
+        public int x;
+        public int y;
+        public int width;
+        public int height;
+        public String type; // town, field, cave, forest, path, wild
+        public boolean travelEnabled;
+
+        public WorldMapRegion(String id, String displayName, int x, int y, int width, int height, String type, boolean travelEnabled) {
+            this.id = id;
+            this.displayName = displayName;
+            this.x = x;
+            this.y = y;
+            this.width = width;
+            this.height = height;
+            this.type = type;
+            this.travelEnabled = travelEnabled;
+        }
+
+        public boolean contains(int px, int py) {
+            return px >= x && px <= x + width && py >= y && py <= y + height;
+        }
+    }
+    public ArrayList<WorldMapRegion> worldMapRegions = new ArrayList<>();
+    public int mapCursorX = 250;
+    public int mapCursorY = 220;
+    public String hoveredMapRegionName = "";
+    // ==========================
 
     // ========== ΗΧΟΣ ==========
     public Sound sound = new Sound();
@@ -510,6 +546,11 @@ public class GamePanel extends JPanel implements Runnable {
             magePortrait32 = ImageIO.read(new File("res/menu/mage_portrait_32.png"));
             equipmentGridBg = ImageIO.read(new File("res/gui/equipment_bg.png"));
             menuPointer = ImageIO.read(new File("res/gui/menu_pointer.png"));
+            worldMapBackground = ImageIO.read(new File("res/gui/world_map_bg.png"));
+            worldMapTownIcon = ImageIO.read(new File("res/gui/map_icon_town.png"));
+            worldMapPathIcon = ImageIO.read(new File("res/gui/map_icon_path.png"));
+            worldMapForestIcon = ImageIO.read(new File("res/gui/map_icon_forest.png"));
+            worldMapCaveIcon = ImageIO.read(new File("res/gui/map_icon_cave.png"));
 
             itemCatAllIcon = ImageIO.read(new File("res/gui/item_cat_all.png"));
             itemCatPotionsIcon = ImageIO.read(new File("res/gui/item_cat_potions.png"));
@@ -745,6 +786,7 @@ public class GamePanel extends JPanel implements Runnable {
         // //portals.add(new Portal(3, 40 * tileSize, 30 * tileSize, 6, 8 * tileSize, 8 * tileSize)); // Town -> region
         // portals.add(new Portal(3, 40 * tileSize, 28 * tileSize, 6, 20 * tileSize, 10 * tileSize)); // Town -> testmaps
 
+        initWorldMapRegions();
         //ΞΕΚΙΝΑΩ ΜΕ TITLE
         gameState = titleState;
     }
@@ -1054,6 +1096,11 @@ public class GamePanel extends JPanel implements Runnable {
                     
                     if (hasMap) {
                         gameState = mapState;
+
+                        // αρχική θέση cursor
+                        mapCursorX = screenWidth / 2;
+                        mapCursorY = screenHeight / 2;
+                        hoveredMapRegionName = "";
                     } else {
                         startDialogue("Δεν έχεις χάρτη ακόμα...");
                         gameState = dialogueState;
@@ -1064,6 +1111,50 @@ public class GamePanel extends JPanel implements Runnable {
                     gameState = playState;
                     keyH.mPressed = false;
                     try { Thread.sleep(200); } catch (Exception e) {}
+                }
+            }
+
+            // ========== WORLD MAP POINTER ==========
+            if (gameState == mapState) {
+
+                if (keyH.escapePressed) {
+                    gameState = playState;
+                    hoveredMapRegionName = "";
+                    keyH.escapePressed = false;
+                    try { Thread.sleep(180); } catch (Exception e) {}
+                }
+
+                int cursorSpeed = 8;
+
+                if (keyH.upPressed) {
+                    mapCursorY -= cursorSpeed;
+                    if (mapCursorY < 40) mapCursorY = 40;
+                    keyH.upPressed = false;
+                }
+
+                if (keyH.downPressed) {
+                    mapCursorY += cursorSpeed;
+                    if (mapCursorY > screenHeight - 40) mapCursorY = screenHeight - 40;
+                    keyH.downPressed = false;
+                }
+
+                if (keyH.leftPressed) {
+                    mapCursorX -= cursorSpeed;
+                    if (mapCursorX < 40) mapCursorX = 40;
+                    keyH.leftPressed = false;
+                }
+
+                if (keyH.rightPressed) {
+                    mapCursorX += cursorSpeed;
+                    if (mapCursorX > screenWidth - 40) mapCursorX = screenWidth - 40;
+                    keyH.rightPressed = false;
+                }
+
+                WorldMapRegion hovered = getHoveredWorldMapRegion();
+                if (hovered != null) {
+                    hoveredMapRegionName = hovered.displayName;
+                } else {
+                    hoveredMapRegionName = "";
                 }
             }
 
@@ -8360,12 +8451,6 @@ public class GamePanel extends JPanel implements Runnable {
         return player;
     }
 
-    private String getSelectedItemUseTargetName() {
-        Entity target = getSelectedItemUseTarget();
-        if (target == null || target.name == null) return "Hero";
-        return target.name;
-    }
-
     private int getMaxItemUseTargetIndex() {
         return partyMembers.size(); // 0 = hero, 1.. = party members
     }
@@ -8402,6 +8487,76 @@ public class GamePanel extends JPanel implements Runnable {
             }
         }
     }
+
+    private void initWorldMapRegions() {
+        worldMapRegions.clear();
+
+        // ΠΡΟΣΩΡΙΝΕΣ rectangular περιοχές πάνω στο map screen
+        // Τις ρυθμίζεις μετά πολύ εύκολα με το μάτι
+
+        worldMapRegions.add(new WorldMapRegion(
+            "town_01",
+            "Town",
+            400, 300, 40, 40,
+            "town",
+            true
+        ));
+
+        worldMapRegions.add(new WorldMapRegion(
+            "fields_01",
+            "Southern Fields",
+            400, 350, 40, 40,
+            "field",
+            false
+        ));
+
+        worldMapRegions.add(new WorldMapRegion(
+            "cave_01",
+            "Northern Cave",
+            360, 240, 40, 40,
+            "cave",
+            false
+        ));
+
+        // για αργότερα
+        worldMapRegions.add(new WorldMapRegion(
+            "pass_01",
+            "Mountain Pass",
+            420, 90, 40, 40,
+            "path",
+            false
+        ));
+    }
+
+    private BufferedImage getWorldMapRegionIcon(WorldMapRegion region) {
+        if (region == null || region.type == null) return null;
+
+        switch (region.type.toLowerCase()) {
+            case "town":
+                return worldMapTownIcon;
+            case "path":
+                return worldMapPathIcon;
+            case "forest":
+            case "field":
+            case "wild":
+                return worldMapForestIcon;
+            case "cave":
+                return worldMapCaveIcon;
+        }
+
+        return null;
+    }
+
+    private WorldMapRegion getHoveredWorldMapRegion() {
+        for (int i = 0; i < worldMapRegions.size(); i++) {
+            WorldMapRegion region = worldMapRegions.get(i);
+            if (region.contains(mapCursorX, mapCursorY)) {
+                return region;
+            }
+        }
+        return null;
+    }
+
 
     // ====================================
     //      END OF DRAW MENU HELPERS
@@ -8480,104 +8635,97 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     public void drawMapScreen(Graphics2D g2) {
-        g2.setColor(new Color(0, 0, 0, 220));
-        g2.fillRect(0, 0, screenWidth, screenHeight);
-        
-        // ========== ΧΑΡΤΗΣ ==========
-        // Υπολόγισε το μέγεθος κάθε tile στο minimap
-        int mapWidth = screenWidth - 50;
-        int mapHeight = screenHeight - 50;
-        
-        int tileSizeMap = Math.min(mapWidth / maxWorldCol, mapHeight / maxWorldRow);
-        tileSizeMap = Math.max(tileSizeMap, 4); // Μίνιμουμ 4 pixels
-        
-        // Κεντράρισμα του χάρτη
-        int totalMapWidth = maxWorldCol * tileSizeMap;
-        int totalMapHeight = maxWorldRow * tileSizeMap;
-        int mapX = (screenWidth - totalMapWidth) / 2;
-        int mapY = (screenHeight - totalMapHeight - 50) / 2;
-        
-        // Ζωγράφισε τον κόσμο (tiles) - ΧΡΗΣΙΜΟΠΟΙΩΝΤΑΣ ΤΙΣ ΠΡΑΓΜΑΤΙΚΕΣ ΕΙΚΟΝΕΣ
-        for (int row = 0; row < maxWorldRow; row++) {
-            for (int col = 0; col < maxWorldCol; col++) {
-                int tileNum = tileM.getTileNum(currentMap, row, col);
-                
-                // Πάρε την εικόνα του tile από τον TileManager
-                BufferedImage tileImage = tileM.tile[tileNum].image;
-                
-                if (tileImage != null) {
-                    int x = mapX + col * tileSizeMap;
-                    int y = mapY + row * tileSizeMap;
-                    
-                    // Ζωγράφισε το tile με scale στο μέγεθος του minimap
-                    g2.drawImage(tileImage, x, y, tileSizeMap, tileSizeMap, null);
-                } else {
-                    // Fallback αν δεν υπάρχει εικόνα
-                    g2.setColor(Color.darkGray);
-                    g2.fillRect(mapX + col * tileSizeMap, mapY + row * tileSizeMap, tileSizeMap, tileSizeMap);
-                }
-            }
-        }
-        
-        // ========== ΠΑΙΚΤΗΣ (με εικόνα) ==========
-        int playerCol = player.worldX / tileSize;
-        int playerRow = player.worldY / tileSize;
-        int playerMapX = mapX + playerCol * tileSizeMap;
-        int playerMapY = mapY + playerRow * tileSizeMap;
-        
-        // Ζωγράφισε την εικόνα του παίκτη
-        if (playerDown1 != null) {
-            g2.drawImage(playerDown1, playerMapX, playerMapY, tileSizeMap, tileSizeMap, null);
+        // ===== FULLSCREEN MAP BACKGROUND =====
+        if (worldMapBackground != null) {
+            g2.drawImage(worldMapBackground, 0, 0, screenWidth, screenHeight, null);
         } else {
-            // Fallback
-            g2.setColor(Color.red);
-            g2.fillOval(playerMapX, playerMapY, tileSizeMap, tileSizeMap);
+            GradientPaint gpMap = new GradientPaint(
+                0, 0, new Color(72, 63, 50),
+                0, screenHeight, new Color(42, 37, 30)
+            );
+            g2.setPaint(gpMap);
+            g2.fillRect(0, 0, screenWidth, screenHeight);
         }
 
-        // ========== NPCs (προαιρετικά) ==========
-        ArrayList<Entity> currentMapNPCs = npcs.get(currentMap);
-        for (Entity npc : currentMapNPCs) {
-            int npcCol = npc.worldX / tileSize;
-            int npcRow = npc.worldY / tileSize;
-            int npcMapX = mapX + npcCol * tileSizeMap;
-            int npcMapY = mapY + npcRow * tileSizeMap;
-            
+        // ελαφρύ dark overlay για να δένουν τα icons/pointer
+        g2.setColor(new Color(0, 0, 0, 40));
+        g2.fillRect(0, 0, screenWidth, screenHeight);
 
-            if (npc.currentImage != null) {
-                g2.drawImage(npc.down1, npcMapX, npcMapY, tileSizeMap, tileSizeMap, null);
+        // ===== REGION ICONS =====
+        for (int i = 0; i < worldMapRegions.size(); i++) {
+            WorldMapRegion region = worldMapRegions.get(i);
+
+            BufferedImage icon = getWorldMapRegionIcon(region);
+            int iconX = region.x;
+            int iconY = region.y;
+            int iconSize = 26;
+
+            if (icon != null) {
+                g2.drawImage(icon, iconX, iconY, iconSize, iconSize, null);
             } else {
-                // Fallback
-                g2.setColor(Color.cyan);
-                g2.fillRect(npcMapX, npcMapY, tileSizeMap, tileSizeMap);
+                g2.setColor(new Color(230, 220, 180));
+                g2.fillOval(iconX, iconY, iconSize, iconSize);
             }
         }
-        
-        // ========== ΣΥΝΤΕΤΑΓΜΕΝΕΣ ==========
-        int coordX = 10;
-        int coordY = screenHeight - 80;
-        
-        g2.setFont(maruMonicaBold);
-        g2.setColor(Color.yellow);
-        g2.drawString("Συντεταγμένες:", coordX, coordY);
-        
-        g2.setFont(maruMonica);
-        g2.setColor(Color.white);
-        g2.drawString("Tile: (" + playerCol + ", " + playerRow + ")", 
-                    coordX + 20, coordY + 25);
-        g2.drawString("Pixel: (" + player.worldX + ", " + player.worldY + ")", 
-                    coordX + 20, coordY + 45);
-        
-        // ========== ΠΛΗΡΟΦΟΡΙΕΣ ΧΑΡΤΗ ==========
-        g2.setFont(maruMonicaSmall);
-        g2.drawString("World: " + (currentMap == 0 ? "Overworld" : "Dungeon"), 
-                    coordX, coordY + 70);
-        
-        // ========== ΟΔΗΓΙΕΣ ==========
-        g2.setColor(Color.gray);
-        g2.setFont(maruMonicaSmall);
-        String exit = "Πάτα Μ για να κλείσεις";
-        int x = getXforCenteredText(exit, g2);
-        g2.drawString(exit, x, screenHeight - 30);
+
+        // ===== CURSOR POINTER =====
+        if (menuPointer != null) {
+            g2.drawImage(menuPointer, mapCursorX - 12, mapCursorY - 12, 24, 24, null);
+        } else {
+            g2.setColor(new Color(255, 220, 140));
+            g2.setFont(g2.getFont().deriveFont(Font.BOLD, 20f));
+            g2.drawString("X", mapCursorX - 6, mapCursorY + 6);
+        }
+
+        // ===== HOVER POPUP =====
+        if (hoveredMapRegionName != null && !hoveredMapRegionName.isEmpty()) {
+            g2.setFont(g2.getFont().deriveFont(Font.BOLD, 18f));
+            FontMetrics fm = g2.getFontMetrics();
+
+            int popupTextW = fm.stringWidth(hoveredMapRegionName);
+            int popupW = popupTextW + 26;
+            int popupH = 34;
+
+            int popupX = mapCursorX + 18;
+            int popupY = mapCursorY - 10;
+
+            // να μη βγαίνει εκτός οθόνης δεξιά
+            if (popupX + popupW > screenWidth - 10) {
+                popupX = mapCursorX - popupW - 18;
+            }
+
+            // να μη βγαίνει εκτός οθόνης πάνω
+            if (popupY < 10) {
+                popupY = 10;
+            }
+
+            // crystal black popup shadow
+            g2.setColor(new Color(0, 0, 0, 90));
+            g2.fillRoundRect(popupX + 3, popupY + 3, popupW, popupH, 12, 12);
+
+            // crystal black body
+            g2.setColor(new Color(10, 10, 10, 185));
+            g2.fillRoundRect(popupX, popupY, popupW, popupH, 12, 12);
+
+            // border
+            g2.setColor(new Color(220, 220, 220, 70));
+            g2.drawRoundRect(popupX, popupY, popupW, popupH, 12, 12);
+
+            // text
+            g2.setColor(new Color(245, 235, 220));
+            g2.drawString(hoveredMapRegionName, popupX + 13, popupY + 22);
+        }
+
+        // ===== FOOTER =====
+        int footerH = 42;
+        int footerY = screenHeight - footerH;
+
+        g2.setColor(new Color(0, 0, 0, 150));
+        g2.fillRect(0, footerY, screenWidth, footerH);
+
+        g2.setColor(new Color(240, 230, 210));
+        g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 16f));
+        g2.drawString("Arrow Keys Move Cursor   Esc Back", 20, footerY + 26);
     }
 
     public void drawPauseScreen(Graphics2D g2) {

@@ -1,3 +1,0 @@
-currentMap=1
-worldX=1388
-worldY=872
