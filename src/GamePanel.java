@@ -7075,7 +7075,52 @@ public class GamePanel extends JPanel implements Runnable {
         g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 18f));
 
         if (inventory.menuSection == 0) {
-            // No details panel for Items
+            ArrayList<Item> filteredItems = getFilteredItemsList();
+            Item selected = null;
+
+            if (!filteredItems.isEmpty() &&
+                inventory.selectedItemsListIndex >= 0 &&
+                inventory.selectedItemsListIndex < filteredItems.size()) {
+                selected = filteredItems.get(inventory.selectedItemsListIndex);
+            }
+
+            // details panel background
+            int detailX = centerX + 12;
+            int detailY = contentBottomY + 18;
+            int detailW = centerW - 24;
+
+            if (selected != null) {
+                // item image area
+                int iconBoxX = detailX + 26;
+                int iconBoxY = detailY + 16;
+                int iconBoxSize = 64;
+
+                g2.setColor(new Color(35, 35, 35, 220));
+                g2.fillRoundRect(iconBoxX, iconBoxY, iconBoxSize, iconBoxSize, 10, 10);
+
+                g2.setColor(new Color(180, 150, 90, 140));
+                g2.drawRoundRect(iconBoxX, iconBoxY, iconBoxSize, iconBoxSize, 10, 10);
+
+                if (selected.image != null) {
+                    g2.drawImage(selected.image, iconBoxX + 8, iconBoxY + 8, 56, 56, null);
+                }
+
+                // item name
+                g2.setColor(textMain);
+                g2.setFont(g2.getFont().deriveFont(Font.BOLD, 18f));
+                g2.drawString(selected.name, detailX + 105, detailY + 32);
+
+                // description
+                g2.setColor(textMain);
+                g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 15f));
+
+                String description = getItemDescription(selected);
+                drawWrappedText(g2, description, detailX + 105, detailY + 58, detailW - 125, 20);
+            } else {
+                g2.setColor(textDim);
+                g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 18f));
+                g2.drawString("No item selected.", detailX + 18, detailY + 32);
+            }
         }
 
         else if (inventory.menuSection == 1) {
@@ -7455,6 +7500,36 @@ public class GamePanel extends JPanel implements Runnable {
         g2.setColor(textMain);
         g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 20f));
         g2.drawString("↑↓ Select Item   Enter Action   Esc Back", 25, screenH - 28);
+    }
+
+    private void drawWrappedText(Graphics2D g2, String text, int x, int y, int maxWidth, int lineHeight) {
+        if (text == null || text.isEmpty()) return;
+
+        FontMetrics fm = g2.getFontMetrics();
+        String[] paragraphs = text.split("\n");
+        int currentY = y;
+
+        for (String paragraph : paragraphs) {
+            String[] words = paragraph.split(" ");
+            String line = "";
+
+            for (String word : words) {
+                String testLine = line.isEmpty() ? word : line + " " + word;
+
+                if (fm.stringWidth(testLine) > maxWidth) {
+                    g2.drawString(line, x, currentY);
+                    currentY += lineHeight;
+                    line = word;
+                } else {
+                    line = testLine;
+                }
+            }
+
+            if (!line.isEmpty()) {
+                g2.drawString(line, x, currentY);
+                currentY += lineHeight;
+            }
+        }
     }
 
     private void drawPointer(Graphics2D g2, int x, int y) {
@@ -8080,6 +8155,89 @@ public class GamePanel extends JPanel implements Runnable {
 
         String name = item.name.toLowerCase();
         return name.contains("scroll");
+    }
+
+    private String getItemDescription(Item item) {
+        if (item == null) return "";
+
+        if (isPotionItem(item)) {
+            if (item.healAmount > 0 && item.mpBonus > 0) {
+                return "HP +" + item.healAmount + " / MP +" + item.mpBonus;
+            }
+            if (item.healAmount > 0) {
+                return "HP +" + item.healAmount;
+            }
+            if (item.mpBonus > 0) {
+                return "MP +" + item.mpBonus;
+            }
+            return "Potion item.";
+        }
+
+        if (isWeaponCategoryItem(item)) {
+            StringBuilder sb = new StringBuilder("Weapon.\n");
+
+            if (item.attackBonus != 0) {
+                sb.append("ATK +").append(item.attackBonus);
+            }
+            if (item.magicBonus != 0) {
+                if (sb.length() > 8) sb.append("\n");
+                sb.append("MAG +").append(item.magicBonus);
+            }
+
+            return sb.toString();
+        }
+
+        if (isShieldItem(item)) {
+            return "Shield.\nDEF +" + item.defenseBonus;
+        }
+
+        if (isHelmetItem(item)) {
+            return "Helmet.\nDEF +" + item.defenseBonus;
+        }
+
+        if (isBodyArmorItem(item)) {
+            StringBuilder sb = new StringBuilder("Body armor.\n");
+
+            if (item.defenseBonus != 0) {
+                sb.append("DEF +").append(item.defenseBonus);
+            }
+            if (item.hpBonus != 0) {
+                if (sb.length() > 12) sb.append("\n");
+                sb.append("HP +").append(item.hpBonus);
+            }
+
+            return sb.toString();
+        }
+
+        if (isNecklaceItem(item)) {
+            StringBuilder sb = new StringBuilder("Accessory.\n");
+
+            if (item.magicBonus != 0) {
+                sb.append("MAG +").append(item.magicBonus);
+            }
+            if (item.mpBonus != 0) {
+                if (sb.length() > 11) sb.append("\n");
+                sb.append("MP +").append(item.mpBonus);
+            }
+
+            return sb.toString();
+        }
+
+        if (isScrollItem(item)) {
+            return "A skill scroll.\nUsed to learn abilities later.";
+        }
+
+        if (isConsumableCategoryItem(item)) {
+            if (item.healAmount > 0) {
+                return "HP +" + item.healAmount;
+            }
+            if (item.mpBonus > 0) {
+                return "MP +" + item.mpBonus;
+            }
+            return "Consumable item.";
+        }
+
+        return "Item.";
     }
 
     private ArrayList<Item> getAllInventoryItemsList() {
