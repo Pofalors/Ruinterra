@@ -1,6 +1,5 @@
 gold=0
 Staff|1
+Spear 01|1
 Dagger|1
-Iron Sword|1
-Leather Armor|1
-Leather Boots|1
+Health Potion|1

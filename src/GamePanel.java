@@ -97,8 +97,8 @@ public class GamePanel extends JPanel implements Runnable {
     // ===== OCTOPATH-STYLE MAIN MENU =====
     public String[] mainMenuOptions = {
         "Items",
-        "Equipment",
         "Status",
+        "Equipment",
         "World Map",
         "Journal",
         "Save",
@@ -992,6 +992,16 @@ public class GamePanel extends JPanel implements Runnable {
                     inventory.inventoryMode = 0;
                     inventory.selectedItemsCategory = 0;
                     inventory.selectedItemsListIndex = 0;
+                    inventory.itemUseTargetMode = false;
+                    inventory.itemUseTargetIndex = 0;
+
+                    // καθάρισε latched menu/navigation keys για να μη μπει κατευθείαν στο center
+                    keyH.enterPressed = false;
+                    keyH.rightPressed = false;
+                    keyH.leftPressed = false;
+                    keyH.upPressed = false;
+                    keyH.downPressed = false;
+                    keyH.escapePressed = false;
 
                     playSound("menu_open");
                 } else if (gameState == inventoryState) {
@@ -1337,53 +1347,57 @@ public class GamePanel extends JPanel implements Runnable {
 
                     if (inventory.menuFocus == 0) {
 
-                        if (keyH.upPressed) {
-                            inventory.menuSection--;
-                            if (inventory.menuSection < 0) {
-                                inventory.menuSection = mainMenuOptions.length - 1;
-                            }
-                            playSound("menu_select");
-                            try { Thread.sleep(150); } catch (Exception e) {}
-                            keyH.upPressed = false;
-                        }
+                        if (inventory.menuFocus == 0) {
 
-                        if (keyH.downPressed) {
-                            inventory.menuSection++;
-                            if (inventory.menuSection >= mainMenuOptions.length) {
-                                inventory.menuSection = 0;
-                            }
-                            playSound("menu_select");
-                            try { Thread.sleep(150); } catch (Exception e) {}
-                            keyH.downPressed = false;
-                        }
-
-                        if (keyH.enterPressed) {
-                            inventory.menuFocus = 1;
-
-                            // reset selections ανά section
-                            if (inventory.menuSection == 0) {
-                                inventory.selectedItemsCategory = 0;
-                                inventory.selectedItemsListIndex = 0;
-                            }
-                            else if (inventory.menuSection == 1) {
-                                inventory.selectedEquipSlot = 0;
-                                inventory.inventoryMode = 1;
-                            }
-                            else if (inventory.menuSection == 2) {
-                                inventory.selectedPartyMember = 0;
+                            if (keyH.upPressed) {
+                                inventory.menuSection--;
+                                if (inventory.menuSection < 0) {
+                                    inventory.menuSection = mainMenuOptions.length - 1;
+                                }
+                                playSound("menu_select");
+                                try { Thread.sleep(150); } catch (Exception e) {}
+                                keyH.upPressed = false;
                             }
 
-                            playSound("menu_select");
-                            try { Thread.sleep(180); } catch (Exception e) {}
-                            keyH.enterPressed = false;
-                        }
+                            if (keyH.downPressed) {
+                                inventory.menuSection++;
+                                if (inventory.menuSection >= mainMenuOptions.length) {
+                                    inventory.menuSection = 0;
+                                }
+                                playSound("menu_select");
+                                try { Thread.sleep(150); } catch (Exception e) {}
+                                keyH.downPressed = false;
+                            }
 
-                        if (keyH.escapePressed) {
-                            gameState = playState;
-                            showInventory = false;
-                            playSound("menu_close");
-                            try { Thread.sleep(180); } catch (Exception e) {}
-                            keyH.escapePressed = false;
+                            if (keyH.enterPressed) {
+                                inventory.menuFocus = 1;
+
+                                if (inventory.menuSection == 0) {
+                                    inventory.selectedItemsCategory = 0;
+                                    inventory.selectedItemsListIndex = 0;
+                                    inventory.itemUseTargetMode = false;
+                                    inventory.itemUseTargetIndex = 0;
+                                }
+                                else if (inventory.menuSection == 1) {
+                                    inventory.selectedEquipSlot = 0;
+                                    inventory.inventoryMode = 1;
+                                }
+                                else if (inventory.menuSection == 2) {
+                                    inventory.selectedPartyMember = 0;
+                                }
+
+                                playSound("menu_select");
+                                try { Thread.sleep(180); } catch (Exception e) {}
+                                keyH.enterPressed = false;
+                            }
+
+                            if (keyH.escapePressed) {
+                                gameState = playState;
+                                showInventory = false;
+                                playSound("menu_close");
+                                try { Thread.sleep(180); } catch (Exception e) {}
+                                keyH.escapePressed = false;
+                            }
                         }
                     }
                     
@@ -1398,82 +1412,153 @@ public class GamePanel extends JPanel implements Runnable {
                             int maxIndex = filteredItems.size() - 1;
                             if (maxIndex < 0) maxIndex = 0;
 
-                            // category αλλαγή
-                            if (keyH.leftPressed) {
-                                inventory.selectedItemsCategory--;
-                                if (inventory.selectedItemsCategory < 0) inventory.selectedItemsCategory = 0;
+                            // =====================================
+                            // TARGET SELECT MODE
+                            // =====================================
+                            if (inventory.itemUseTargetMode) {
 
-                                inventory.selectedItemsListIndex = 0;
+                                if (keyH.upPressed) {
+                                    inventory.itemUseTargetIndex--;
+                                    if (inventory.itemUseTargetIndex < 0) {
+                                        inventory.itemUseTargetIndex = 0;
+                                    }
 
-                                playSound("menu_select");
-                                try { Thread.sleep(150); } catch (Exception e) {}
-                                keyH.leftPressed = false;
-                            }
-
-                            if (keyH.rightPressed) {
-                                inventory.selectedItemsCategory++;
-                                if (inventory.selectedItemsCategory >= itemCategoryOptions.length) {
-                                    inventory.selectedItemsCategory = itemCategoryOptions.length - 1;
+                                    playSound("menu_select");
+                                    try { Thread.sleep(150); } catch (Exception e) {}
+                                    keyH.upPressed = false;
                                 }
 
-                                inventory.selectedItemsListIndex = 0;
+                                if (keyH.downPressed) {
+                                    inventory.itemUseTargetIndex++;
+                                    int maxTarget = getMaxItemUseTargetIndex();
+                                    if (inventory.itemUseTargetIndex > maxTarget) {
+                                        inventory.itemUseTargetIndex = maxTarget;
+                                    }
 
-                                playSound("menu_select");
-                                try { Thread.sleep(150); } catch (Exception e) {}
-                                keyH.rightPressed = false;
+                                    playSound("menu_select");
+                                    try { Thread.sleep(150); } catch (Exception e) {}
+                                    keyH.downPressed = false;
+                                }
+
+                                if (keyH.escapePressed) {
+                                    inventory.itemUseTargetMode = false;
+                                    inventory.itemUseTargetIndex = 0;
+
+                                    playSound("menu_close");
+                                    try { Thread.sleep(180); } catch (Exception e) {}
+                                    keyH.escapePressed = false;
+                                }
+
+                                if (keyH.enterPressed) {
+                                    if (!filteredItems.isEmpty() &&
+                                        inventory.selectedItemsListIndex >= 0 &&
+                                        inventory.selectedItemsListIndex < filteredItems.size()) {
+
+                                        Item selected = filteredItems.get(inventory.selectedItemsListIndex);
+
+                                        if (isUsableItemFromItemsMenu(selected)) {
+                                            Entity target = getSelectedItemUseTarget();
+
+                                            applyItemToTarget(selected, target);
+                                            consumeOneItemFromInventory(selected);
+
+                                            saveInventoryAndGold();
+                                            savePartyStats();
+
+                                            inventory.itemUseTargetMode = false;
+                                            inventory.itemUseTargetIndex = 0;
+
+                                            sound.playBattleSE("item");
+                                        }
+                                    }
+
+                                    try { Thread.sleep(180); } catch (Exception e) {}
+                                    keyH.enterPressed = false;
+                                }
                             }
 
-                            // λίστα items
-                            if (keyH.upPressed) {
-                                if (!filteredItems.isEmpty()) {
-                                    inventory.selectedItemsListIndex--;
-                                    if (inventory.selectedItemsListIndex < 0) {
+                            // =====================================
+                            // NORMAL ITEMS MODE
+                            // =====================================
+                            else {
+
+                                // category αλλαγή
+                                if (keyH.leftPressed) {
+                                    inventory.selectedItemsCategory--;
+                                    if (inventory.selectedItemsCategory < 0) {
+                                        inventory.selectedItemsCategory = 0;
+                                    }
+
+                                    inventory.selectedItemsListIndex = 0;
+
+                                    playSound("menu_select");
+                                    try { Thread.sleep(150); } catch (Exception e) {}
+                                    keyH.leftPressed = false;
+                                }
+
+                                if (keyH.rightPressed) {
+                                    inventory.selectedItemsCategory++;
+                                    if (inventory.selectedItemsCategory > itemCategoryOptions.length - 1) {
+                                        inventory.selectedItemsCategory = itemCategoryOptions.length - 1;
+                                    }
+
+                                    inventory.selectedItemsListIndex = 0;
+
+                                    playSound("menu_select");
+                                    try { Thread.sleep(150); } catch (Exception e) {}
+                                    keyH.rightPressed = false;
+                                }
+
+                                // item list navigation
+                                if (keyH.upPressed) {
+                                    if (!filteredItems.isEmpty()) {
+                                        inventory.selectedItemsListIndex--;
+                                        if (inventory.selectedItemsListIndex < 0) {
+                                            inventory.selectedItemsListIndex = 0;
+                                        }
+                                    } else {
                                         inventory.selectedItemsListIndex = 0;
                                     }
-                                } else {
-                                    inventory.selectedItemsListIndex = 0;
+
+                                    playSound("menu_select");
+                                    try { Thread.sleep(150); } catch (Exception e) {}
+                                    keyH.upPressed = false;
                                 }
 
-                                playSound("menu_select");
-                                try { Thread.sleep(150); } catch (Exception e) {}
-                                keyH.upPressed = false;
-                            }
-
-                            if (keyH.downPressed) {
-                                if (!filteredItems.isEmpty()) {
-                                    inventory.selectedItemsListIndex++;
-                                    if (inventory.selectedItemsListIndex > maxIndex) {
-                                        inventory.selectedItemsListIndex = maxIndex;
-                                    }
-                                } else {
-                                    inventory.selectedItemsListIndex = 0;
-                                }
-
-                                playSound("menu_select");
-                                try { Thread.sleep(150); } catch (Exception e) {}
-                                keyH.downPressed = false;
-                            }
-
-                            if (keyH.enterPressed) {
-                                if (!filteredItems.isEmpty() &&
-                                    inventory.selectedItemsListIndex >= 0 &&
-                                    inventory.selectedItemsListIndex < filteredItems.size()) {
-
-                                    Item selected = filteredItems.get(inventory.selectedItemsListIndex);
-
-                                    // προς το παρόν:
-                                    // use μόνο για potions/consumables
-                                    if (isPotionItem(selected) || isConsumableCategoryItem(selected)) {
-                                        playSound("menu_select");
-                                        startDialogue("Item use flow θα το βάλουμε αμέσως μετά.");
-                                        gameState = dialogueState;
+                                if (keyH.downPressed) {
+                                    if (!filteredItems.isEmpty()) {
+                                        inventory.selectedItemsListIndex++;
+                                        if (inventory.selectedItemsListIndex > maxIndex) {
+                                            inventory.selectedItemsListIndex = maxIndex;
+                                        }
                                     } else {
-                                        playSound("menu_select");
+                                        inventory.selectedItemsListIndex = 0;
                                     }
+
+                                    playSound("menu_select");
+                                    try { Thread.sleep(150); } catch (Exception e) {}
+                                    keyH.downPressed = false;
                                 }
 
-                                try { Thread.sleep(150); } catch (Exception e) {}
-                                keyH.enterPressed = false;
+                                if (keyH.enterPressed) {
+                                    if (!filteredItems.isEmpty() &&
+                                        inventory.selectedItemsListIndex >= 0 &&
+                                        inventory.selectedItemsListIndex < filteredItems.size()) {
+
+                                        Item selected = filteredItems.get(inventory.selectedItemsListIndex);
+
+                                        if (isUsableItemFromItemsMenu(selected)) {
+                                            inventory.itemUseTargetMode = true;
+                                            inventory.itemUseTargetIndex = 0;
+                                            playSound("menu_select");
+                                        } else {
+                                            playSound("menu_select");
+                                        }
+                                    }
+
+                                    try { Thread.sleep(150); } catch (Exception e) {}
+                                    keyH.enterPressed = false;
+                                }
                             }
                         }
 
@@ -6847,7 +6932,7 @@ public class GamePanel extends JPanel implements Runnable {
 
             for (int i = 0; i < filteredItems.size(); i++) {
                 Item item = filteredItems.get(i);
-                boolean selected = (inventory.menuFocus == 1 && inventory.selectedItemsListIndex == i);
+                boolean selected = (inventory.selectedItemsListIndex == i);
 
                 if (selected) {
                     drawPointer(g2, centerX + 34, listY - 18);
@@ -6866,36 +6951,66 @@ public class GamePanel extends JPanel implements Runnable {
                 g2.setColor(textDim);
                 g2.drawString("No items in this category.", centerX + 70, centerY + 110);
             }
-        }
 
-        else if (inventory.menuSection == 1) {
-            // EQUIPMENT
-            String[] equipLabels = {
-                "Weapon", "Armor", "Helm",
-                "Accessory 1", "Accessory 2", "Accessory 3",
-                "Extra 1", "Extra 2", "Extra 3"
-            };
+            if (inventory.itemUseTargetMode) {
+                int targetBoxW = 220;
+                int targetBoxH = 160;
+                int targetBoxX = centerX + centerW - targetBoxW - 18;
+                int targetBoxY = centerY + 68;
 
-            int listY = contentTopY + 40;
-            for (int i = 0; i < equipLabels.length; i++) {
-                boolean selected = (inventory.menuFocus == 1 && inventory.selectedEquipSlot == i);
+                // shadow
+                g2.setColor(new Color(0, 0, 0, 120));
+                g2.fillRoundRect(targetBoxX + 4, targetBoxY + 4, targetBoxW, targetBoxH, 14, 14);
 
-                if (selected) {
-                    g2.setColor(new Color(180, 130, 60, 160));
-                    g2.fillRoundRect(centerX + 15, listY - 20, centerW - 30, 28, 10, 10);
-                }
+                // panel
+                g2.setColor(new Color(22, 22, 22, 235));
+                g2.fillRoundRect(targetBoxX, targetBoxY, targetBoxW, targetBoxH, 14, 14);
 
-                Item item = inventory.getEquipSlot(i);
-                String itemName = (item == null) ? "-" : item.name;
+                // border
+                g2.setColor(new Color(180, 150, 90, 190));
+                g2.drawRoundRect(targetBoxX, targetBoxY, targetBoxW, targetBoxH, 14, 14);
 
+                // title
                 g2.setColor(textMain);
-                g2.drawString(equipLabels[i] + ": " + itemName, centerX + 25, listY);
-                listY += 32;
+                g2.setFont(g2.getFont().deriveFont(Font.BOLD, 16f));
+                g2.drawString("Use Item On", targetBoxX + 16, targetBoxY + 24);
+
+                // divider
+                g2.setColor(new Color(180, 150, 90, 90));
+                g2.drawLine(targetBoxX + 12, targetBoxY + 34, targetBoxX + targetBoxW - 12, targetBoxY + 34);
+
+                int targetY = targetBoxY + 58;
+                g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 16f));
+
+                for (int i = 0; i <= partyMembers.size(); i++) {
+                    String targetName;
+
+                    if (i == 0) {
+                        targetName = player.name;
+                    } else {
+                        targetName = partyMembers.get(i - 1).name;
+                    }
+
+                    if (inventory.itemUseTargetIndex == i) {
+                        drawPointer(g2, targetBoxX + 12, targetY - 18);
+                    }
+
+                    g2.setColor(textMain);
+                    g2.drawString(targetName, targetBoxX + 42, targetY);
+                    targetY += 28;
+                }
             }
         }
 
-        else if (inventory.menuSection == 2) {
+        else if (inventory.menuSection == 1) {
             // STATUS
+            g2.setColor(textDim);
+            g2.drawString("Status", centerX + 20, centerY + 90);
+            g2.drawString("Coming soon...", centerX + 20, centerY + 130);
+        }
+
+        else if (inventory.menuSection == 2) {
+            // EQUIPMENT
             int listY = contentTopY + 50;
 
             g2.setColor(textMain);
@@ -6955,7 +7070,7 @@ public class GamePanel extends JPanel implements Runnable {
         // =========================
         g2.setFont(g2.getFont().deriveFont(Font.BOLD, 22f));
         g2.setColor(textMain);
-        g2.drawString("Details", centerX + 20, contentBottomY + 25);
+        g2.drawString("Details", centerX + 40, contentBottomY + 25);
 
         g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 18f));
 
@@ -6984,49 +7099,7 @@ public class GamePanel extends JPanel implements Runnable {
         }
 
         else if (inventory.menuSection == 2) {
-            String charName;
-            int hp;
-            int maxHp;
-            int mp;
-            int maxMp;
-            int atk;
-            int def;
-            int mag;
-            int spd;
-
-            if (inventory.selectedPartyMember == 0) {
-                charName = player.name;
-                hp = player.hp;
-                maxHp = player.maxHp;
-                mp = player.mp;
-                maxMp = player.maxMp;
-                atk = player.attack;
-                def = player.defense;
-                mag = player.magicAttack;
-                spd = player.speed_stat;
-            } else {
-                PartyMember pm = partyMembers.get(inventory.selectedPartyMember - 1);
-                charName = pm.name;
-                hp = pm.hp;
-                maxHp = pm.maxHp;
-                mp = pm.mp;
-                maxMp = pm.maxMp;
-                atk = pm.attack;
-                def = pm.defense;
-                mag = pm.magicAttack;
-                spd = pm.speed_stat;
-            }
-
-            g2.setColor(textMain);
-            g2.drawString(charName, centerX + 20, contentBottomY + 70);
-
-            g2.setColor(textDim);
-            g2.drawString("HP: " + hp + "/" + maxHp, centerX + 20, contentBottomY + 110);
-            g2.drawString("MP: " + mp + "/" + maxMp, centerX + 20, contentBottomY + 140);
-            g2.drawString("ATK: " + atk, centerX + 20, contentBottomY + 170);
-            g2.drawString("DEF: " + def, centerX + 20, contentBottomY + 200);
-            g2.drawString("MAG: " + mag, centerX + 20, contentBottomY + 230);
-            g2.drawString("SPD: " + spd, centerX + 20, contentBottomY + 260);
+            // nothing for now
         }
 
         else if (inventory.menuSection == 5) {
@@ -7091,35 +7164,14 @@ public class GamePanel extends JPanel implements Runnable {
         g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 20f));
         g2.setColor(textMain);
 
-        if (inventory.menuSection == 0) {
-            g2.drawString("←→ Category   ↑↓ Select Item   Enter Confirm   Esc Back   I Close Menu", 25, bottomY + 42);
+        if (inventory.menuSection == 0 && inventory.itemUseTargetMode) {
+            g2.drawString("↑↓ Target   Enter Use Item   Esc Cancel   I Close Menu", 25, bottomY + 42);
+        }
+        else if (inventory.menuSection == 0) {
+            g2.drawString("←→ Category   ↑↓ Select Item   Enter Use   Esc Back   I Close Menu", 25, bottomY + 42);
         }
         else {
             g2.drawString("↑↓ Select   → / Enter Confirm   Esc Back   I Close Menu", 25, bottomY + 42);
-        }
-    }
-
-    private void drawWrappedText(Graphics2D g2, String text, int x, int y, int maxWidth, int lineHeight) {
-        if (text == null || text.isEmpty()) return;
-
-        FontMetrics fm = g2.getFontMetrics();
-        String[] words = text.split(" ");
-        String line = "";
-        int drawY = y;
-
-        for (String word : words) {
-            String testLine = line.isEmpty() ? word : line + " " + word;
-            if (fm.stringWidth(testLine) > maxWidth) {
-                g2.drawString(line, x, drawY);
-                line = word;
-                drawY += lineHeight;
-            } else {
-                line = testLine;
-            }
-        }
-
-        if (!line.isEmpty()) {
-            g2.drawString(line, x, drawY);
         }
     }
 
@@ -8133,6 +8185,62 @@ public class GamePanel extends JPanel implements Runnable {
                 g2.setColor(new Color(240, 230, 210));
                 g2.setFont(g2.getFont().deriveFont(Font.BOLD, 12f));
                 g2.drawString("" + i, drawX + 14, drawY + 24);
+            }
+        }
+    }
+
+    private Entity getSelectedItemUseTarget() {
+        if (inventory.itemUseTargetIndex == 0) {
+            return player;
+        }
+
+        int idx = inventory.itemUseTargetIndex - 1;
+        if (idx >= 0 && idx < partyMembers.size()) {
+            return partyMembers.get(idx);
+        }
+
+        return player;
+    }
+
+    private String getSelectedItemUseTargetName() {
+        Entity target = getSelectedItemUseTarget();
+        if (target == null || target.name == null) return "Hero";
+        return target.name;
+    }
+
+    private int getMaxItemUseTargetIndex() {
+        return partyMembers.size(); // 0 = hero, 1.. = party members
+    }
+
+    private boolean isUsableItemFromItemsMenu(Item item) {
+        if (item == null) return false;
+
+        return item.healAmount > 0 || item.mpBonus > 0;
+    }
+
+    private void applyItemToTarget(Item item, Entity target) {
+        if (item == null || target == null) return;
+
+        if (item.healAmount > 0) {
+            target.hp += item.healAmount;
+            if (target.hp > target.maxHp) target.hp = target.maxHp;
+        }
+
+        if (item.mpBonus > 0) {
+            target.mp += item.mpBonus;
+            if (target.mp > target.maxMp) target.mp = target.maxMp;
+        }
+    }
+
+    private void consumeOneItemFromInventory(Item selected) {
+        if (selected == null || selected.name == null) return;
+
+        for (int i = 0; i < inventory.storage.length; i++) {
+            Item storageItem = inventory.storage[i];
+            if (storageItem != null && storageItem.name != null &&
+                storageItem.name.equals(selected.name)) {
+                inventory.removeFromStorage(i);
+                return;
             }
         }
     }

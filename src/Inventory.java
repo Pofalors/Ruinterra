@@ -38,6 +38,9 @@ public class Inventory {
     // ===== NEW UNIFIED ITEMS TAB =====
     public int selectedItemsCategory = 0;   // 0=ALL, 1=POTIONS, 2=WEAPONS, 3=SHIELDS, 4=HELMETS, 5=BODY_ARMOR, 6=NECKLACES, 7=CONSUMABLES, 8=SCROLLS
     public int selectedItemsListIndex = 0;
+    // ===== ITEMS USE FLOW =====
+    public boolean itemUseTargetMode = false;
+    public int itemUseTargetIndex = 0;
     // ===== STATUS FULLSCREEN WINDOW =====
     public boolean statusDetailOpen = false;
     public int selectedEquipmentListIndex = 0;
