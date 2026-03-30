@@ -1211,8 +1211,19 @@ public class GamePanel extends JPanel implements Runnable {
                     // POPUP MODE
                     // =========================
                     if (inventory.statusEquipPopupOpen) {
+                        ArrayList<Item> allEquipItems = getStatusEquipmentDisplayList();
+                        Item popupSelectedItem = null;
 
-                        if (keyH.leftPressed || keyH.rightPressed) {
+                        if (!allEquipItems.isEmpty() &&
+                            inventory.selectedEquipmentListIndex >= 0 &&
+                            inventory.selectedEquipmentListIndex < allEquipItems.size()) {
+                            popupSelectedItem = allEquipItems.get(inventory.selectedEquipmentListIndex);
+                        }
+
+                        Entity popupSelectedCharacter = getSelectedStatusCharacter();
+                        boolean popupCanEquip = canCharacterEquipItem(popupSelectedCharacter, popupSelectedItem);
+
+                        if (popupCanEquip && (keyH.leftPressed || keyH.rightPressed)) {
                             inventory.statusEquipPopupOption = (inventory.statusEquipPopupOption == 0) ? 1 : 0;
                             playSound("menu_select");
                             try { Thread.sleep(150); } catch (Exception e) {}
@@ -1229,8 +1240,10 @@ public class GamePanel extends JPanel implements Runnable {
                         }
 
                         if (keyH.enterPressed) {
-                            if (inventory.statusEquipPopupOption == 0) { // YES
-                                handleStatusEquipAction();
+                            if (popupCanEquip) {
+                                if (inventory.statusEquipPopupOption == 0) {
+                                    handleStatusEquipAction();
+                                }
                             }
 
                             inventory.statusEquipPopupOpen = false;
@@ -1910,9 +1923,9 @@ public class GamePanel extends JPanel implements Runnable {
                         sound.stopMusic();
                         // Ξεκίνα με τη σωστή μουσική ανάλογα με την ώρα
                         if (dayTime == 0 || dayTime == 3) {
-                            sound.playMusic("overworld_day");
+                            sound.playMusic("town_day");
                         } else {
-                            sound.playMusic("overworld_night");
+                            sound.playMusic("town_night");
                         }
                         currentMusicVolume = musicVolume / 100.0f;
                         sound.setMusicVolume(currentMusicVolume);
@@ -3440,14 +3453,35 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     private void writeEntityStats(java.io.PrintWriter writer, String prefix, Entity e) {
-        writer.println(prefix + ".hp=" + e.hp);
-        writer.println(prefix + ".mp=" + e.mp);
-        writer.println(prefix + ".maxHp=" + e.maxHp);
-        writer.println(prefix + ".maxMp=" + e.maxMp);
-        writer.println(prefix + ".attack=" + e.attack);
-        writer.println(prefix + ".defense=" + e.defense);
-        writer.println(prefix + ".magicAttack=" + e.magicAttack);
-        writer.println(prefix + ".speed=" + e.speed_stat);
+        int attackBonus = getTotalEquippedAttackBonus(e);
+        int defenseBonus = getTotalEquippedDefenseBonus(e);
+        int magicBonus = getTotalEquippedMagicBonus(e);
+        int hpBonus = getTotalEquippedHpBonus(e);
+        int mpBonus = getTotalEquippedMpBonus(e);
+        int speedBonus = getTotalEquippedSpeedBonus(e);
+
+        int baseHp = e.hp - hpBonus;
+        int baseMp = e.mp - mpBonus;
+        int baseMaxHp = e.maxHp - hpBonus;
+        int baseMaxMp = e.maxMp - mpBonus;
+        int baseAttack = e.attack - attackBonus;
+        int baseDefense = e.defense - defenseBonus;
+        int baseMagicAttack = e.magicAttack - magicBonus;
+        int baseSpeed = e.speed_stat - speedBonus;
+
+        if (baseHp < 0) baseHp = 0;
+        if (baseMp < 0) baseMp = 0;
+        if (baseMaxHp < 1) baseMaxHp = 1;
+        if (baseMaxMp < 0) baseMaxMp = 0;
+
+        writer.println(prefix + ".hp=" + baseHp);
+        writer.println(prefix + ".mp=" + baseMp);
+        writer.println(prefix + ".maxHp=" + baseMaxHp);
+        writer.println(prefix + ".maxMp=" + baseMaxMp);
+        writer.println(prefix + ".attack=" + baseAttack);
+        writer.println(prefix + ".defense=" + baseDefense);
+        writer.println(prefix + ".magicAttack=" + baseMagicAttack);
+        writer.println(prefix + ".speed=" + baseSpeed);
         writer.println(prefix + ".level=" + e.level);
         writer.println(prefix + ".exp=" + e.exp);
     }
@@ -7402,6 +7436,10 @@ public class GamePanel extends JPanel implements Runnable {
         Item selected = allEquipItems.get(inventory.selectedEquipmentListIndex);
         if (selected == null) return;
 
+        Entity selectedCharacter = getSelectedStatusCharacter();
+        boolean canEquipSelected = canCharacterEquipItem(selectedCharacter, selected);
+        String selectedCharacterName = getCharacterDisplayName(selectedCharacter);
+
         Color border = new Color(180, 150, 90, 180);
         Color highlight = new Color(180, 130, 60, 180);
         Color textMain = new Color(240, 230, 210);
@@ -7429,11 +7467,15 @@ public class GamePanel extends JPanel implements Runnable {
         int ownerIndex = getItemEquippedOwnerIndex(selected);
         int selectedCharacterIndex = getSelectedStatusCharacterIndex();
 
-        if (ownerIndex == -1) {
-            g2.drawString("Equip this item?", popX + 48, popY + 38);
+        if (!canEquipSelected) {
+            g2.drawString(selectedCharacterName + " cannot equip", popX + 74, popY + 34);
+            g2.drawString("this weapon.", popX + 110, popY + 58);
+        }
+        else if (ownerIndex == -1) {
+            g2.drawString("Equip this item?", popX + 88, popY + 38);
         }
         else if (ownerIndex == selectedCharacterIndex) {
-            g2.drawString("Unequip this item?", popX + 30, popY + 38);
+            g2.drawString("Unequip this item?", popX + 70, popY + 38);
         }
         else {
             String ownerName = getEquipOwnerName(selected);
@@ -7442,21 +7484,29 @@ public class GamePanel extends JPanel implements Runnable {
 
         g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 18f));
         g2.setColor(textDim);
-        g2.drawString(selected.name, popX + 100, popY + 68);
+        g2.drawString(selected.name, popX + 130, popY + 78);
 
         boolean yesSelected = (inventory.statusEquipPopupOption == 0);
         boolean noSelected = (inventory.statusEquipPopupOption == 1);
 
-        if (yesSelected) {
-            drawPointer(g2, popX + 36, popY + 92);
-        }
-        if (noSelected) {
-            drawPointer(g2, popX + 176, popY + 92);
-        }
+        if (!canEquipSelected) {
+            drawPointer(g2, popX + 120, popY + 92);
 
-        g2.setColor(textMain);
-        g2.drawString("Yes", popX + 74, popY + 112);
-        g2.drawString("No", popX + 220, popY + 112);
+            g2.setColor(textMain);
+            g2.drawString("OK", popX + 155, popY + 112);
+        }
+        else {
+            if (yesSelected) {
+                drawPointer(g2, popX + 46, popY + 92);
+            }
+            if (noSelected) {
+                drawPointer(g2, popX + 176, popY + 92);
+            }
+
+            g2.setColor(textMain);
+            g2.drawString("Yes", popX + 74, popY + 112);
+            g2.drawString("No", popX + 220, popY + 112);
+        }
     }
 
     private boolean isItemEquipped(Item item) {
@@ -7553,8 +7603,8 @@ public class GamePanel extends JPanel implements Runnable {
 
         String name = item.name;
 
-        if (name.contains("Sword") || name.contains("Blade")) {
-            return 3; // SWORD
+        if (name.contains("Sword") || name.contains("Staff") || name.contains("Dagger") || name.contains("Spear")) {
+            return 3; // WEAPON
         } else if (name.contains("Shield")) {
             return 5; // SHIELD
         } else if (name.contains("Helmet") || name.contains("Hat")) {
@@ -7574,6 +7624,73 @@ public class GamePanel extends JPanel implements Runnable {
         }
 
         return -1;
+    }
+
+    private String getWeaponType(Item item) {
+        if (item == null || item.name == null) return "";
+
+        String name = item.name.toLowerCase();
+
+        if (name.contains("sword") || name.contains("blade")) return "sword";
+        if (name.contains("spear")) return "spear";
+        if (name.contains("dagger") || name.contains("knife")) return "dagger";
+        if (name.contains("bow")) return "bow";
+        if (name.contains("staff") || name.contains("rod") || name.contains("wand")) return "staff";
+
+        return "";
+    }
+
+    private boolean isWeaponItem(Item item) {
+        return getEquipSlotForItem(item) == 3;
+    }
+
+    private boolean canCharacterEquipItem(Entity character, Item item) {
+        if (character == null || item == null) return false;
+
+        // Για ΟΛΑ τα non-weapon items: επιτρέπονται σε όλους προς το παρόν
+        if (!isWeaponItem(item)) {
+            return true;
+        }
+
+        String weaponType = getWeaponType(item);
+
+        // Αν δεν αναγνωρίζουμε weapon type, το μπλοκάρουμε για ασφάλεια
+        if (weaponType.isEmpty()) {
+            return false;
+        }
+
+        // Hero
+        if (character == player) {
+            return weaponType.equals("spear");
+        }
+
+        // Assassin
+        if (partyMembers.size() > 0 && character == partyMembers.get(0)) {
+            return weaponType.equals("dagger") || weaponType.equals("sword");
+        }
+
+        // Mage
+        if (partyMembers.size() > 1 && character == partyMembers.get(1)) {
+            return weaponType.equals("staff");
+        }
+
+        return false;
+    }
+
+    private String getCharacterDisplayName(Entity character) {
+        if (character == null) return "Character";
+
+        if (character == player) return player.name;
+
+        if (partyMembers.size() > 0 && character == partyMembers.get(0)) {
+            return partyMembers.get(0).name;
+        }
+
+        if (partyMembers.size() > 1 && character == partyMembers.get(1)) {
+            return partyMembers.get(1).name;
+        }
+
+        return character.name;
     }
 
     private Entity getSelectedStatusCharacter() {
@@ -7631,6 +7748,78 @@ public class GamePanel extends JPanel implements Runnable {
 
         if (character.hp > character.maxHp) character.hp = character.maxHp;
         if (character.mp > character.maxMp) character.mp = character.maxMp;
+    }
+
+    private int getTotalEquippedAttackBonus(Entity e) {
+        int total = 0;
+        if (e == null || e.equipped == null) return total;
+
+        for (int i = 0; i < e.equipped.size(); i++) {
+            Item item = e.equipped.get(i);
+            if (item != null) total += item.attackBonus;
+        }
+
+        return total;
+    }
+
+    private int getTotalEquippedDefenseBonus(Entity e) {
+        int total = 0;
+        if (e == null || e.equipped == null) return total;
+
+        for (int i = 0; i < e.equipped.size(); i++) {
+            Item item = e.equipped.get(i);
+            if (item != null) total += item.defenseBonus;
+        }
+
+        return total;
+    }
+
+    private int getTotalEquippedMagicBonus(Entity e) {
+        int total = 0;
+        if (e == null || e.equipped == null) return total;
+
+        for (int i = 0; i < e.equipped.size(); i++) {
+            Item item = e.equipped.get(i);
+            if (item != null) total += item.magicBonus;
+        }
+
+        return total;
+    }
+
+    private int getTotalEquippedHpBonus(Entity e) {
+        int total = 0;
+        if (e == null || e.equipped == null) return total;
+
+        for (int i = 0; i < e.equipped.size(); i++) {
+            Item item = e.equipped.get(i);
+            if (item != null) total += item.hpBonus;
+        }
+
+        return total;
+    }
+
+    private int getTotalEquippedMpBonus(Entity e) {
+        int total = 0;
+        if (e == null || e.equipped == null) return total;
+
+        for (int i = 0; i < e.equipped.size(); i++) {
+            Item item = e.equipped.get(i);
+            if (item != null) total += item.mpBonus;
+        }
+
+        return total;
+    }
+
+    private int getTotalEquippedSpeedBonus(Entity e) {
+        int total = 0;
+        if (e == null || e.equipped == null) return total;
+
+        for (int i = 0; i < e.equipped.size(); i++) {
+            Item item = e.equipped.get(i);
+            if (item != null) total += item.speedBonus;
+        }
+
+        return total;
     }
 
     private int getItemEquippedOwnerIndex(Item item) {
@@ -7699,6 +7888,10 @@ public class GamePanel extends JPanel implements Runnable {
 
         int targetSlot = getEquipSlotForItem(selected);
         if (targetSlot == -1) return;
+
+        if (!canCharacterEquipItem(selectedCharacter, selected)) {
+            return;
+        }
 
         int ownerIndex = getItemEquippedOwnerIndex(selected);
 

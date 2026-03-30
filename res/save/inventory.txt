@@ -1,2 +1,0 @@
-gold=0
-Leather Boots|1

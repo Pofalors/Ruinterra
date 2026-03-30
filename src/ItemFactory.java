@@ -30,6 +30,30 @@ public class ItemFactory {
             item.loadImage("res/items/iron_sword.png");
             return item;
         }
+        
+        if (itemId.equals("dagger")) {
+            Item item = new Item("Dagger");
+            item.attackBonus = 6;
+            item.price = 200;
+            item.loadImage("res/items/dagger.png");
+            return item;
+        }
+
+        if (itemId.equals("spear_01")) {
+            Item item = new Item("Spear 01");
+            item.attackBonus = 8;
+            item.price = 200;
+            item.loadImage("res/items/spear_01.png");
+            return item;
+        }
+
+        if (itemId.equals("staff")) {
+            Item item = new Item("Staff");
+            item.magicBonus = 5;
+            item.price = 200;
+            item.loadImage("res/items/staff.png");
+            return item;
+        }
 
         if (itemId.equals("leather_armor")) {
             Item item = new Item("Leather Armor");
@@ -79,6 +103,9 @@ public class ItemFactory {
         if (itemName.equalsIgnoreCase("Health Potion")) return createById("health_potion");
         if (itemName.equalsIgnoreCase("Mana Potion")) return createById("mana_potion");
         if (itemName.equalsIgnoreCase("Iron Sword")) return createById("iron_sword");
+        if (itemName.equalsIgnoreCase("Dagger")) return createById("dagger");
+        if (itemName.equalsIgnoreCase("Staff")) return createById("staff");
+        if (itemName.equalsIgnoreCase("Spear 01")) return createById("spear_01");
         if (itemName.equalsIgnoreCase("Leather Armor")) return createById("leather_armor");
         if (itemName.equalsIgnoreCase("Leather Boots")) return createById("leather_boots");
         if (itemName.equalsIgnoreCase("Goblin Ear")) return createById("goblin_ear");

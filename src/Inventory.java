@@ -28,6 +28,16 @@ public class Inventory {
     public int selectedItemCategory = 0; // 0=Consumables, 1=Key Items
     public int selectedPartyMember = 0;  // για Status / Equipment αργότερα
     public boolean hideDetails = false;
+    // ===== NEW ITEMS TAB STATE =====
+    public int selectedConsumableIndex = 0;
+    public int selectedEquipmentItemIndex = 0;
+    public int selectedKeyItemIndex = 0;
+
+    public boolean itemTargetSelectOpen = false;
+    public int selectedItemTarget = 0; // 0=Hero, 1=partyMembers[0], 2=partyMembers[1]...
+    // ===== NEW UNIFIED ITEMS TAB =====
+    public int selectedItemsCategory = 0;   // 0=ALL, 1=POTIONS, 2=WEAPONS, 3=SHIELDS, 4=HELMETS, 5=BODY_ARMOR, 6=NECKLACES, 7=CONSUMABLES, 8=SCROLLS
+    public int selectedItemsListIndex = 0;
     // ===== STATUS FULLSCREEN WINDOW =====
     public boolean statusDetailOpen = false;
     public int selectedEquipmentListIndex = 0;
