@@ -39,18 +39,15 @@ public class Enemy extends Entity {
         int expReward = (int)(Math.random() * 40) + 10;
         // Τυχαίο gold (5-30)
         int goldReward = (int)(Math.random() * 25) + 5;
-        
-        // Δώσε τα rewards
-        player.addExp(expReward);
-        player.gold += goldReward;
-        
-        // Αποθήκευσε το μήνυμα για εμφάνιση
+
+        // ΔΕΝ δίνουμε εδώ rewards απευθείας στον Hero.
+        // Απλώς επιστρέφουμε τα rewards για να μοιραστούν σωστά στο battle victory.
         if (gp != null) {
             gp.battleMessage = "Νίκη! +" + expReward + " EXP, +" + goldReward + " Gold!";
         }
-        
-        System.out.println("Πήρες " + expReward + " EXP και " + goldReward + " gold!");
-        
+
+        System.out.println("Battle rewards generated: " + expReward + " EXP, " + goldReward + " gold!");
+
         return new int[] {expReward, goldReward};
     }
 

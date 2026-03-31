@@ -2177,8 +2177,18 @@ public class GamePanel extends JPanel implements Runnable {
                 // Πρόσθεσε τα rewards μόνο μία φορά
                 if (!victoryRewardsShown) {
                     battleMessage = "Νίκη! +" + victoryExp + " EXP, +" + victoryGold + " Gold!";
+
+                    // Ο Hero παίρνει το ίδιο EXP
                     player.addExp(victoryExp);
+
+                    // Όλα τα party members παίρνουν το ίδιο EXP
+                    for (PartyMember member : partyMembers) {
+                        member.addExp(victoryExp);
+                    }
+
+                    // Τα gold είναι κοινά, μπαίνουν μία φορά μόνο
                     player.gold += victoryGold;
+
                     victoryRewardsShown = true;
                     sound.stopMusic();
                     playSound("levelup");

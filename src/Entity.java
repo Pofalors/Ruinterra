@@ -91,24 +91,64 @@ public class Entity {
     }
     
     public void levelUp() {
+        // 1. Υπολόγισε τα equipment bonuses που φοράει τώρα ο Hero
+        int equipAttackBonus = 0;
+        int equipDefenseBonus = 0;
+        int equipMagicBonus = 0;
+        int equipSpeedBonus = 0;
+
+        if (equipped != null) {
+            for (Item item : equipped) {
+                if (item != null) {
+                    equipAttackBonus += item.attackBonus;
+                    equipDefenseBonus += item.defenseBonus;
+                    equipMagicBonus += item.magicBonus;
+                    equipSpeedBonus += item.speedBonus;
+                }
+            }
+        }
+
+        // 2. Βγάλε τα base stats του Hero χωρίς τον εξοπλισμό
+        int baseAttack = attack - equipAttackBonus;
+        int baseDefense = defense - equipDefenseBonus;
+        int baseMagicAttack = magicAttack - equipMagicBonus;
+        int baseSpeed = speed_stat - equipSpeedBonus;
+
+        // 3. Κανονικό level up
         level++;
         exp -= expToNextLevel;
         expToNextLevel = (int)(expToNextLevel * 1.5);
-        
-        // Αύξηση stats (ΠΡΩΤΑ τα base stats!)
-        baseMaxHp += 10;
-        baseMaxMp += 5;
+
+        maxHp += 6;
+        maxMp += 3;
         baseAttack += 2;
         baseDefense += 1;
-        baseMagicAttack += 2;
-        baseMagicDefense += 1;
+        baseMagicAttack += 1;
         baseSpeed += 1;
-        
-        // Μετά ενημέρωσε τα τρέχοντα stats (base + bonuses από items)
-        // ΥΠΟΛΟΓΙΣΕ ΞΑΝΑ ΤΑ ΣΥΝΟΛΙΚΑ STATS
-        recalcStats();
-        
-        System.out.println("LEVEL UP! Έγινες level " + level + "!");
+
+        hp = maxHp;
+        mp = maxMp;
+
+        // 4. Ξαναχτίσε τα visible stats με τον εξοπλισμό επάνω
+        recalcHeroStatsWithEquipment(baseAttack, baseDefense, baseMagicAttack, baseSpeed);
+    }
+
+    private void recalcHeroStatsWithEquipment(int baseAttack, int baseDefense, int baseMagicAttack, int baseSpeed) {
+        attack = baseAttack;
+        defense = baseDefense;
+        magicAttack = baseMagicAttack;
+        speed_stat = baseSpeed;
+
+        if (equipped != null) {
+            for (Item item : equipped) {
+                if (item != null) {
+                    attack += item.attackBonus;
+                    defense += item.defenseBonus;
+                    magicAttack += item.magicBonus;
+                    speed_stat += item.speedBonus;
+                }
+            }
+        }
     }
 
     // ΝΕΑ ΜΕΘΟΔΟΣ: Υπολογίζει ξανά όλα τα stats
