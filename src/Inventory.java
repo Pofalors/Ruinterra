@@ -47,6 +47,11 @@ public class Inventory {
     // ===== STATUS EQUIP POPUP =====
     public boolean statusEquipPopupOpen = false;
     public int statusEquipPopupOption = 0; // 0=Yes, 1=No
+    // ===== WORLD MAP =====
+    public boolean worldMapOpenFromMenu = false;
+    public int worldMapTransitionAlpha = 0;
+    public boolean worldMapOpening = false;
+    public boolean worldMapClosing = false;
     
     public Inventory() {
         for (int i = 0; i < storage.length; i++) {

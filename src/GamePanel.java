@@ -153,8 +153,10 @@ public class GamePanel extends JPanel implements Runnable {
         public int height;
         public String type; // town, field, cave, forest, path, wild
         public boolean travelEnabled;
+        public String targetMapName;
 
-        public WorldMapRegion(String id, String displayName, int x, int y, int width, int height, String type, boolean travelEnabled) {
+        public WorldMapRegion(String id, String displayName, int x, int y, int width, int height,
+                            String type, boolean travelEnabled, String targetMapName) {
             this.id = id;
             this.displayName = displayName;
             this.x = x;
@@ -163,6 +165,7 @@ public class GamePanel extends JPanel implements Runnable {
             this.height = height;
             this.type = type;
             this.travelEnabled = travelEnabled;
+            this.targetMapName = targetMapName;
         }
 
         public boolean contains(int px, int py) {
@@ -1036,6 +1039,10 @@ public class GamePanel extends JPanel implements Runnable {
                     inventory.selectedItemsListIndex = 0;
                     inventory.itemUseTargetMode = false;
                     inventory.itemUseTargetIndex = 0;
+                    inventory.worldMapOpenFromMenu = false;
+                    inventory.worldMapTransitionAlpha = 0;
+                    inventory.worldMapOpening = false;
+                    inventory.worldMapClosing = false;
 
                     // καθάρισε latched menu/navigation keys για να μη μπει κατευθείαν στο center
                     keyH.enterPressed = false;
@@ -1084,79 +1091,52 @@ public class GamePanel extends JPanel implements Runnable {
             }
             // ========== ΠΛΗΚΤΡΟ Μ (ΧΑΡΤΗΣ) ==========
             if (keyH.mPressed) {
-                if (gameState == playState) {
-                    // Έλεγξε αν έχει το χάρτη
-                    boolean hasMap = false;
-                    for (int i = 0; i < inventory.keyItems.length; i++) {
-                        if (inventory.keyItems[i] != null && inventory.keyItems[i].name.equals("World Map")) {
-                            hasMap = true;
-                            break;
-                        }
-                    }
-                    
-                    if (hasMap) {
-                        gameState = mapState;
-
-                        // αρχική θέση cursor
-                        mapCursorX = screenWidth / 2;
-                        mapCursorY = screenHeight / 2;
-                        hoveredMapRegionName = "";
-                    } else {
-                        startDialogue("Δεν έχεις χάρτη ακόμα...");
-                        gameState = dialogueState;
-                    }
-                    keyH.mPressed = false;
-                    try { Thread.sleep(200); } catch (Exception e) {}
-                } else if (gameState == mapState) {
-                    gameState = playState;
-                    keyH.mPressed = false;
-                    try { Thread.sleep(200); } catch (Exception e) {}
-                }
+                keyH.mPressed = false;
             }
 
             // ========== WORLD MAP POINTER ==========
-            if (gameState == mapState) {
+            // if (gameState == mapState) {
 
-                if (keyH.escapePressed) {
-                    gameState = playState;
-                    hoveredMapRegionName = "";
-                    keyH.escapePressed = false;
-                    try { Thread.sleep(180); } catch (Exception e) {}
-                }
+            //     if (keyH.escapePressed) {
+            //         gameState = playState;
+            //         hoveredMapRegionName = "";
+            //         keyH.escapePressed = false;
+            //         try { Thread.sleep(180); } catch (Exception e) {}
+            //     }
 
-                int cursorSpeed = 8;
+            //     int cursorSpeed = 8;
 
-                if (keyH.upPressed) {
-                    mapCursorY -= cursorSpeed;
-                    if (mapCursorY < 40) mapCursorY = 40;
-                    keyH.upPressed = false;
-                }
+            //     if (keyH.upPressed) {
+            //         mapCursorY -= cursorSpeed;
+            //         if (mapCursorY < 40) mapCursorY = 40;
+            //         keyH.upPressed = false;
+            //     }
 
-                if (keyH.downPressed) {
-                    mapCursorY += cursorSpeed;
-                    if (mapCursorY > screenHeight - 40) mapCursorY = screenHeight - 40;
-                    keyH.downPressed = false;
-                }
+            //     if (keyH.downPressed) {
+            //         mapCursorY += cursorSpeed;
+            //         if (mapCursorY > screenHeight - 40) mapCursorY = screenHeight - 40;
+            //         keyH.downPressed = false;
+            //     }
 
-                if (keyH.leftPressed) {
-                    mapCursorX -= cursorSpeed;
-                    if (mapCursorX < 40) mapCursorX = 40;
-                    keyH.leftPressed = false;
-                }
+            //     if (keyH.leftPressed) {
+            //         mapCursorX -= cursorSpeed;
+            //         if (mapCursorX < 40) mapCursorX = 40;
+            //         keyH.leftPressed = false;
+            //     }
 
-                if (keyH.rightPressed) {
-                    mapCursorX += cursorSpeed;
-                    if (mapCursorX > screenWidth - 40) mapCursorX = screenWidth - 40;
-                    keyH.rightPressed = false;
-                }
+            //     if (keyH.rightPressed) {
+            //         mapCursorX += cursorSpeed;
+            //         if (mapCursorX > screenWidth - 40) mapCursorX = screenWidth - 40;
+            //         keyH.rightPressed = false;
+            //     }
 
-                WorldMapRegion hovered = getHoveredWorldMapRegion();
-                if (hovered != null) {
-                    hoveredMapRegionName = hovered.displayName;
-                } else {
-                    hoveredMapRegionName = "";
-                }
-            }
+            //     WorldMapRegion hovered = getHoveredWorldMapRegion();
+            //     if (hovered != null) {
+            //         hoveredMapRegionName = hovered.displayName;
+            //     } else {
+            //         hoveredMapRegionName = "";
+            //     }
+            // }
 
             // ========== SHOP STATE ==========
             if (gameState == shopState) {
@@ -1337,6 +1317,86 @@ public class GamePanel extends JPanel implements Runnable {
 
             // ----- INVENTORY NAVIGATION -----
             if (gameState == inventoryState) {
+                // ===== WORLD MAP FULLSCREEN SUBMODE =====
+                    if (inventory.worldMapOpenFromMenu) {
+
+                        // opening fade
+                        if (inventory.worldMapOpening) {
+                            inventory.worldMapTransitionAlpha += 20;
+                            if (inventory.worldMapTransitionAlpha >= 255) {
+                                inventory.worldMapTransitionAlpha = 255;
+                                inventory.worldMapOpening = false;
+                            }
+                        }
+
+                        // closing fade
+                        if (inventory.worldMapClosing) {
+                            inventory.worldMapTransitionAlpha -= 20;
+                            if (inventory.worldMapTransitionAlpha <= 0) {
+                                inventory.worldMapTransitionAlpha = 0;
+                                inventory.worldMapClosing = false;
+                                inventory.worldMapOpenFromMenu = false;
+                                inventory.menuFocus = 0;
+                            }
+                        }
+
+                        // input μόνο όταν fully open
+                        if (!inventory.worldMapOpening && !inventory.worldMapClosing) {
+
+                            int cursorSpeed = 8;
+
+                            if (keyH.upPressed) {
+                                mapCursorY -= cursorSpeed;
+                                if (mapCursorY < 40) mapCursorY = 40;
+                                keyH.upPressed = false;
+                            }
+
+                            if (keyH.downPressed) {
+                                mapCursorY += cursorSpeed;
+                                if (mapCursorY > screenHeight - 40) mapCursorY = screenHeight - 40;
+                                keyH.downPressed = false;
+                            }
+
+                            if (keyH.leftPressed) {
+                                mapCursorX -= cursorSpeed;
+                                if (mapCursorX < 40) mapCursorX = 40;
+                                keyH.leftPressed = false;
+                            }
+
+                            if (keyH.rightPressed) {
+                                mapCursorX += cursorSpeed;
+                                if (mapCursorX > screenWidth - 40) mapCursorX = screenWidth - 40;
+                                keyH.rightPressed = false;
+                            }
+
+                            WorldMapRegion hovered = getHoveredWorldMapRegion();
+                            hoveredMapRegionName = (hovered != null) ? hovered.displayName : "";
+
+                            if (keyH.enterPressed) {
+                                if (hovered != null && hovered.travelEnabled) {
+                                    fastTravelToRegion(hovered);
+
+                                    inventory.worldMapClosing = true;
+                                    playSound("portal");
+                                }
+
+                                keyH.enterPressed = false;
+                                try { Thread.sleep(180); } catch (Exception e) {}
+                            }
+
+                            if (keyH.escapePressed) {
+                                inventory.worldMapClosing = true;
+                                playSound("menu_close");
+                                keyH.escapePressed = false;
+                                try { Thread.sleep(120); } catch (Exception e) {}
+                            }
+                        }
+
+                        repaint();
+                        try { Thread.sleep(16); } catch (Exception e) {}
+
+                        continue;
+                    }
 
                 if (inventory.statusDetailOpen) {
 
@@ -1438,57 +1498,87 @@ public class GamePanel extends JPanel implements Runnable {
 
                     if (inventory.menuFocus == 0) {
 
-                        if (inventory.menuFocus == 0) {
-
-                            if (keyH.upPressed) {
-                                inventory.menuSection--;
-                                if (inventory.menuSection < 0) {
-                                    inventory.menuSection = mainMenuOptions.length - 1;
-                                }
-                                playSound("menu_select");
-                                try { Thread.sleep(150); } catch (Exception e) {}
-                                keyH.upPressed = false;
+                        if (keyH.upPressed) {
+                            inventory.menuSection--;
+                            if (inventory.menuSection < 0) {
+                                inventory.menuSection = mainMenuOptions.length - 1;
                             }
+                            playSound("menu_select");
+                            try { Thread.sleep(150); } catch (Exception e) {}
+                            keyH.upPressed = false;
+                        }
 
-                            if (keyH.downPressed) {
-                                inventory.menuSection++;
-                                if (inventory.menuSection >= mainMenuOptions.length) {
-                                    inventory.menuSection = 0;
-                                }
-                                playSound("menu_select");
-                                try { Thread.sleep(150); } catch (Exception e) {}
-                                keyH.downPressed = false;
+                        if (keyH.downPressed) {
+                            inventory.menuSection++;
+                            if (inventory.menuSection >= mainMenuOptions.length) {
+                                inventory.menuSection = 0;
                             }
+                            playSound("menu_select");
+                            try { Thread.sleep(150); } catch (Exception e) {}
+                            keyH.downPressed = false;
+                        }
 
-                            if (keyH.enterPressed) {
-                                inventory.menuFocus = 1;
+                        if (keyH.enterPressed) {
+                            inventory.menuFocus = 1;
 
-                                if (inventory.menuSection == 0) {
-                                    inventory.selectedItemsCategory = 0;
-                                    inventory.selectedItemsListIndex = 0;
-                                    inventory.itemUseTargetMode = false;
-                                    inventory.itemUseTargetIndex = 0;
-                                }
-                                else if (inventory.menuSection == 1) {
-                                    inventory.selectedEquipSlot = 0;
-                                    inventory.inventoryMode = 1;
-                                }
-                                else if (inventory.menuSection == 2) {
-                                    inventory.selectedPartyMember = 0;
+                            if (inventory.menuSection == 0) {
+                                inventory.selectedItemsCategory = 0;
+                                inventory.selectedItemsListIndex = 0;
+                                inventory.itemUseTargetMode = false;
+                                inventory.itemUseTargetIndex = 0;
+                            }
+                            else if (inventory.menuSection == 1) {
+                                inventory.selectedEquipSlot = 0;
+                                inventory.inventoryMode = 1;
+                            }
+                            else if (inventory.menuSection == 2) {
+                                inventory.selectedPartyMember = 0;
+                            }
+                            else if (inventory.menuSection == 3) {
+
+                                boolean hasMap = false;
+
+                                for (int i = 0; i < inventory.keyItems.length; i++) {
+                                    if (inventory.keyItems[i] != null &&
+                                        inventory.keyItems[i].name.equals("World Map")) {
+                                        hasMap = true;
+                                        break;
+                                    }
                                 }
 
-                                playSound("menu_select");
-                                try { Thread.sleep(180); } catch (Exception e) {}
+                                if (hasMap) {
+                                    inventory.worldMapOpenFromMenu = true;
+                                    inventory.worldMapOpening = true;
+                                    inventory.worldMapClosing = false;
+                                    inventory.worldMapTransitionAlpha = 0;
+
+                                    mapCursorX = screenWidth / 2;
+                                    mapCursorY = screenHeight / 2;
+                                    hoveredMapRegionName = "";
+
+                                    playSound("menu_select");
+                                } else {
+                                    startDialogue("Δεν έχεις χάρτη ακόμα...");
+                                    gameState = dialogueState;
+                                }
+
                                 keyH.enterPressed = false;
+                                try { Thread.sleep(180); } catch (Exception e) {}
+
+                                continue;
                             }
 
-                            if (keyH.escapePressed) {
-                                gameState = playState;
-                                showInventory = false;
-                                playSound("menu_close");
-                                try { Thread.sleep(180); } catch (Exception e) {}
-                                keyH.escapePressed = false;
-                            }
+                            playSound("menu_select");
+                            try { Thread.sleep(180); } catch (Exception e) {}
+                            keyH.enterPressed = false;
+                        }
+
+                        if (keyH.escapePressed) {
+                            gameState = playState;
+                            showInventory = false;
+                            playSound("menu_close");
+                            try { Thread.sleep(180); } catch (Exception e) {}
+                            keyH.escapePressed = false;
                         }
                     }
                     
@@ -5910,9 +6000,9 @@ public class GamePanel extends JPanel implements Runnable {
                     drawStatusEquipPopup(g2);
                 }
             }
-            if (gameState == mapState) {
-                drawMapScreen(g2);
-            }
+            // if (gameState == mapState) {
+            //     drawMapScreen(g2);
+            // }
             if (gameState == shopState) {
                 drawShopScreen(g2);
             }
@@ -6897,57 +6987,88 @@ public class GamePanel extends JPanel implements Runnable {
     public void drawOctopathMenu(Graphics2D g2) {
         int screenW = screenWidth;
         int screenH = screenHeight;
+        if (inventory.worldMapOpenFromMenu) {
+            drawMapScreen(g2);
+
+            if (inventory.worldMapTransitionAlpha > 0 && inventory.worldMapTransitionAlpha < 255) {
+                int alpha = 255 - inventory.worldMapTransitionAlpha;
+                if (alpha < 0) alpha = 0;
+                if (alpha > 255) alpha = 255;
+
+                g2.setColor(new Color(0, 0, 0, alpha));
+                g2.fillRect(0, 0, screenWidth, screenHeight);
+            }
+
+            return;
+        }
 
         // =========================
         // BACKDROP
         // =========================
-        g2.setColor(new Color(0, 0, 0, 170));
+        if (worldMapBackground != null) {
+            g2.drawImage(worldMapBackground, 0, 0, screenW, screenH, null);
+        } else {
+            g2.setColor(new Color(0, 0, 0, 170));
+            g2.fillRect(0, 0, screenW, screenH);
+        }
+
+        // ελαφρύ dark tint για να δένει το UI
+        g2.setColor(new Color(0, 0, 0, 55));
         g2.fillRect(0, 0, screenW, screenH);
 
         // =========================
         // PANEL SIZES
         // =========================
-        int leftX = 20;
-        int leftY = 20;
-        int leftW = 200;
-        int leftH = screenH - 110;
-
-        int rightW = 230;
-        int rightX = screenW - rightW - 20;
-        int rightY = 20;
-        int rightH = screenH - 110;
-
-        int centerX = leftX + leftW + 15;
-        int centerY = 20;
-        int centerW = rightX - centerX - 15;
-        int centerH = screenH - 110;
-
         int bottomX = 0;
         int bottomY = screenH - 70;
         int bottomW = screenW;
         int bottomH = 70;
 
+        // left panel full side
+        int leftX = 0;
+        int leftY = 0;
+        int leftW = 220;
+        int leftH = screenH - bottomH;
+
+        // right panel full side
+        int rightW = 250;
+        int rightX = screenW - rightW;
+        int rightY = 0;
+        int rightH = screenH - bottomH;
+
+        // center panel stays inset between them
+        int centerX = leftW + 18;
+        int centerY = 20;
+        int centerW = rightX - centerX - 18;
+        int centerH = screenH - 110;
+
         // =========================
         // PANEL BACKGROUNDS
         // =========================
-        Color panelDark = new Color(20, 20, 20, 200);
-        Color panelMid = new Color(40, 35, 30, 210);
-        Color border = new Color(180, 150, 90, 180);
+        Color panelDark = new Color(0, 0, 0, 145);
+        Color panelMid = new Color(0, 0, 0, 135);
+        Color border = new Color(180, 150, 90, 140);
         Color highlight = new Color(210, 180, 90, 220);
         Color textMain = new Color(240, 230, 210);
         Color textDim = new Color(180, 170, 150);
 
-        // Left panel
+        // Left panel - full side
         g2.setColor(panelDark);
-        g2.fillRoundRect(leftX, leftY, leftW, leftH, 20, 20);
+        g2.fillRect(leftX, leftY, leftW, leftH);
         g2.setColor(border);
-        g2.drawRoundRect(leftX, leftY, leftW, leftH, 20, 20);
+        g2.drawLine(leftW - 1, 0, leftW - 1, leftH);
 
-        // Center panel
-        g2.setColor(panelDark);
+        // Center panel - still framed
+        g2.setColor(panelMid);
         g2.fillRoundRect(centerX, centerY, centerW, centerH, 20, 20);
         g2.setColor(border);
         g2.drawRoundRect(centerX, centerY, centerW, centerH, 20, 20);
+
+        // Right panel - full side
+        g2.setColor(panelDark);
+        g2.fillRect(rightX, rightY, rightW, rightH);
+        g2.setColor(border);
+        g2.drawLine(rightX, 0, rightX, rightH);
 
         // center sub-areas
         int contentTopY = centerY + 50;
@@ -6960,12 +7081,6 @@ public class GamePanel extends JPanel implements Runnable {
         g2.setColor(new Color(180, 150, 90, 100));
         g2.drawLine(centerX + 15, contentBottomY - 8, centerX + centerW - 15, contentBottomY - 8);
 
-        // Right party panel
-        g2.setColor(panelDark);
-        g2.fillRoundRect(rightX, rightY, rightW, rightH, 20, 20);
-        g2.setColor(border);
-        g2.drawRoundRect(rightX, rightY, rightW, rightH, 20, 20);
-
         // Bottom help bar
         g2.setColor(new Color(0, 0, 0, 230));
         g2.fillRect(bottomX, bottomY, bottomW, bottomH);
@@ -6975,7 +7090,7 @@ public class GamePanel extends JPanel implements Runnable {
         // =========================
         g2.setFont(g2.getFont().deriveFont(Font.BOLD, 28f));
         g2.setColor(textMain);
-        g2.drawString("Menu", leftX + 20, leftY + 40);
+        g2.drawString("Menu", leftX + 24, leftY + 42);
 
         g2.setFont(g2.getFont().deriveFont(Font.BOLD, 22f));
         int optionY = leftY + 90;
@@ -6991,7 +7106,7 @@ public class GamePanel extends JPanel implements Runnable {
                 g2.setColor(textMain);
             }
 
-            g2.drawString(mainMenuOptions[i], leftX + 25, optionY);
+            g2.drawString(mainMenuOptions[i], leftX + 28, optionY);
             optionY += 52;
         }
 
@@ -8491,15 +8606,13 @@ public class GamePanel extends JPanel implements Runnable {
     private void initWorldMapRegions() {
         worldMapRegions.clear();
 
-        // ΠΡΟΣΩΡΙΝΕΣ rectangular περιοχές πάνω στο map screen
-        // Τις ρυθμίζεις μετά πολύ εύκολα με το μάτι
-
         worldMapRegions.add(new WorldMapRegion(
             "town_01",
             "Town",
             400, 300, 40, 40,
             "town",
-            true
+            true,
+            "TOWN_01"
         ));
 
         worldMapRegions.add(new WorldMapRegion(
@@ -8507,7 +8620,8 @@ public class GamePanel extends JPanel implements Runnable {
             "Southern Fields",
             400, 350, 40, 40,
             "field",
-            false
+            false,
+            "FIELDS_01"
         ));
 
         worldMapRegions.add(new WorldMapRegion(
@@ -8515,17 +8629,64 @@ public class GamePanel extends JPanel implements Runnable {
             "Northern Cave",
             360, 240, 40, 40,
             "cave",
-            false
+            false,
+            "CAVE_01"
         ));
 
-        // για αργότερα
         worldMapRegions.add(new WorldMapRegion(
             "pass_01",
             "Mountain Pass",
             420, 90, 40, 40,
             "path",
-            false
+            false,
+            "PASS_01"
         ));
+    }
+
+    private int findMapIndexByName(String mapName) {
+        if (mapName == null || mapName.trim().isEmpty()) return -1;
+
+        for (int i = 0; i < 100; i++) {
+            AdvancedMapData map = tileM.getMap(i);
+            if (map == null) break;
+
+            if (map.name != null && map.name.equalsIgnoreCase(mapName)) {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private void fastTravelToRegion(WorldMapRegion region) {
+        if (region == null) return;
+        if (!region.travelEnabled) return;
+        if (region.targetMapName == null || region.targetMapName.isEmpty()) return;
+
+        int targetMapIndex = findMapIndexByName(region.targetMapName);
+        if (targetMapIndex == -1) return;
+
+        currentMap = targetMapIndex;
+        tileM.applyMapSizeToGamePanel(currentMap);
+
+        TiledObjectData spawn = tileM.findMapObjectByName(currentMap, "player_spawn");
+        if (spawn != null) {
+            int spawnCol = (int)(spawn.x / originalTileSize);
+            int spawnRow = (int)(spawn.y / originalTileSize) - 1;
+
+            player.worldX = spawnCol * tileSize;
+            player.worldY = spawnRow * tileSize;
+        } else {
+            player.worldX = 5 * tileSize;
+            player.worldY = 5 * tileSize;
+        }
+
+        // βάλε τα party members πίσω από τον player
+        for (int i = 0; i < partyMembers.size(); i++) {
+            PartyMember pm = partyMembers.get(i);
+            pm.worldX = player.worldX - ((i + 1) * tileSize);
+            pm.worldY = player.worldY;
+        }
     }
 
     private BufferedImage getWorldMapRegionIcon(WorldMapRegion region) {
