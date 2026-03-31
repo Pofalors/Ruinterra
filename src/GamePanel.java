@@ -2775,6 +2775,7 @@ public class GamePanel extends JPanel implements Runnable {
 
                         player.worldX = targetCol * tileSize;
                         player.worldY = targetRow * tileSize;
+                        resetPartyFollowAfterTeleport();
 
                         // μουσική
                         if (currentMap == 0) { // Town
@@ -8703,6 +8704,30 @@ public class GamePanel extends JPanel implements Runnable {
         return -1;
     }
 
+    private void resetPartyFollowAfterTeleport() {
+        // Καθάρισε όλο το παλιό history του player,
+        // αλλιώς οι followers θα προσπαθούν να πάνε στις παλιές θέσεις
+        playerPositions.clear();
+
+        // Βάλε ξανά τα party members ακριβώς πίσω από τον player
+        for (int i = 0; i < partyMembers.size(); i++) {
+            PartyMember pm = partyMembers.get(i);
+
+            pm.worldX = player.worldX - ((i + 1) * tileSize);
+            pm.worldY = player.worldY;
+            pm.direction = player.direction;
+            pm.frame = 0;
+            pm.counter = 0;
+            pm.updateImage();
+        }
+
+        // Ξαναγέμισε το history με τη ΝΕΑ θέση του player,
+        // ώστε το follow system να θεωρεί ότι πάντα ήταν εδώ
+        for (int i = 0; i < 200; i++) {
+            playerPositions.add(new Point(player.worldX, player.worldY));
+        }
+    }
+
     private void fastTravelToRegion(WorldMapRegion region) {
         if (region == null) return;
         if (!region.travelEnabled) return;
@@ -8727,11 +8752,7 @@ public class GamePanel extends JPanel implements Runnable {
         }
 
         // βάλε τα party members πίσω από τον player
-        for (int i = 0; i < partyMembers.size(); i++) {
-            PartyMember pm = partyMembers.get(i);
-            pm.worldX = player.worldX - ((i + 1) * tileSize);
-            pm.worldY = player.worldY;
-        }
+        resetPartyFollowAfterTeleport();
     }
 
     private BufferedImage getWorldMapRegionIcon(WorldMapRegion region) {
