@@ -441,13 +441,7 @@ public class GamePanel extends JPanel implements Runnable {
             this.window.addWindowListener(new WindowAdapter() {
                 @Override
                 public void windowClosing(WindowEvent e) {
-                    savePlayerState();
-                    saveInventoryAndGold();
-                    saveQuests();
-                    savePartyStats();
-                    saveOpenedChests();
-                    saveEquipment();
-                    System.out.println("Autosaved on window close.");
+                    System.out.println("Window closed");
                 }
             });
         }
@@ -1002,7 +996,6 @@ public class GamePanel extends JPanel implements Runnable {
                     if (distanceX < tileSize && distanceY < tileSize) {
                         if (inventory.addItem(item.item)) {
                             currentMapItems.remove(i);
-                            saveInventoryAndGold();
                             startDialogue("Πήρες: " + item.name + "!");
                             gameState = dialogueState;
                         }
@@ -1376,7 +1369,20 @@ public class GamePanel extends JPanel implements Runnable {
                                 if (hovered != null && hovered.travelEnabled) {
                                     fastTravelToRegion(hovered);
 
-                                    inventory.worldMapClosing = true;
+                                    // Άμεσο refresh μουσικής σύμφωνα με το νέο map
+                                    refreshMusicForCurrentMap(true);
+
+                                    // Κλείσιμο world map / επιστροφή στο gameplay
+                                    inventory.worldMapOpenFromMenu = false;
+                                    inventory.worldMapOpening = false;
+                                    inventory.worldMapClosing = false;
+                                    inventory.worldMapTransitionAlpha = 0;
+
+                                    showInventory = false;
+                                    gameState = playState;
+                                    hoveredMapRegionName = "";
+                                    inventory.menuFocus = 0;
+
                                     playSound("portal");
                                 }
 
@@ -1567,6 +1573,15 @@ public class GamePanel extends JPanel implements Runnable {
 
                                 continue;
                             }
+                            // =========================
+                            // SAVE SECTION
+                            // =========================
+                            else if (inventory.menuSection == 5) {
+                                saveGame();
+                                startDialogue("Το παιχνίδι αποθηκεύτηκε!");
+                                gameState = dialogueState;
+                                keyH.enterPressed = false;
+                            }
 
                             playSound("menu_select");
                             try { Thread.sleep(180); } catch (Exception e) {}
@@ -1642,9 +1657,6 @@ public class GamePanel extends JPanel implements Runnable {
 
                                             applyItemToTarget(selected, target);
                                             consumeOneItemFromInventory(selected);
-
-                                            saveInventoryAndGold();
-                                            savePartyStats();
 
                                             inventory.itemUseTargetMode = false;
                                             inventory.itemUseTargetIndex = 0;
@@ -1793,10 +1805,6 @@ public class GamePanel extends JPanel implements Runnable {
 
                                     inventory.unequipItem(inventory.selectedEquipSlot);
                                     player.recalcStats();
-
-                                    saveInventoryAndGold();
-                                    savePartyStats();
-                                    saveEquipment();
                                 }
                                 try { Thread.sleep(180); } catch (Exception e) {}
                                 keyH.enterPressed = false;
@@ -1829,23 +1837,6 @@ public class GamePanel extends JPanel implements Runnable {
                                 inventory.selectedEquipmentListIndex = 0;
                                 playSound("menu_select");
                                 try { Thread.sleep(180); } catch (Exception e) {}
-                                keyH.enterPressed = false;
-                            }
-                        }
-
-                        // =========================
-                        // SAVE SECTION
-                        // =========================
-                        else if (inventory.menuSection == 5) {
-                            if (keyH.enterPressed) {
-                                savePlayerState();
-                                saveInventoryAndGold();
-                                saveQuests();
-                                savePartyStats();
-                                saveOpenedChests();
-                                saveEquipment();
-                                startDialogue("Το παιχνίδι αποθηκεύτηκε!");
-                                gameState = dialogueState;
                                 keyH.enterPressed = false;
                             }
                         }
@@ -2191,7 +2182,6 @@ public class GamePanel extends JPanel implements Runnable {
                     victoryRewardsShown = true;
                     sound.stopMusic();
                     playSound("levelup");
-                    savePartyStats();
                 }
                 
                 // Αν πατήσει Enter, ξεκίνα fade out
@@ -2227,15 +2217,7 @@ public class GamePanel extends JPanel implements Runnable {
                     playSound("menu_select");
                     if (titleCommandNum == 0) { // START GAME
                         gameState = playState;
-                        sound.stopMusic();
-                        // Ξεκίνα με τη σωστή μουσική ανάλογα με την ώρα
-                        if (dayTime == 0 || dayTime == 3) {
-                            sound.playMusic("town_day");
-                        } else {
-                            sound.playMusic("town_night");
-                        }
-                        currentMusicVolume = musicVolume / 100.0f;
-                        sound.setMusicVolume(currentMusicVolume);
+                        refreshMusicForCurrentMap(true);
                     } else if (titleCommandNum == 1) { // SETTINGS
                         startDialogue("Settings will be available in a future update!");
                         gameState = dialogueState;
@@ -2258,12 +2240,10 @@ public class GamePanel extends JPanel implements Runnable {
                         dayTime = 1; // Πήγαινε σε μετάβαση προς νύχτα
                         timeCounter = 0;
                         
-                        // Ξεκίνα crossfade προς νυχτερινή μουσική
-                        if (currentMap == 0) { // Μόνο για overworld
-                            startMusicCrossfade("town_night");
-                        } else if (currentMap == 1) { // Μόνο για overworld
-                            startMusicCrossfade("overworld_night");
-                        }
+                        // Ξεκίνα crossfade προς τη σωστή νυχτερινή μουσική για το current map
+                        currentDayMusic = getDayMusicForMap(currentMap);
+                        currentNightMusic = getNightMusicForMap(currentMap);
+                        startMusicCrossfade(currentNightMusic);
                     }
                 } else if (dayTime == 1) { // Μετάβαση από μέρα σε νύχτα
                     targetDarkness = 150.0f;
@@ -2277,12 +2257,10 @@ public class GamePanel extends JPanel implements Runnable {
                         dayTime = 3; // Πήγαινε σε μετάβαση προς μέρα
                         timeCounter = 0;
                         
-                        // Ξεκίνα crossfade προς μεσημεριανή μουσική
-                        if (currentMap == 0) { // Μόνο για overworld
-                            startMusicCrossfade("town_day");
-                        } else if (currentMap == 1) { // Μόνο για overworld
-                            startMusicCrossfade("overworld_day");
-                        }
+                        // Ξεκίνα crossfade προς τη σωστή ημερήσια μουσική για το current map
+                        currentDayMusic = getDayMusicForMap(currentMap);
+                        currentNightMusic = getNightMusicForMap(currentMap);
+                        startMusicCrossfade(currentDayMusic);
                     }
                 } else if (dayTime == 3) { // Μετάβαση από νύχτα σε μέρα
                     targetDarkness = 0.0f;
@@ -2530,9 +2508,6 @@ public class GamePanel extends JPanel implements Runnable {
                         
                         // ========== RANDOM ENCOUNTER CHECK ==========
                         encounterStepCounter++;
-                        if (encounterStepCounter % 10 == 0) {
-                            savePlayerState();
-                        }
 
                         if (encounterStepCounter >= encounterRate) {
                             encounterStepCounter = 0;
@@ -2602,9 +2577,6 @@ public class GamePanel extends JPanel implements Runnable {
                         
                         // ========== RANDOM ENCOUNTER CHECK ==========
                         encounterStepCounter++;
-                        if (encounterStepCounter % 10 == 0) {
-                            savePlayerState();
-                        }
 
                         if (encounterStepCounter >= encounterRate) {
                             encounterStepCounter = 0;
@@ -2676,9 +2648,6 @@ public class GamePanel extends JPanel implements Runnable {
                         
                         // ========== RANDOM ENCOUNTER CHECK ==========
                         encounterStepCounter++;
-                        if (encounterStepCounter % 10 == 0) {
-                            savePlayerState();
-                        }
 
                         if (encounterStepCounter >= encounterRate) {
                             encounterStepCounter = 0;
@@ -2749,9 +2718,6 @@ public class GamePanel extends JPanel implements Runnable {
                         
                         // ========== RANDOM ENCOUNTER CHECK ==========
                         encounterStepCounter++;
-                        if (encounterStepCounter % 10 == 0) {
-                            savePlayerState();
-                        }
 
                         if (encounterStepCounter >= encounterRate) {
                             encounterStepCounter = 0;
@@ -2809,7 +2775,6 @@ public class GamePanel extends JPanel implements Runnable {
 
                         player.worldX = targetCol * tileSize;
                         player.worldY = targetRow * tileSize;
-                        savePlayerState();
 
                         // μουσική
                         if (currentMap == 0) { // Town
@@ -3094,6 +3059,67 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
+    private String getDayMusicForMap(int mapIndex) {
+        AdvancedMapData map = tileM.getMap(mapIndex);
+        if (map == null || map.name == null) {
+            return "overworld_day";
+        }
+
+        String mapName = map.name.toLowerCase();
+
+        if (mapName.contains("town")) {
+            return "town_day";
+        }
+        if (mapName.contains("cave")) {
+            return "dungeon";
+        }
+        if (mapName.contains("field")) {
+            return "overworld_day";
+        }
+
+        return "overworld_day";
+    }
+
+    private String getNightMusicForMap(int mapIndex) {
+        AdvancedMapData map = tileM.getMap(mapIndex);
+        if (map == null || map.name == null) {
+            return "overworld_night";
+        }
+
+        String mapName = map.name.toLowerCase();
+
+        if (mapName.contains("town")) {
+            return "town_night";
+        }
+        if (mapName.contains("cave")) {
+            return "dungeon";
+        }
+        if (mapName.contains("field")) {
+            return "overworld_night";
+        }
+
+        return "overworld_night";
+    }
+
+    private void refreshMusicForCurrentMap(boolean immediate) {
+        currentDayMusic = getDayMusicForMap(currentMap);
+        currentNightMusic = getNightMusicForMap(currentMap);
+
+        String targetMusic = (dayTime == 0 || dayTime == 3) ? currentDayMusic : currentNightMusic;
+
+        if (immediate) {
+            isCrossfading = false;
+            nextMusic = "";
+            sound.stopMusic();
+            sound.playMusic(targetMusic);
+
+            currentMusicVolume = musicVolume / 100.0f;
+            sound.setMusicVolume(currentMusicVolume);
+        } else {
+            startMusicCrossfade(targetMusic);
+        }
+    }
+
     public void startMusicCrossfade(String newMusic) {
         if (currentMap != 0 && currentMap != 3) return;
         
@@ -3371,8 +3397,6 @@ public class GamePanel extends JPanel implements Runnable {
                     for (Quest q : player.quests) {
                         if (q.name.equals("Καθάρισμα τεράτων")) {
                             hasQuest = true;
-                            saveQuests();
-                            saveInventoryAndGold();
                             questCompleted = q.completed;
                             break;
                         }
@@ -3454,10 +3478,7 @@ public class GamePanel extends JPanel implements Runnable {
 
                     if (chest.chestId != null && !chest.chestId.isEmpty()) {
                         openedChestIds.add(chest.chestId);
-                        saveOpenedChests();
                     }
-
-                    saveInventoryAndGold();
                     
 
                     sound.playBattleSE("item");
@@ -3537,6 +3558,16 @@ public class GamePanel extends JPanel implements Runnable {
     // ===========================
     //     SAVE/LOAD HELPERS
     // ===========================
+
+    private void saveGame() {
+        savePlayerState();
+        saveInventoryAndGold();
+        saveQuests();
+        savePartyStats();
+        saveOpenedChests();
+        saveEquipment();
+        System.out.println("Manual save completed.");
+    }
 
     private void savePlayerState() {
         try {
@@ -3633,11 +3664,24 @@ public class GamePanel extends JPanel implements Runnable {
 
             writer.println("gold=" + player.gold);
 
+            // =========================
+            // STORAGE ITEMS
+            // =========================
             for (int i = 0; i < inventory.storage.length; i++) {
                 Item item = inventory.storage[i];
                 if (item != null) {
                     int amount = item.stackable ? item.amount : 1;
-                    writer.println(item.name + "|" + amount);
+                    writer.println("STORAGE|" + item.name + "|" + amount);
+                }
+            }
+
+            // =========================
+            // KEY ITEMS
+            // =========================
+            for (int i = 0; i < inventory.keyItems.length; i++) {
+                Item item = inventory.keyItems[i];
+                if (item != null) {
+                    writer.println("KEY|" + item.name + "|1");
                 }
             }
 
@@ -3657,6 +3701,10 @@ public class GamePanel extends JPanel implements Runnable {
             inventory.storage[i] = null;
         }
 
+        for (int i = 0; i < inventory.keyItems.length; i++) {
+            inventory.keyItems[i] = null;
+        }
+
         try {
             java.io.BufferedReader br = new java.io.BufferedReader(
                     new java.io.FileReader(file)
@@ -3673,16 +3721,21 @@ public class GamePanel extends JPanel implements Runnable {
                 }
 
                 String[] parts = line.split("\\|");
-                if (parts.length < 2) continue;
+                if (parts.length < 3) continue;
 
-                String itemName = parts[0].trim();
-                int amount = Integer.parseInt(parts[1].trim());
+                String itemType = parts[0].trim();   // STORAGE ή KEY
+                String itemName = parts[1].trim();
+                int amount = Integer.parseInt(parts[2].trim());
 
                 Item item = createItemFromSaveName(itemName);
                 if (item == null) continue;
 
                 if (item.stackable) {
                     item.amount = amount;
+                }
+
+                if (itemType.equalsIgnoreCase("KEY")) {
+                    item.isKeyItem = true;
                 }
 
                 inventory.addItem(item);
@@ -5636,10 +5689,6 @@ public class GamePanel extends JPanel implements Runnable {
 
         battleParty.removeDeadEntities();
         battleParty.syncPlayerHealth();
-
-        savePartyStats();
-        savePlayerState();
-        saveInventoryAndGold();
 
         battleEnemies.removeIf(be -> {
             for (BattleEntity enemyEntity : battleParty.enemies) {
@@ -8303,10 +8352,6 @@ public class GamePanel extends JPanel implements Runnable {
 
             playSound("equip");
         }
-
-        saveInventoryAndGold();
-        savePartyStats();
-        saveEquipment();
     }
 
     private boolean isPotionItem(Item item) {
