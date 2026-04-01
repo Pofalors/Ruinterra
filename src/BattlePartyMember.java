@@ -26,13 +26,19 @@ public class BattlePartyMember {
             SpriteSheet hurtSheet = new SpriteSheet(basePath + "hurt.png", 64, 64);
             SpriteSheet deathSheet = new SpriteSheet(basePath + "death.png", 64, 64);
             SpriteSheet attackSheet = new SpriteSheet(basePath + "attack.png", 64, 64);
+            SpriteSheet runLeftSheet = new SpriteSheet(basePath + "run_left.png", 64, 64);
+            SpriteSheet runRightSheet = new SpriteSheet(basePath + "run_right.png", 64, 64);
 
             BufferedImage[] idleFrames = idleSheet.getAllFrames();
             BufferedImage[] hurtFrames = hurtSheet.getAllFrames();
             BufferedImage[] deathFrames = deathSheet.getAllFrames();
             BufferedImage[] attackFrames = attackSheet.getAllFrames();
+            BufferedImage[] runLeftFrames = runLeftSheet.getAllFrames();
+            BufferedImage[] runRightFrames = runRightSheet.getAllFrames();
 
             anim = new PlayerAnimation(idleFrames, hurtFrames, deathFrames, attackFrames);
+            anim.runLeft = runLeftFrames;
+            anim.runRight = runRightFrames;
 
         } catch (Exception e) {
             System.out.println("No battle animations for " + member.name + ", using static images");
@@ -42,7 +48,12 @@ public class BattlePartyMember {
 
     public void playAnimation(String animName) {
         if (anim != null) {
-            boolean loop = animName.equals("idle") || animName.equals("lowHpIdle");
+            boolean loop =
+                    animName.equals("idle") ||
+                    animName.equals("lowHpIdle") ||
+                    animName.equals("run_left") ||
+                    animName.equals("run_right");
+
             anim.setAnimation(animName, loop);
         } else {
             currentAnim = animName;

@@ -379,6 +379,8 @@ public class GamePanel extends JPanel implements Runnable {
     public final int BATTLE_VICTORY_DELAY = 120; // 2 δευτερόλεπτα για rewards
     public int battleTurnDelay = 0;
     public final int BATTLE_TURN_DELAY_TIME = 150; // 1 δευτερόλεπτο delay
+    public boolean battleFleeing = false;
+    public final double BATTLE_FLEE_SPEED = 22.0;
     public boolean waitingForNextTurn = false;
     public int battlePhase = 0; // 0=player turn start, 1=player attack, 2=player hurt, 3=enemy turn start, 4=enemy attack, 5=enemy hurt, 6=waiting
     public int battlePhaseTimer = 0;
@@ -582,24 +584,23 @@ public class GamePanel extends JPanel implements Runnable {
 
         // ========== ΦΟΡΤΩΣΗ BATTLE ANIMATIONS ΓΙΑ ΤΟΝ ΠΑΙΚΤΗ ΜΕ SPRITESHEET ==========
         try {
-            // Φόρτωσε idle (3 frames)
             SpriteSheet idleSheet = new SpriteSheet("res/player/battle/idle.png", 64, 64);
-            BufferedImage[] idleFrames = idleSheet.getAllFrames(); // 3 frames
-            
-            // Φόρτωσε hurt (2 frames)
             SpriteSheet hurtSheet = new SpriteSheet("res/player/battle/hurt.png", 64, 64);
-            BufferedImage[] hurtFrames = hurtSheet.getAllFrames(); // 2 frames
-            
-            // Φόρτωσε death (3 frames)
             SpriteSheet deathSheet = new SpriteSheet("res/player/battle/death.png", 64, 64);
-            BufferedImage[] deathFrames = deathSheet.getAllFrames(); // 3 frames
-            
-            // Φόρτωσε attack1 (π.χ. 6 frames)
             SpriteSheet attack1Sheet = new SpriteSheet("res/player/battle/attack.png", 64, 64);
-            BufferedImage[] attack1Frames = attack1Sheet.getAllFrames(); // 6 frames
-            
-            // Δημιούργησε το animation object
+            SpriteSheet runLeftSheet = new SpriteSheet("res/player/battle/run_left.png", 64, 64);
+            SpriteSheet runRightSheet = new SpriteSheet("res/player/battle/run_right.png", 64, 64);
+
+            BufferedImage[] idleFrames = idleSheet.getAllFrames();
+            BufferedImage[] hurtFrames = hurtSheet.getAllFrames();
+            BufferedImage[] deathFrames = deathSheet.getAllFrames();
+            BufferedImage[] attack1Frames = attack1Sheet.getAllFrames();
+            BufferedImage[] runLeftFrames = runLeftSheet.getAllFrames();
+            BufferedImage[] runRightFrames = runRightSheet.getAllFrames();
+
             playerBattleAnim = new PlayerAnimation(idleFrames, hurtFrames, deathFrames, attack1Frames);
+            playerBattleAnim.runLeft = runLeftFrames;
+            playerBattleAnim.runRight = runRightFrames;
             
             System.out.println("Player battle animations loaded successfully with SpriteSheet!");
             
@@ -681,6 +682,7 @@ public class GamePanel extends JPanel implements Runnable {
         sound.preloadBattleSound("ENEMY_APPEAR", "enemy_appear.wav");
         sound.preloadBattleSound("GOBLIN_SLASH", "goblin_slash.wav");
         sound.preloadBattleSound("GUARD", "guard.wav");
+        sound.preloadBattleSound("FLEE", "flee.wav");
         sound.preloadBattleSound("HEAL", "heal.wav");
         sound.preloadBattleSound("ITEM", "item.wav");
         sound.preloadBattleSound("LOWHPASSASSIN", "lowHpAssassin.wav");
@@ -1885,16 +1887,9 @@ public class GamePanel extends JPanel implements Runnable {
                         bp.x -= (bp.x - bp.targetX) / 10;
                         if (Math.abs(bp.x - bp.targetX) < 1) bp.x = bp.targetX;
                         
-                        // ΑΛΛΑΞΕ ΕΙΚΟΝΑ ΓΙΑ ANIMATION
-                        if (battleWalkFrame == 0) {
-                            bp.image = playerLeft1;
-                        } else {
-                            bp.image = playerLeft2;
-                        }
-                        
-                        // Ενημέρωσε και την εικόνα στο BattleEntity
                         if (!battleParty.party.isEmpty()) {
-                            battleParty.party.get(0).image = bp.image;
+                            BattleEntity heroEntity = battleParty.party.get(0);
+                            updateBattlePlayerMovementAnimation(heroEntity, bp.x, bp.targetX);
                         }
                     }
 
@@ -1902,6 +1897,13 @@ public class GamePanel extends JPanel implements Runnable {
                     for (BattlePartyMember bpm : battlePartyMembers) {
                         bpm.x -= (bpm.x - bpm.targetX) / 10;
                         if (Math.abs(bpm.x - bpm.targetX) < 1) bpm.x = bpm.targetX;
+
+                        for (BattleEntity entity : battleParty.party) {
+                            if (entity.name.equals(bpm.member.className)) {
+                                updateBattlePlayerMovementAnimation(entity, bpm.x, bpm.targetX);
+                                break;
+                            }
+                        }
                     }
                     
                     // Όταν τελειώσει το transition
@@ -1911,18 +1913,50 @@ public class GamePanel extends JPanel implements Runnable {
                         for (BattleEnemy be : battleEnemies) be.x = be.targetX;
                         for (BattlePlayer bp : battlePlayers) {
                             bp.x = bp.targetX;
-                            bp.image = playerLeft1; // Στατική εικόνα όταν σταματήσει
                         }
                         for (BattlePartyMember bpm : battlePartyMembers) {
                             bpm.x = bpm.targetX;
                         }
                         
-                        // Ενημέρωσε τα BattleEntities
-                        if (!battleParty.party.isEmpty()) {
-                            battleParty.party.get(0).image = playerLeft1;
+                        for (BattleEntity entity : battleParty.party) {
+                            setActorIdleAnimation(entity);
                         }
                     }
                     
+                    repaint();
+                } else if (battleFleeing) {
+                    for (BattlePlayer bp : battlePlayers) {
+                        bp.x += BATTLE_FLEE_SPEED;
+                        updateBattlePlayerMovementAnimation(
+                                !battleParty.party.isEmpty() ? battleParty.party.get(0) : null,
+                                bp.x,
+                                bp.targetX
+                        );
+                    }
+
+                    for (BattlePartyMember bpm : battlePartyMembers) {
+                        bpm.x += BATTLE_FLEE_SPEED;
+
+                        for (BattleEntity entity : battleParty.party) {
+                            if (entity.name.equals(bpm.member.className)) {
+                                updateBattlePlayerMovementAnimation(entity, bpm.x, bpm.targetX);
+                                break;
+                            }
+                        }
+                    }
+
+                    if (areAllBattlePlayersOffscreenRight()) {
+                        battleFleeing = false;
+                        actionInProgress = false;
+                        commandLocked = false;
+                        gameState = playState;
+                        returnToMapMusic();
+
+                        for (BattleEntity entity : battleParty.party) {
+                            setActorIdleAnimation(entity);
+                        }
+                    }
+
                     repaint();
                 } else {
                     // ========== ΚΑΝΟΝΙΚΗ ΛΟΓΙΚΗ ΜΑΧΗΣ ==========
@@ -2129,13 +2163,33 @@ public class GamePanel extends JPanel implements Runnable {
                                     break;
                                     
                                 case 4: // FLEE
+                                    sound.playBattleSE("FLEE");
                                     commandLocked = true;
-                                    battleMessage = "Απέδρασες!";
-                                    repaint();
-                                    try { Thread.sleep(1000); } catch (Exception e) {}
-                                    gameState = playState;
-                                    returnToMapMusic();
+                                    actionInProgress = true;
+                                    battleFleeing = true;
 
+                                    sound.stopBattleLoop();
+                                    selectedBoost = 0;
+                                    boostLoopLevel = 0;
+                                    boostLoopTimer = 0;
+
+                                    battleMessage = "Απέδρασες!";
+
+                                    // Στείλε όλους τους παίκτες έξω δεξιά
+                                    for (BattlePlayer bp : battlePlayers) {
+                                        bp.targetX = screenWidth + 220;
+                                    }
+
+                                    for (BattlePartyMember bpm : battlePartyMembers) {
+                                        bpm.targetX = screenWidth + 220;
+                                    }
+
+                                    for (BattleEntity entity : battleParty.party) {
+                                        setActorRunAnimation(entity, "run_right");
+                                    }
+
+                                    keyH.enterPressed = false;
+                                    repaint();
                                     break;
                             }
                             keyH.enterPressed = false;
@@ -4618,20 +4672,45 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     private void animateBattleFormation() {
-        for (BattlePlayer bp : battlePlayers) {
+        // HERO
+        if (!battlePlayers.isEmpty()) {
+            BattlePlayer bp = battlePlayers.get(0);
+            BattleEntity heroEntity = null;
+
+            for (BattleEntity entity : battleParty.party) {
+                if (entity.name.equals("Hero")) {
+                    heroEntity = entity;
+                    break;
+                }
+            }
+
             bp.x += (bp.targetX - bp.x) * BATTLE_FORMATION_LERP;
             bp.y += (bp.targetY - bp.y) * BATTLE_FORMATION_LERP;
 
             if (Math.abs(bp.x - bp.targetX) < 1.0) bp.x = bp.targetX;
             if (Math.abs(bp.y - bp.targetY) < 1.0) bp.y = bp.targetY;
+
+            updateBattlePlayerMovementAnimation(heroEntity, bp.x, bp.targetX);
         }
 
+        // PARTY MEMBERS
         for (BattlePartyMember bpm : battlePartyMembers) {
+            BattleEntity memberEntity = null;
+
+            for (BattleEntity entity : battleParty.party) {
+                if (entity.name.equals(bpm.member.className)) {
+                    memberEntity = entity;
+                    break;
+                }
+            }
+
             bpm.x += (bpm.targetX - bpm.x) * BATTLE_FORMATION_LERP;
             bpm.y += (bpm.targetY - bpm.y) * BATTLE_FORMATION_LERP;
 
             if (Math.abs(bpm.x - bpm.targetX) < 1.0) bpm.x = bpm.targetX;
             if (Math.abs(bpm.y - bpm.targetY) < 1.0) bpm.y = bpm.targetY;
+
+            updateBattlePlayerMovementAnimation(memberEntity, bpm.x, bpm.targetX);
         }
     }
 
@@ -5664,6 +5743,56 @@ public class GamePanel extends JPanel implements Runnable {
             case 3: return "attack3";
             default: return "attack1";
         }
+    }
+
+    private void setActorRunAnimation(BattleEntity actor, String animName) {
+        if (actor == null || !actor.isPlayer) return;
+        playActorAnimation(actor, animName);
+    }
+
+    private void setActorIdleAnimation(BattleEntity actor) {
+        if (actor == null || !actor.isPlayer) return;
+        playActorAnimation(actor, "idle");
+    }
+
+    private void updateBattlePlayerMovementAnimation(BattleEntity actor, double currentX, double targetX) {
+        if (actor == null || !actor.isPlayer) return;
+
+        // ΜΗΝ πειράζεις τα πραγματικά combat animations
+        // εκτός αν είμαστε σε battle entry ή flee
+        if (!battleEntering && !battleFleeing) {
+            if (actor.state == CombatState.WINDUP ||
+                actor.state == CombatState.ATTACKING ||
+                actor.state == CombatState.HIT_PAUSE ||
+                actor.state == CombatState.RECOVERY ||
+                actor.state == CombatState.DEFENDING ||
+                actor.state == CombatState.HURT ||
+                actor.state == CombatState.DEAD) {
+                return;
+            }
+        }
+
+        double diff = targetX - currentX;
+
+        if (Math.abs(diff) <= 2.0) {
+            setActorIdleAnimation(actor);
+        } else if (diff < 0) {
+            setActorRunAnimation(actor, "run_left");
+        } else {
+            setActorRunAnimation(actor, "run_right");
+        }
+    }
+
+    private boolean areAllBattlePlayersOffscreenRight() {
+        for (BattlePlayer bp : battlePlayers) {
+            if (bp.x < screenWidth + 120) return false;
+        }
+
+        for (BattlePartyMember bpm : battlePartyMembers) {
+            if (bpm.x < screenWidth + 120) return false;
+        }
+
+        return true;
     }
 
     public void playActorAnimation(BattleEntity actor, String animName) {

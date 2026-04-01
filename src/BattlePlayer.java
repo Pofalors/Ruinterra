@@ -11,7 +11,13 @@ public class BattlePlayer {
 
     public void playAnimation(String name) {
         if (anim != null) {
-            anim.setAnimation(name, name.equals("idle") || name.equals("lowHpIdle"));
+            boolean loop =
+                    name.equals("idle") ||
+                    name.equals("lowHpIdle") ||
+                    name.equals("run_left") ||
+                    name.equals("run_right");
+
+            anim.setAnimation(name, loop);
         }
     }
 

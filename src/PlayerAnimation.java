@@ -10,6 +10,8 @@ public class PlayerAnimation {
     public BufferedImage[] lowHpIdle;
     public BufferedImage[] defend;
     public BufferedImage[] useItem;
+    public BufferedImage[] runLeft;
+    public BufferedImage[] runRight;
 
     private BufferedImage[] currentAnimation;
     public int currentFrame = 0;
@@ -37,6 +39,8 @@ public class PlayerAnimation {
         this.lowHpIdle = null;
         this.defend = null;
         this.useItem = null;
+        this.runLeft = null;
+        this.runRight = null;
 
         this.currentAnimation = idleFrames;
         this.isPlaying = true;
@@ -54,7 +58,9 @@ public class PlayerAnimation {
             currentAnimName.equals("attack3") ||
             currentAnimName.equals("hurt") ||
             currentAnimName.equals("death") ||
-            currentAnimName.equals("useItem")) {
+            currentAnimName.equals("useItem") ||
+            currentAnimName.equals("run_left") ||
+            currentAnimName.equals("run_right")) {
             currentDelay = FRAME_DELAY_FAST;
         }
 
@@ -129,6 +135,12 @@ public class PlayerAnimation {
                 break;
             case "useItem":
                 selected = (useItem != null) ? useItem : attack1;
+                break;
+            case "run_left":
+                selected = (runLeft != null) ? runLeft : idle;
+                break;
+            case "run_right":
+                selected = (runRight != null) ? runRight : idle;
                 break;
             default:
                 selected = idle;
