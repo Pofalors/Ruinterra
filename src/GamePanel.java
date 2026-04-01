@@ -392,6 +392,12 @@ public class GamePanel extends JPanel implements Runnable {
     public ArrayList<BattleEntity> nextTurnPreview = new ArrayList<>();
     public int revealedNextTurnCount = 0;
     public final int INITIAL_NEXT_TURN_REVEAL = 3;
+    // NEW FRONT MOVEMENT ANIMATIONS
+    public final int BATTLE_PLAYER_REST_X = 600;
+    public final int BATTLE_PLAYER_REST_Y_OFFSET = 100;
+    public final int BATTLE_FRONT_ACTOR_X = 430;
+    public final int BATTLE_FRONT_ACTOR_Y_OFFSET = 50;
+    public final double BATTLE_FORMATION_LERP = 0.18;
 
     // variables για victory
     public int victoryTimer = 0;
@@ -1891,6 +1897,12 @@ public class GamePanel extends JPanel implements Runnable {
                             battleParty.party.get(0).image = bp.image;
                         }
                     }
+
+                    // Κίνηση party members προς τα μέσα ΜΕ ANIMATION
+                    for (BattlePartyMember bpm : battlePartyMembers) {
+                        bpm.x -= (bpm.x - bpm.targetX) / 10;
+                        if (Math.abs(bpm.x - bpm.targetX) < 1) bpm.x = bpm.targetX;
+                    }
                     
                     // Όταν τελειώσει το transition
                     if (battleTransitionTimer >= BATTLE_TRANSITION_TIME) {
@@ -1900,6 +1912,9 @@ public class GamePanel extends JPanel implements Runnable {
                         for (BattlePlayer bp : battlePlayers) {
                             bp.x = bp.targetX;
                             bp.image = playerLeft1; // Στατική εικόνα όταν σταματήσει
+                        }
+                        for (BattlePartyMember bpm : battlePartyMembers) {
+                            bpm.x = bpm.targetX;
                         }
                         
                         // Ενημέρωσε τα BattleEntities
@@ -4446,10 +4461,12 @@ public class GamePanel extends JPanel implements Runnable {
         bp.image = playerDown1;
         if (bp.anim != null) bp.playAnimation("idle");
         
+        Point heroRest = getHeroRestBattlePosition();
+
         bp.x = screenWidth + tileSize * 4;
-        bp.y = groundY - tileSize * 4 + 40;
-        bp.targetX = screenWidth - tileSize * 5;
-        bp.targetY = groundY - tileSize * 4 + 40;
+        bp.y = heroRest.y;
+        bp.targetX = heroRest.x;
+        bp.targetY = heroRest.y;
         
         battlePlayers.add(bp);
         
@@ -4461,10 +4478,12 @@ public class GamePanel extends JPanel implements Runnable {
             bpm.playAnimation("idle");
             
             // Τοποθέτηση σε κατακόρυφη σειρά (πιο πάνω από τον κεντρικό)
+            Point memberRest = getPartyMemberRestBattlePosition(i);
+
             bpm.x = screenWidth + tileSize * 4;
-            bpm.y = groundY - tileSize * 4 + 40 - ((i + 1) * 100);
-            bpm.targetX = screenWidth - tileSize * 5;
-            bpm.targetY = groundY - tileSize * 4 + 40 - ((i + 1) * 100);
+            bpm.y = memberRest.y;
+            bpm.targetX = memberRest.x;
+            bpm.targetY = memberRest.y;
             
             battlePartyMembers.add(bpm);
         }
@@ -4538,7 +4557,88 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
+    private Point getHeroRestBattlePosition() {
+        int playerSpriteSize = tileSize * 4;
+        int x = BATTLE_PLAYER_REST_X;
+        int y = groundY - playerSpriteSize + BATTLE_PLAYER_REST_Y_OFFSET;
+        return new Point(x, y);
+    }
+
+    private Point getPartyMemberRestBattlePosition(int index) {
+        int playerSpriteSize = tileSize * 4;
+
+        int baseX = BATTLE_PLAYER_REST_X;
+        int baseY = groundY - playerSpriteSize + BATTLE_PLAYER_REST_Y_OFFSET;
+
+        int offsetX = -60 - (index * 20);
+        int offsetY = -30 - (index * 40);
+
+        return new Point(baseX + offsetX, baseY + offsetY);
+    }
+
+    private Point getActiveFrontBattlePosition() {
+        int playerSpriteSize = tileSize * 4;
+        int x = BATTLE_FRONT_ACTOR_X;
+        int y = groundY - playerSpriteSize + BATTLE_FRONT_ACTOR_Y_OFFSET;
+        return new Point(x, y);
+    }
+
+    private void updateBattleFormationTargets() {
+        BattleEntity currentTurn = battleParty.getCurrentTurn();
+        Point activePos = getActiveFrontBattlePosition();
+
+        // ===== HERO =====
+        if (!battlePlayers.isEmpty()) {
+            BattlePlayer bp = battlePlayers.get(0);
+            Point heroRest = getHeroRestBattlePosition();
+
+            bp.targetX = heroRest.x;
+            bp.targetY = heroRest.y;
+
+            if (currentTurn != null && currentTurn.isPlayer && currentTurn.name.equals("Hero")) {
+                bp.targetX = activePos.x;
+                bp.targetY = activePos.y;
+            }
+        }
+
+        // ===== PARTY MEMBERS =====
+        for (int i = 0; i < battlePartyMembers.size(); i++) {
+            BattlePartyMember bpm = battlePartyMembers.get(i);
+            Point restPos = getPartyMemberRestBattlePosition(i);
+
+            bpm.targetX = restPos.x;
+            bpm.targetY = restPos.y;
+
+            if (currentTurn != null && currentTurn.isPlayer &&
+                currentTurn.name.equals(bpm.member.className)) {
+                bpm.targetX = activePos.x;
+                bpm.targetY = activePos.y;
+            }
+        }
+    }
+
+    private void animateBattleFormation() {
+        for (BattlePlayer bp : battlePlayers) {
+            bp.x += (bp.targetX - bp.x) * BATTLE_FORMATION_LERP;
+            bp.y += (bp.targetY - bp.y) * BATTLE_FORMATION_LERP;
+
+            if (Math.abs(bp.x - bp.targetX) < 1.0) bp.x = bp.targetX;
+            if (Math.abs(bp.y - bp.targetY) < 1.0) bp.y = bp.targetY;
+        }
+
+        for (BattlePartyMember bpm : battlePartyMembers) {
+            bpm.x += (bpm.targetX - bpm.x) * BATTLE_FORMATION_LERP;
+            bpm.y += (bpm.targetY - bpm.y) * BATTLE_FORMATION_LERP;
+
+            if (Math.abs(bpm.x - bpm.targetX) < 1.0) bpm.x = bpm.targetX;
+            if (Math.abs(bpm.y - bpm.targetY) < 1.0) bpm.y = bpm.targetY;
+        }
+    }
+
     public void updateBattleVisuals() {
+        updateBattleFormationTargets();
+        animateBattleFormation();
+
         for (BattlePlayer bp : battlePlayers) {
             bp.update();
         }
@@ -5237,24 +5337,18 @@ public class GamePanel extends JPanel implements Runnable {
 
         // ===== HERO =====
         if (!battlePlayers.isEmpty() && entity.name.equals("Hero")) {
-            int basePlayerX = 600;
-            int basePlayerY = groundY - playerSpriteSize + 100;
-            return new Point(basePlayerX + playerSpriteSize / 2, basePlayerY + playerSpriteSize / 2);
+            BattlePlayer bp = battlePlayers.get(0);
+            int drawX = (int)Math.round(bp.x);
+            int drawY = (int)Math.round(bp.y);
+            return new Point(drawX + playerSpriteSize / 2, drawY + playerSpriteSize / 2);
         }
 
         // ===== PARTY MEMBERS =====
         for (int i = 0; i < battlePartyMembers.size(); i++) {
             BattlePartyMember bpm = battlePartyMembers.get(i);
             if (entity.name.equals(bpm.member.className)) {
-                int basePlayerX = 600;
-                int basePlayerY = groundY - playerSpriteSize + 100;
-
-                int offsetX = -80 - (i * 60);
-                int offsetY = -40 - (i * 40);
-
-                int drawX = basePlayerX + offsetX;
-                int drawY = basePlayerY + offsetY;
-
+                int drawX = (int)Math.round(bpm.x);
+                int drawY = (int)Math.round(bpm.y);
                 return new Point(drawX + playerSpriteSize / 2, drawY + playerSpriteSize / 2);
             }
         }
@@ -6477,68 +6571,15 @@ public class GamePanel extends JPanel implements Runnable {
 
         // ========== ΠΑΙΚΤΕΣ (ΣΕ ΔΙΑΓΩΝΙΑ ΣΤΟΙΧΙΣΗ) ==========
         int playerSpriteSize = tileSize * 4;
-        int basePlayerX = 600;
-        int basePlayerY = groundY - playerSpriteSize + 100;
 
         BattleEntity currentTurn = battleParty.getCurrentTurn();
 
-        // 1. HERO
-        if (!battlePlayers.isEmpty()) {
-            BattlePlayer bp = battlePlayers.get(0);
-            int drawX = basePlayerX;
-            int drawY = basePlayerY;
-
-            // Σκιά ήρωα
-            g.setColor(new Color(0, 0, 0, 100));
-            g.fillOval(drawX + playerSpriteSize / 4, drawY + playerSpriteSize - 10,
-                    playerSpriteSize / 2, playerSpriteSize / 8);
-
-            if (currentTurn != null && currentTurn.isPlayer &&
-                currentTurn.name.equals("Hero") &&
-                selectedBoost > 0 &&
-                !actionInProgress) {
-
-                int auraCenterX = drawX + playerSpriteSize / 2;
-                int auraFootY = drawY + playerSpriteSize - 10;
-                drawBoostAura(g, auraCenterX, auraFootY, selectedBoost);
-            }
-
-            BattleEntity heroEntity = null;
-            for (BattleEntity entity : battleParty.party) {
-                if (entity.name.equals("Hero")) {
-                    heroEntity = entity;
-                    break;
-                }
-            }
-
-            int recoilX = getHitRecoilDrawOffsetX(heroEntity, false);
-            int recoilY = getHitRecoilDrawOffsetY(heroEntity);
-            int lungeX = getLungeOffsetX(heroEntity);
-            int lungeY = getLungeOffsetY(heroEntity);
-
-            BufferedImage playerImg = bp.getCurrentImage();
-            if (playerImg != null) {
-                drawAfterimageTrail(g, playerImg, heroEntity,
-                        drawX + recoilX + lungeX,
-                        drawY + recoilY + lungeY,
-                        playerSpriteSize, playerSpriteSize);
-                drawSwingTrail(g, heroEntity,
-                        drawX + recoilX + lungeX + playerSpriteSize / 2,
-                        drawY + recoilY + lungeY + playerSpriteSize / 2);
-                g.drawImage(playerImg, drawX + recoilX + lungeX, drawY + recoilY + lungeY, playerSpriteSize, playerSpriteSize, null);
-                drawImpactDust(g, heroEntity, drawX + recoilX + playerSpriteSize / 2, drawY + recoilY + playerSpriteSize - 10,1);
-            }
-        }
-
-        // 2. PARTY MEMBERS
-        for (int i = 0; i < battlePartyMembers.size(); i++) {
+        // 1. PARTY MEMBERS
+        for (int i = battlePartyMembers.size() - 1; i >= 0; i--) {
             BattlePartyMember bpm = battlePartyMembers.get(i);
 
-            int offsetX = -80 - (i * 60);
-            int offsetY = -40 - (i * 40);
-
-            int drawX = basePlayerX + offsetX;
-            int drawY = basePlayerY + offsetY;
+            int drawX = (int)Math.round(bpm.x);
+            int drawY = (int)Math.round(bpm.y);
 
             // Σκιά
             g.setColor(new Color(0, 0, 0, 100));
@@ -6579,6 +6620,54 @@ public class GamePanel extends JPanel implements Runnable {
                         drawY + recoilY + lungeY + playerSpriteSize / 2);
                 g.drawImage(memberImg, drawX + recoilX + lungeX, drawY + recoilY + lungeY, playerSpriteSize, playerSpriteSize, null);
                 drawImpactDust(g, memberEntity, drawX + recoilX + playerSpriteSize / 2, drawY + recoilY + playerSpriteSize - 10,1);
+            }
+        }
+
+        // 2. HERO
+        if (!battlePlayers.isEmpty()) {
+            BattlePlayer bp = battlePlayers.get(0);
+            int drawX = (int)Math.round(bp.x);
+            int drawY = (int)Math.round(bp.y);
+
+            // Σκιά ήρωα
+            g.setColor(new Color(0, 0, 0, 100));
+            g.fillOval(drawX + playerSpriteSize / 4, drawY + playerSpriteSize - 10,
+                    playerSpriteSize / 2, playerSpriteSize / 8);
+
+            if (currentTurn != null && currentTurn.isPlayer &&
+                currentTurn.name.equals("Hero") &&
+                selectedBoost > 0 &&
+                !actionInProgress) {
+
+                int auraCenterX = drawX + playerSpriteSize / 2;
+                int auraFootY = drawY + playerSpriteSize - 10;
+                drawBoostAura(g, auraCenterX, auraFootY, selectedBoost);
+            }
+
+            BattleEntity heroEntity = null;
+            for (BattleEntity entity : battleParty.party) {
+                if (entity.name.equals("Hero")) {
+                    heroEntity = entity;
+                    break;
+                }
+            }
+
+            int recoilX = getHitRecoilDrawOffsetX(heroEntity, false);
+            int recoilY = getHitRecoilDrawOffsetY(heroEntity);
+            int lungeX = getLungeOffsetX(heroEntity);
+            int lungeY = getLungeOffsetY(heroEntity);
+
+            BufferedImage playerImg = bp.getCurrentImage();
+            if (playerImg != null) {
+                drawAfterimageTrail(g, playerImg, heroEntity,
+                        drawX + recoilX + lungeX,
+                        drawY + recoilY + lungeY,
+                        playerSpriteSize, playerSpriteSize);
+                drawSwingTrail(g, heroEntity,
+                        drawX + recoilX + lungeX + playerSpriteSize / 2,
+                        drawY + recoilY + lungeY + playerSpriteSize / 2);
+                g.drawImage(playerImg, drawX + recoilX + lungeX, drawY + recoilY + lungeY, playerSpriteSize, playerSpriteSize, null);
+                drawImpactDust(g, heroEntity, drawX + recoilX + playerSpriteSize / 2, drawY + recoilY + playerSpriteSize - 10,1);
             }
         }
 
