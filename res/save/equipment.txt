@@ -1,0 +1,5 @@
+0|3|Spear 01
+1|3|Dagger
+1|8|Leather Boots
+2|3|Staff
+2|4|Leather Armor

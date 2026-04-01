@@ -389,12 +389,16 @@ public class GamePanel extends JPanel implements Runnable {
     public int pendingDamage = 0;
     public PlayerAnimation playerBattleAnim;
     public ArrayList<Enemy> pendingEncounterEnemies = new ArrayList<>();
+    public ArrayList<BattleEntity> nextTurnPreview = new ArrayList<>();
+    public int revealedNextTurnCount = 0;
+    public final int INITIAL_NEXT_TURN_REVEAL = 3;
 
     // variables για victory
     public int victoryTimer = 0;
     public int victoryExp = 0;
     public int victoryGold = 0;
     public boolean victoryRewardsShown = false;
+    
 
     // ΠΟΖΕΣ
     BufferedImage playerDown1, playerDown2;
@@ -687,6 +691,7 @@ public class GamePanel extends JPanel implements Runnable {
         sound.preloadBattleSound("THANKSMAGE", "ThanksMage.wav");
         sound.preloadBattleSound("TURNASSASSIN", "turnAssassin.wav");
         sound.preloadBattleSound("TURNMAGE", "turnMage.wav");
+        sound.preloadBattleSound("NEXTTURN", "nextTurn.wav");
         sound.preloadBattleSound("USEITEMASSASSIN", "useItemAssassin.wav");
         sound.preloadBattleSound("VICTORYASSASSIN", "victoryAssassin.wav");
         sound.preloadBattleSound("VICTORYMAGE", "victoryMage.wav");
@@ -1952,7 +1957,20 @@ public class GamePanel extends JPanel implements Runnable {
                             boostLoopTimer = 0;
                             sound.stopBattleLoop();
 
+                            boolean wasLastActorInRound =
+                                    !battleParty.turnOrder.isEmpty() &&
+                                    battleParty.currentTurnIndex == battleParty.turnOrder.size() - 1;
+
                             battleParty.nextTurn();
+
+                            if (wasLastActorInRound) {
+                                // Μπήκαμε σε νέο round, ξαναχτίζουμε το NEXT TURN
+                                rebuildNextTurnPreview();
+                            } else {
+                                // Reveal ακόμα ένα slot από το επόμενο round
+                                revealOneMoreNextTurnSlot();
+                            }
+
                             commandLocked = false;
                         }
                         repaint();
@@ -4481,9 +4499,12 @@ public class GamePanel extends JPanel implements Runnable {
             System.out.println("  - " + be.name + " (HP: " + be.hp + ")");
         }
         
-        // Υπολόγισε τη σειρά σειράς
-        battleParty.calculateRandomTurnOrder();
+        // Υπολόγισε τη σειρά σειράς με βάση το speed
+        battleParty.calculateTurnOrder();
         battleParty.startNewRoundBP();
+
+        // Χτίσε το πρώτο NEXT TURN preview
+        rebuildNextTurnPreview();
         
         // Αρχικοποίησε μεταβλητές μάχης
         battleMenuOption = 0;
@@ -4705,6 +4726,7 @@ public class GamePanel extends JPanel implements Runnable {
             if (isActorAnimationFinished(actor)) {
                 battleParty.removeDeadEntities();
                 battleParty.syncPlayerHealth();
+                removeDeadFromNextTurnPreview();
 
                 actor.resetTurnFlags();
                 actor.enterState(CombatState.IDLE);
@@ -5700,6 +5722,7 @@ public class GamePanel extends JPanel implements Runnable {
 
         battleParty.removeDeadEntities();
         battleParty.syncPlayerHealth();
+        removeDeadFromNextTurnPreview();
 
         battleEnemies.removeIf(be -> {
             for (BattleEntity enemyEntity : battleParty.enemies) {
@@ -6813,88 +6836,135 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     public void drawBattleTurnOrder(Graphics2D g2) {
-        int startX = 20;  // Πάνω αριστερά
+        int startX = 20;
         int startY = 10;
-        int slotWidth = 48;  // Λίγο μεγαλύτερο (ίδιο με tileSize)
+        int slotWidth = 48;
         int slotHeight = 48;
-        int spacing = 5;     // Μικρή απόσταση μεταξύ slots
-        
-        // Τρέχων γύρος
+        int spacing = 5;
+        int blockGap = 18;
+
+        // =========================
+        // CURRENT TURN QUEUE
+        // =========================
         int currentIndex = battleParty.currentTurnIndex;
-        
-        for (int i = 0; i < battleParty.turnOrder.size(); i++) {
-            BattleEntity entity = battleParty.turnOrder.get(i);
-            
-            // Υπολόγισε θέση οριζόντια
+        int currentCount = battleParty.turnOrder.size() - currentIndex;
+
+        for (int i = 0; i < currentCount; i++) {
+            BattleEntity entity = battleParty.turnOrder.get(currentIndex + i);
+
             int x = startX + i * (slotWidth + spacing);
             int y = startY;
-            
-            // Διάλεξε χρώμα πλαισίου ανάλογα με το ποιος είναι
-            if (entity.isPlayer) {
-                // Δικοί μας - Μπλε
-                if (i == currentIndex) {
-                    g2.setColor(new Color(0, 100, 255, 180)); // Μπλε με διαφάνεια
-                    g2.fillRoundRect(x, y, slotWidth, slotHeight, 10, 10);
-                    g2.setColor(new Color(0, 150, 255)); // Πιο φωτεινό μπλε για περίγραμμα
-                    g2.setStroke(new BasicStroke(3));
-                    g2.drawRoundRect(x, y, slotWidth, slotHeight, 10, 10);
-                } else {
-                    g2.setColor(new Color(0, 70, 150, 150)); // Σκούρο μπλε με διαφάνεια
-                    g2.fillRoundRect(x, y, slotWidth, slotHeight, 10, 10);
-                    g2.setColor(new Color(100, 150, 255)); // Ανοιχτό μπλε για περίγραμμα
-                    g2.setStroke(new BasicStroke(2));
-                    g2.drawRoundRect(x, y, slotWidth, slotHeight, 10, 10);
-                }
-            } else {
-                // Αντίπαλοι - Κόκκινο
-                if (i == currentIndex) {
-                    g2.setColor(new Color(255, 0, 0, 180)); // Κόκκινο με διαφάνεια
-                    g2.fillRoundRect(x, y, slotWidth, slotHeight, 10, 10);
-                    g2.setColor(new Color(255, 100, 100)); // Πιο φωτεινό κόκκινο για περίγραμμα
-                    g2.setStroke(new BasicStroke(3));
-                    g2.drawRoundRect(x, y, slotWidth, slotHeight, 10, 10);
-                } else {
-                    g2.setColor(new Color(150, 0, 0, 150)); // Σκούρο κόκκινο με διαφάνεια
-                    g2.fillRoundRect(x, y, slotWidth, slotHeight, 10, 10);
-                    g2.setColor(new Color(255, 100, 100)); // Ανοιχτό κόκκινο για περίγραμμα
-                    g2.setStroke(new BasicStroke(2));
-                    g2.drawRoundRect(x, y, slotWidth, slotHeight, 10, 10);
-                }
-            }
-            
-            // Εικόνα οντότητας
-            BufferedImage icon = null;
 
-            if (entity.isPlayer) {
-                if (entity.name.equals("Hero")) {
-                    icon = playerDown1;
-                } else if (entity.name.equals("Assassin")) {
-                    // Βρες τον assassin στα partyMembers
-                    for (PartyMember member : partyMembers) {
-                        if (member.className.equals("Assassin")) {
-                            icon = member.down1;
-                            break;
-                        }
-                    }
-                } else if (entity.name.equals("Mage")) {
-                    for (PartyMember member : partyMembers) {
-                        if (member.className.equals("Mage")) {
-                            icon = member.down1;
-                            break;
-                        }
-                    }
-                }
+            drawTurnSlot(g2, entity, x, y, slotWidth, slotHeight, i == 0);
+        }
+
+        int currentLabelX = startX;
+        int labelY = startY + slotHeight + 14;
+
+        g2.setFont(maruMonicaSmall.deriveFont(Font.BOLD, 10f));
+        g2.setColor(new Color(255, 245, 180));
+        g2.drawString("CURRENT TURN", currentLabelX, labelY);
+
+        // =========================
+        // NEXT TURN QUEUE
+        // =========================
+        int nextStartX = startX + currentCount * (slotWidth + spacing) + blockGap;
+
+        removeDeadFromNextTurnPreview();
+
+        for (int i = 0; i < revealedNextTurnCount && i < nextTurnPreview.size(); i++) {
+            BattleEntity entity = nextTurnPreview.get(i);
+
+            int x = nextStartX + i * (slotWidth + spacing);
+            int y = startY;
+
+            drawTurnSlot(g2, entity, x, y, slotWidth, slotHeight, false);
+        }
+
+        g2.setFont(maruMonicaSmall.deriveFont(Font.BOLD, 10f));
+        g2.setColor(new Color(210, 210, 210));
+        g2.drawString("NEXT TURN", nextStartX, labelY);
+    }
+
+    private void drawTurnSlot(Graphics2D g2, BattleEntity entity, int x, int y, int slotWidth, int slotHeight, boolean isCurrentActor) {
+        if (entity == null) return;
+
+        if (entity.isPlayer) {
+            if (isCurrentActor) {
+                g2.setColor(new Color(0, 100, 255, 180));
+                g2.fillRoundRect(x, y, slotWidth, slotHeight, 10, 10);
+                g2.setColor(new Color(0, 150, 255));
+                g2.setStroke(new BasicStroke(3));
             } else {
-                // Για εχθρό, χρησιμοποίησε την εικόνα του εχθρού
-                if (entity.enemyRef != null && entity.enemyRef.currentImage != null) {
-                    icon = entity.enemyRef.currentImage;
-                }
+                g2.setColor(new Color(0, 70, 150, 150));
+                g2.fillRoundRect(x, y, slotWidth, slotHeight, 10, 10);
+                g2.setColor(new Color(100, 150, 255));
+                g2.setStroke(new BasicStroke(2));
             }
-            
-            // Ζωγράφισε την εικόνα (ελαφρώς μικρότερη για να φαίνεται το πλαίσιο)
-            if (icon != null) {
-                g2.drawImage(icon, x + 4, y + 4, slotWidth - 8, slotHeight - 8, null);
+        } else {
+            if (isCurrentActor) {
+                g2.setColor(new Color(180, 60, 60, 180));
+                g2.fillRoundRect(x, y, slotWidth, slotHeight, 10, 10);
+                g2.setColor(new Color(255, 120, 120));
+                g2.setStroke(new BasicStroke(3));
+            } else {
+                g2.setColor(new Color(120, 50, 50, 150));
+                g2.fillRoundRect(x, y, slotWidth, slotHeight, 10, 10);
+                g2.setColor(new Color(220, 120, 120));
+                g2.setStroke(new BasicStroke(2));
             }
+        }
+
+        g2.drawRoundRect(x, y, slotWidth, slotHeight, 10, 10);
+
+        BufferedImage icon = getBattleTurnPortrait(entity);
+        if (icon != null) {
+            g2.drawImage(icon, x + 4, y + 4, slotWidth - 8, slotHeight - 8, null);
+        }
+    }
+
+    private BufferedImage getBattleTurnPortrait(BattleEntity entity) {
+        if (entity == null) return null;
+
+        if (entity.isPlayer) {
+            if (entity.playerRef != null && !(entity.playerRef instanceof PartyMember)) {
+                return heroPortrait32;
+            }
+
+            if (entity.name.equalsIgnoreCase("Assassin")) {
+                return assassinPortrait32;
+            }
+
+            if (entity.name.equalsIgnoreCase("Mage")) {
+                return magePortrait32;
+            }
+
+            return heroPortrait32;
+        }
+
+        if (entity.enemyRef != null && entity.enemyRef.currentImage != null) {
+            return entity.enemyRef.currentImage;
+        }
+
+        return entity.image;
+    }
+
+    private void rebuildNextTurnPreview() {
+        nextTurnPreview = battleParty.buildSpeedOrderSnapshot();
+        revealedNextTurnCount = Math.min(INITIAL_NEXT_TURN_REVEAL, nextTurnPreview.size());
+    }
+
+    private void revealOneMoreNextTurnSlot() {
+        if (revealedNextTurnCount < nextTurnPreview.size()) {
+            revealedNextTurnCount++;
+        }
+    }
+
+    private void removeDeadFromNextTurnPreview() {
+        nextTurnPreview.removeIf(entity -> entity == null || !entity.isAlive());
+
+        if (revealedNextTurnCount > nextTurnPreview.size()) {
+            revealedNextTurnCount = nextTurnPreview.size();
         }
     }
 
