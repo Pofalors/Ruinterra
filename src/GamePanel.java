@@ -342,6 +342,7 @@ public class GamePanel extends JPanel implements Runnable {
     public int hitFlashTimer = 0;
     public int hitFlashDuration = 0;
     public int hitFlashLevel = 0;
+    public ArrayList<BattleEffectInstance> activeBattleEffects = new ArrayList<>();
     public double boostSlashAngle = -0.65; // βασική διαγώνια φορά
 
     public int screenShakeTimer = 0;
@@ -2062,13 +2063,12 @@ public class GamePanel extends JPanel implements Runnable {
                                 } else if (selectedBoost == 3) {
                                     boostVisualStartTime = System.currentTimeMillis();
                                     sound.playBattleSE("BOOSTLVL3");
-                                }
-
-                                if (currentPlayer.name.equals("Assassin")) {
-                                    sound.playBattleSE("BOOSTASSASSIN");
-                                } else if (currentPlayer.name.equals("Mage")) {
-                                    sound.playBattleSE("BOOSTMAGE");
-                                }
+                                    if (currentPlayer.name.equals("Assassin")) {
+                                        sound.playBattleSE("BOOSTASSASSIN");
+                                    } else if (currentPlayer.name.equals("Mage")) {
+                                        sound.playBattleSE("BOOSTMAGE");
+                                    }
+                                }                                
 
                                 boostLoopLevel = selectedBoost;
                                 battleMessage = "Boost: " + selectedBoost + "   Press B/C";
@@ -4729,6 +4729,8 @@ public class GamePanel extends JPanel implements Runnable {
         for (BattleEnemy be : battleEnemies) {
             be.update();
         }
+
+        updateBattleEffects();
     }
 
     public void updateBattleAction() {
@@ -4944,82 +4946,82 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
-    public void drawImpactSlashLines(Graphics2D g2) {
-        if (boostBurstTimer >= boostBurstDuration || boostBurstLevel <= 0) return;
+    // public void drawImpactSlashLines(Graphics2D g2) {
+    //     if (boostBurstTimer >= boostBurstDuration || boostBurstLevel <= 0) return;
 
-        Graphics2D g = (Graphics2D) g2.create();
+    //     Graphics2D g = (Graphics2D) g2.create();
 
-        float progress = (float) boostBurstTimer / boostBurstDuration;
-        float inv = 1.0f - progress;
+    //     float progress = (float) boostBurstTimer / boostBurstDuration;
+    //     float inv = 1.0f - progress;
 
-        // ίδιο offset με το burst
-        int impactX = boostBurstX - 15;
-        int impactY = boostBurstY + 120;
+    //     // ίδιο offset με το burst
+    //     int impactX = boostBurstX - 15;
+    //     int impactY = boostBurstY + 120;
 
-        // χρώματα
-        Color mainSlash = new Color(255, 245, 220, Math.max(0, (int)(210 * inv)));
-        Color glowSlash = new Color(255, 190, 120, Math.max(0, (int)(130 * inv)));
+    //     // χρώματα
+    //     Color mainSlash = new Color(255, 245, 220, Math.max(0, (int)(210 * inv)));
+    //     Color glowSlash = new Color(255, 190, 120, Math.max(0, (int)(130 * inv)));
 
-        // μήκος/πάχος ανά boost
-        int mainLength;
-        float mainThickness;
+    //     // μήκος/πάχος ανά boost
+    //     int mainLength;
+    //     float mainThickness;
 
-        if (boostBurstLevel == 1) {
-            mainLength = 55;
-            mainThickness = 3f;
-        } else if (boostBurstLevel == 2) {
-            mainLength = 75;
-            mainThickness = 5f;
-        } else {
-            mainLength = 95;
-            mainThickness = 7f;
-        }
+    //     if (boostBurstLevel == 1) {
+    //         mainLength = 55;
+    //         mainThickness = 3f;
+    //     } else if (boostBurstLevel == 2) {
+    //         mainLength = 75;
+    //         mainThickness = 5f;
+    //     } else {
+    //         mainLength = 95;
+    //         mainThickness = 7f;
+    //     }
 
-        double angle = boostSlashAngle;
+    //     double angle = boostSlashAngle;
 
-        int dx = (int)(Math.cos(angle) * mainLength);
-        int dy = (int)(Math.sin(angle) * mainLength);
+    //     int dx = (int)(Math.cos(angle) * mainLength);
+    //     int dy = (int)(Math.sin(angle) * mainLength);
 
-        int x1 = impactX - dx / 2;
-        int y1 = impactY - dy / 2;
-        int x2 = impactX + dx / 2;
-        int y2 = impactY + dy / 2;
+    //     int x1 = impactX - dx / 2;
+    //     int y1 = impactY - dy / 2;
+    //     int x2 = impactX + dx / 2;
+    //     int y2 = impactY + dy / 2;
 
-        // ===== glow κάτω από το main slash =====
-        g.setStroke(new BasicStroke(mainThickness + 4, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.setColor(glowSlash);
-        g.drawLine(x1, y1, x2, y2);
+    //     // ===== glow κάτω από το main slash =====
+    //     g.setStroke(new BasicStroke(mainThickness + 4, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+    //     g.setColor(glowSlash);
+    //     g.drawLine(x1, y1, x2, y2);
 
-        // ===== main slash =====
-        g.setStroke(new BasicStroke(mainThickness, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.setColor(mainSlash);
-        g.drawLine(x1, y1, x2, y2);
+    //     // ===== main slash =====
+    //     g.setStroke(new BasicStroke(mainThickness, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+    //     g.setColor(mainSlash);
+    //     g.drawLine(x1, y1, x2, y2);
 
-        // ===== δευτερεύουσες streaks =====
-        int streakCount = 1 + boostBurstLevel; // 2,3,4 συνολικά περίπου
-        for (int i = 0; i < streakCount; i++) {
-            double offsetFactor = (i - streakCount / 2.0) * 12.0;
-            double perpAngle = angle + Math.PI / 2.0;
+    //     // ===== δευτερεύουσες streaks =====
+    //     int streakCount = 1 + boostBurstLevel; // 2,3,4 συνολικά περίπου
+    //     for (int i = 0; i < streakCount; i++) {
+    //         double offsetFactor = (i - streakCount / 2.0) * 12.0;
+    //         double perpAngle = angle + Math.PI / 2.0;
 
-            int ox = (int)(Math.cos(perpAngle) * offsetFactor);
-            int oy = (int)(Math.sin(perpAngle) * offsetFactor);
+    //         int ox = (int)(Math.cos(perpAngle) * offsetFactor);
+    //         int oy = (int)(Math.sin(perpAngle) * offsetFactor);
 
-            int streakLength = (int)(mainLength * (0.45 + i * 0.08));
-            int sdx = (int)(Math.cos(angle) * streakLength);
-            int sdy = (int)(Math.sin(angle) * streakLength);
+    //         int streakLength = (int)(mainLength * (0.45 + i * 0.08));
+    //         int sdx = (int)(Math.cos(angle) * streakLength);
+    //         int sdy = (int)(Math.sin(angle) * streakLength);
 
-            int sx1 = impactX + ox - sdx / 2;
-            int sy1 = impactY + oy - sdy / 2;
-            int sx2 = impactX + ox + sdx / 2;
-            int sy2 = impactY + oy + sdy / 2;
+    //         int sx1 = impactX + ox - sdx / 2;
+    //         int sy1 = impactY + oy - sdy / 2;
+    //         int sx2 = impactX + ox + sdx / 2;
+    //         int sy2 = impactY + oy + sdy / 2;
 
-            g.setStroke(new BasicStroke(Math.max(1.5f, mainThickness - 2f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-            g.setColor(new Color(255, 255, 255, Math.max(0, (int)(140 * inv))));
-            g.drawLine(sx1, sy1, sx2, sy2);
-        }
+    //         g.setStroke(new BasicStroke(Math.max(1.5f, mainThickness - 2f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+    //         g.setColor(new Color(255, 255, 255, Math.max(0, (int)(140 * inv))));
+    //         g.drawLine(sx1, sy1, sx2, sy2);
+    //     }
 
-        g.dispose();
-    }
+    //     g.dispose();
+    // }
 
     public int getHitRecoilDrawOffsetX(BattleEntity entity, boolean targetIsEnemy) {
         if (entity == null || entity.hitRecoilTimer <= 0) return 0;
@@ -5435,104 +5437,131 @@ public class GamePanel extends JPanel implements Runnable {
         return new Point(screenWidth / 2, screenHeight / 2);
     }
 
+    public void spawnBattleEffect(String type, int x, int y, int duration, int level) {
+        activeBattleEffects.add(new BattleEffectInstance(type, x, y, duration, level));
+    }
+
+    public void spawnBattleEffectAtEntity(String type, BattleEntity target, int duration, int level) {
+        if (target == null) return;
+
+        Point p = getBattleEntityScreenCenter(target);
+        spawnBattleEffect(type, p.x, p.y, duration, level);
+    }
+
+    public void updateBattleEffects() {
+        for (int i = activeBattleEffects.size() - 1; i >= 0; i--) {
+            BattleEffectInstance fx = activeBattleEffects.get(i);
+            fx.update();
+
+            if (fx.finished) {
+                activeBattleEffects.remove(i);
+            }
+        }
+    }
+
+    public void drawBattleEffects(Graphics2D g2) {
+        for (BattleEffectInstance fx : activeBattleEffects) {
+            fx.draw(g2, this);
+        }
+    }
+
     public void triggerBoostBurst(BattleEntity target, int boostLevel) {
         if (target == null || boostLevel <= 0) return;
 
         Point p = getBattleEntityScreenCenter(target);
 
-        boostBurstLevel = boostLevel;
-        boostBurstX = p.x;
-        boostBurstY = p.y;
-        boostBurstTimer = 0;
-
+        int duration;
         if (boostLevel == 1) {
-            boostBurstDuration = 12;
+            duration = 12;
             screenShakeStrength = 3;
             screenShakeDuration = 6;
         } else if (boostLevel == 2) {
-            boostBurstDuration = 16;
+            duration = 16;
             screenShakeStrength = 5;
             screenShakeDuration = 8;
         } else {
-            boostBurstDuration = 20;
+            duration = 20;
             screenShakeStrength = 7;
             screenShakeDuration = 10;
         }
 
         screenShakeTimer = screenShakeDuration;
+
+        spawnBattleEffect("boost_burst", p.x, p.y, duration, boostLevel);
+        spawnBattleEffect("hit_slash", p.x, p.y, duration, boostLevel);
     }
 
-    public void drawBoostBurstEffect(Graphics2D g2) {
-        if (boostBurstTimer >= boostBurstDuration || boostBurstLevel <= 0) return;
+    // public void drawBoostBurstEffect(Graphics2D g2) {
+    //     if (boostBurstTimer >= boostBurstDuration || boostBurstLevel <= 0) return;
 
-        Graphics2D g = (Graphics2D) g2.create();
+    //     Graphics2D g = (Graphics2D) g2.create();
 
-        float progress = (float) boostBurstTimer / boostBurstDuration;
-        float inv = 1.0f - progress;
+    //     float progress = (float) boostBurstTimer / boostBurstDuration;
+    //     float inv = 1.0f - progress;
 
-        // ===== OFFSET για να είναι πιο αριστερά και πιο χαμηλά =====
-        int impactX = boostBurstX - 15;
-        int impactY = boostBurstY + 120;
+    //     // ===== OFFSET για να είναι πιο αριστερά και πιο χαμηλά =====
+    //     int impactX = boostBurstX - 15;
+    //     int impactY = boostBurstY + 120;
 
-        // ===== ΙΔΙΟ ΧΡΩΜΑ ΓΙΑ ΟΛΑ ΤΑ BOOST =====
-        Color flashColor = new Color(255, 180, 100, Math.max(0, (int)(200 * inv)));
+    //     // ===== ΙΔΙΟ ΧΡΩΜΑ ΓΙΑ ΟΛΑ ΤΑ BOOST =====
+    //     Color flashColor = new Color(255, 180, 100, Math.max(0, (int)(200 * inv)));
 
-        // ===== IMPACT FLASH =====
-        int flashRadius;
-        if (boostBurstLevel == 1) {
-            flashRadius = 24 + (int)(progress * 30);
-        } else if (boostBurstLevel == 2) {
-            flashRadius = 34 + (int)(progress * 40);
-        } else {
-            flashRadius = 46 + (int)(progress * 52);
-        }
+    //     // ===== IMPACT FLASH =====
+    //     int flashRadius;
+    //     if (boostBurstLevel == 1) {
+    //         flashRadius = 24 + (int)(progress * 30);
+    //     } else if (boostBurstLevel == 2) {
+    //         flashRadius = 34 + (int)(progress * 40);
+    //     } else {
+    //         flashRadius = 46 + (int)(progress * 52);
+    //     }
 
-        g.setColor(flashColor);
-        g.fillOval(impactX - flashRadius, impactY - flashRadius, flashRadius * 2, flashRadius * 2);
+    //     g.setColor(flashColor);
+    //     g.fillOval(impactX - flashRadius, impactY - flashRadius, flashRadius * 2, flashRadius * 2);
 
-        // ===== RING EXPLOSION =====
-        g.setStroke(new BasicStroke(3f));
-        int ringRadius;
-        if (boostBurstLevel == 1) {
-            ringRadius = 28 + (int)(progress * 38);
-        } else if (boostBurstLevel == 2) {
-            ringRadius = 40 + (int)(progress * 50);
-        } else {
-            ringRadius = 54 + (int)(progress * 64);
-        }
+    //     // ===== RING EXPLOSION =====
+    //     g.setStroke(new BasicStroke(3f));
+    //     int ringRadius;
+    //     if (boostBurstLevel == 1) {
+    //         ringRadius = 28 + (int)(progress * 38);
+    //     } else if (boostBurstLevel == 2) {
+    //         ringRadius = 40 + (int)(progress * 50);
+    //     } else {
+    //         ringRadius = 54 + (int)(progress * 64);
+    //     }
 
-        g.setColor(new Color(255, 210, 150, Math.max(0, (int)(170 * inv))));
-        g.drawOval(impactX - ringRadius, impactY - ringRadius, ringRadius * 2, ringRadius * 2);
+    //     g.setColor(new Color(255, 210, 150, Math.max(0, (int)(170 * inv))));
+    //     g.drawOval(impactX - ringRadius, impactY - ringRadius, ringRadius * 2, ringRadius * 2);
 
-        // ===== SECOND RING για boost 2/3 =====
-        if (boostBurstLevel >= 2) {
-            int ringRadius2;
-            if (boostBurstLevel == 2) {
-                ringRadius2 = 18 + (int)(progress * 32);
-            } else {
-                ringRadius2 = 28 + (int)(progress * 44);
-            }
+    //     // ===== SECOND RING για boost 2/3 =====
+    //     if (boostBurstLevel >= 2) {
+    //         int ringRadius2;
+    //         if (boostBurstLevel == 2) {
+    //             ringRadius2 = 18 + (int)(progress * 32);
+    //         } else {
+    //             ringRadius2 = 28 + (int)(progress * 44);
+    //         }
 
-            g.setColor(new Color(255, 245, 220, Math.max(0, (int)(120 * inv))));
-            g.drawOval(impactX - ringRadius2, impactY - ringRadius2, ringRadius2 * 2, ringRadius2 * 2);
-        }
+    //         g.setColor(new Color(255, 245, 220, Math.max(0, (int)(120 * inv))));
+    //         g.drawOval(impactX - ringRadius2, impactY - ringRadius2, ringRadius2 * 2, ringRadius2 * 2);
+    //     }
 
-        // ===== SPARKS =====
-        int sparkCount = 6 + boostBurstLevel * 3;
-        for (int i = 0; i < sparkCount; i++) {
-            double angle = (Math.PI * 2 / sparkCount) * i + (boostBurstTimer * 0.15);
-            int dist = 10 + (int)(progress * 50) + (i % 3) * 4;
+    //     // ===== SPARKS =====
+    //     int sparkCount = 6 + boostBurstLevel * 3;
+    //     for (int i = 0; i < sparkCount; i++) {
+    //         double angle = (Math.PI * 2 / sparkCount) * i + (boostBurstTimer * 0.15);
+    //         int dist = 10 + (int)(progress * 50) + (i % 3) * 4;
 
-            int sx = impactX + (int)(Math.cos(angle) * dist);
-            int sy = impactY + (int)(Math.sin(angle) * dist);
+    //         int sx = impactX + (int)(Math.cos(angle) * dist);
+    //         int sy = impactY + (int)(Math.sin(angle) * dist);
 
-            int size = (boostBurstLevel == 3) ? 5 : 4;
-            g.setColor(new Color(255, 255, 255, Math.max(0, (int)(180 * inv))));
-            g.fillOval(sx, sy, size, size);
-        }
+    //         int size = (boostBurstLevel == 3) ? 5 : 4;
+    //         g.setColor(new Color(255, 255, 255, Math.max(0, (int)(180 * inv))));
+    //         g.fillOval(sx, sy, size, size);
+    //     }
 
-        g.dispose();
-    }
+    //     g.dispose();
+    // }
 
     public void updateBoostBurstEffect() {
         if (boostBurstTimer < boostBurstDuration) {
@@ -5694,39 +5723,38 @@ public class GamePanel extends JPanel implements Runnable {
     public void triggerHitFlash(int boostLevel) {
         if (boostLevel <= 0) return;
 
-        hitFlashLevel = boostLevel;
-
+        int duration;
         if (boostLevel == 1) {
-            hitFlashDuration = 4;
+            duration = 4;
         } else if (boostLevel == 2) {
-            hitFlashDuration = 6;
+            duration = 6;
         } else {
-            hitFlashDuration = 8;
+            duration = 8;
         }
 
-        hitFlashTimer = hitFlashDuration;
+        spawnBattleEffect("hit_flash", screenWidth / 2, screenHeight / 2, duration, boostLevel);
     }
 
-    public void drawHitFlashOverlay(Graphics2D g2) {
-        if (hitFlashTimer <= 0 || hitFlashLevel <= 0) return;
+    // public void drawHitFlashOverlay(Graphics2D g2) {
+    //     if (hitFlashTimer <= 0 || hitFlashLevel <= 0) return;
 
-        float progress = (float) hitFlashTimer / hitFlashDuration;
+    //     float progress = (float) hitFlashTimer / hitFlashDuration;
 
-        int alpha;
-        if (hitFlashLevel == 1) {
-            alpha = (int)(70 * progress);
-        } else if (hitFlashLevel == 2) {
-            alpha = (int)(110 * progress);
-        } else {
-            alpha = (int)(150 * progress);
-        }
+    //     int alpha;
+    //     if (hitFlashLevel == 1) {
+    //         alpha = (int)(70 * progress);
+    //     } else if (hitFlashLevel == 2) {
+    //         alpha = (int)(110 * progress);
+    //     } else {
+    //         alpha = (int)(150 * progress);
+    //     }
 
-        if (alpha < 0) alpha = 0;
-        if (alpha > 255) alpha = 255;
+    //     if (alpha < 0) alpha = 0;
+    //     if (alpha > 255) alpha = 255;
 
-        g2.setColor(new Color(255, 255, 255, alpha));
-        g2.fillRect(0, 0, screenWidth, screenHeight);
-    }
+    //     g2.setColor(new Color(255, 255, 255, alpha));
+    //     g2.fillRect(0, 0, screenWidth, screenHeight);
+    // }
 
     public int calculateAttackDamage(BattleEntity attacker, BattleEntity target, int boostUsed) {
         double multiplier = 1.0 + (boostUsed * 0.5);
@@ -6800,10 +6828,8 @@ public class GamePanel extends JPanel implements Runnable {
             }
         }
 
-        // ===== BOOST BURST EFFECT ΠΑΝΩ ΑΠΟ ΤΑ SPRITES, ΠΡΙΝ ΤΟ UI =====
-        drawBoostBurstEffect(g);
-        drawImpactSlashLines(g);
-        drawHitFlashOverlay(g);
+        // ===== BATTLE EFFECT LAYER ΠΑΝΩ ΑΠΟ ΤΑ SPRITES, ΠΡΙΝ ΤΟ UI =====
+        drawBattleEffects(g);
 
         // ========== ΜΕΝΟΥ ΜΑΧΗΣ ==========
         if (!battleEntering) {
