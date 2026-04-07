@@ -246,6 +246,10 @@ public class GamePanel extends JPanel implements Runnable {
     public final int pauseControlsState = 10;
     public final int shopState = 11;
     public final int chestLootState = 13;
+    public final int cutsceneState = 14;
+
+    public StoryManager storyManager = new StoryManager();
+    public CutscenePlayer cutscenePlayer = new CutscenePlayer(this);
 
     // επιλογές διαλόγου
     public String[] dialogueOptions = new String[3];
@@ -482,6 +486,7 @@ public class GamePanel extends JPanel implements Runnable {
         boolean loadedSave = loadPlayerState();
         loadInventoryAndGold();
         loadQuests();
+        storyManager.load();
 
         if (!loadedSave) {
             TiledObjectData spawn = tileM.findMapObjectByName(currentMap, "player_spawn");
@@ -2290,6 +2295,10 @@ public class GamePanel extends JPanel implements Runnable {
                 
                 repaint();
             }
+            // ========== CUTSCENE STATE ==========
+            if (cutscenePlayer.isRunning()) {
+                cutscenePlayer.update();
+            }
             // ========== TITLE STATE ==========
             if (gameState == titleState) {
                 if (keyH.upPressed) {
@@ -2553,9 +2562,7 @@ public class GamePanel extends JPanel implements Runnable {
             boolean moving = false;
 
             if (gameState == playState && !battleStarting) {
-                for (House house : houses) {
-                    house.updateDoor();
-                }
+                checkStoryTriggers();
                 // Δοκιμάζουμε πρώτα την οριζόντια κίνηση (X)
                 if (keyH.leftPressed) {
                     direction = 1; // Αριστερά
@@ -3297,6 +3304,10 @@ public class GamePanel extends JPanel implements Runnable {
             String direction = obj.getProperty("direction");
             String dialogueId = obj.getProperty("dialogue");
             String npcType = obj.getProperty("type");
+            String storyRole = obj.getProperty("storyRole");
+            String requiredStoryFlag = obj.getProperty("requiredStoryFlag");
+            String forbiddenStoryFlag = obj.getProperty("forbiddenStoryFlag");
+            String hiddenProp = obj.getProperty("hidden");
 
             Entity npc = null;
 
@@ -3318,6 +3329,10 @@ public class GamePanel extends JPanel implements Runnable {
 
                 npc.dialogueId = dialogueId;
                 npc.npcType = npcType;
+                npc.storyRole = storyRole;
+                npc.requiredStoryFlag = requiredStoryFlag;
+                npc.forbiddenStoryFlag = forbiddenStoryFlag;
+                npc.hidden = "true".equalsIgnoreCase(hiddenProp);
 
                 npcs.get(mapIndex).add(npc);
             }
@@ -3325,33 +3340,263 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     public String[] getDialogue(String id) {
-
         if (id == null) return new String[]{"..."};
 
         switch (id) {
-
-            case "old_man_intro":
-                return new String[]{
-                    "Καλώς ήρθες ταξιδιώτη...",
-                    "Ο κόσμος έξω είναι επικίνδυνος."
-                };
-
-            case "guard_warning":
-                return new String[]{
-                    "Μην πλησιάζεις το dungeon!",
-                    "Είναι γεμάτο τέρατα."
-                };
-
-            case "merchant_shop":
-                return new String[]{
-                    "Καλώς ήρθες στο μαγαζί μου!",
-                    "Θες να αγοράσεις κάτι;"
-                };
-
-            default:
+            case "master_ren_idle":
+                if (!storyManager.hasFlag(StoryFlag.MONK_ESCAPE_DONE)) {
+                    return new String[]{
+                        "Go, Kael.",
+                        "Do not let fear chain your feet."
+                    };
+                }
                 return new String[]{
                     "..."
                 };
+
+            case "wounded_monk_1":
+                return new String[]{
+                    "They came out of the smoke...",
+                    "Not bandits. Not soldiers. Something worse."
+                };
+
+            case "wounded_monk_2":
+                return new String[]{
+                    "Master Ren is still inside...",
+                    "Please... you have to keep moving."
+                };
+
+            case "town_woman_1":
+                if (!storyManager.hasFlag(StoryFlag.TOWN_REACHED)) {
+                    return new String[]{
+                        "The market closes early these days."
+                    };
+                }
+                return new String[]{
+                    "You're from the mountain, aren't you?",
+                    "People saw fire on the ridge before dawn."
+                };
+
+            case "old_scholar_1":
+                if (!storyManager.hasFlag(StoryFlag.TOWN_REACHED)) {
+                    return new String[]{
+                        "Hm..."
+                    };
+                }
+                return new String[]{
+                    "Monasteries keep records older than kingdoms.",
+                    "If someone burned yours, they were not hunting gold."
+                };
+
+            case "merchant_intro":
+                return new String[]{
+                    "You look exhausted, traveler.",
+                    "Supplies cost coin, but information is sometimes cheaper."
+                };
+
+            case "assassin_scene_npc":
+                return new String[]{
+                    "A woman in dark clothes was asking about monks.",
+                    "She headed toward the east quarter."
+                };
+                
+            case "town_guard":
+                if (!storyManager.hasFlag(StoryFlag.TOWN_REACHED)) {
+                    return new String[]{
+                        "The roads are dangerous lately."
+                    };
+                } else if (!storyManager.hasFlag(StoryFlag.ASSASSIN_JOINED)) {
+                    return new String[]{
+                        "You're from the mountain?",
+                        "A hooded woman came through earlier asking about fires and dead monks."
+                    };
+                } else {
+                    return new String[]{
+                        "The east quarter has been tense all night.",
+                        "Keep your hand near your weapon."
+                    };
+                }
+
+            case "inn_keeper":
+                if (!storyManager.hasFlag(StoryFlag.TOWN_REACHED)) {
+                    return new String[]{
+                        "Welcome, traveler."
+                    };
+                } else {
+                    return new String[]{
+                        "People are whispering about the monastery.",
+                        "Whatever happened up there, it has everyone on edge."
+                    };
+                }
+        }
+
+        return new String[]{"..."};
+    }
+
+    private void checkStoryTriggers() {
+        ArrayList<TiledObjectData> triggers = tileM.getMapObjectsByLayer(currentMap, "story_triggers");
+        if (triggers == null || triggers.isEmpty()) return;
+        if (cutscenePlayer.isRunning()) return;
+        if (gameState != playState) return;
+
+        int px = player.worldX;
+        int py = player.worldY;
+
+        for (TiledObjectData obj : triggers) {
+            int ox = (int)(obj.x / originalTileSize) * tileSize;
+            int oy = (int)(obj.y / originalTileSize) * tileSize;
+            int ow = Math.max(tileSize, (int)(obj.width / originalTileSize) * tileSize);
+            int oh = Math.max(tileSize, (int)(obj.height / originalTileSize) * tileSize);
+
+            boolean inside =
+                    px + tileSize > ox &&
+                    px < ox + ow &&
+                    py + tileSize > oy &&
+                    py < oy + oh;
+
+            if (!inside) continue;
+
+            String eventId = obj.getProperty("eventId");
+            String requiredFlag = obj.getProperty("requiredFlag");
+            String forbiddenFlag = obj.getProperty("forbiddenFlag");
+            System.out.println("TRIGGER HIT: " + eventId + " on map " + currentMap);
+
+            if (eventId == null || eventId.isEmpty()) continue;
+
+            if (requiredFlag != null && !requiredFlag.isEmpty() && !storyManager.hasFlag(requiredFlag)) {
+                continue;
+            }
+
+            if (forbiddenFlag != null && !forbiddenFlag.isEmpty() && storyManager.hasFlag(forbiddenFlag)) {
+                continue;
+            }
+
+            startStoryEvent(eventId);
+            return;
+        }
+        
+    }
+
+    public void startStoryEvent(String eventId) {
+        if (eventId == null || eventId.isEmpty()) return;
+
+        ArrayList<CutsceneAction> actions = new ArrayList<>();
+
+        switch (eventId) {
+            case "monk_intro_start":
+                if (storyManager.hasFlag(StoryFlag.DEMO_INTRO_PLAYED)) return;
+
+                actions.add(CutsceneAction.setFlag(StoryFlag.DEMO_INTRO_PLAYED));
+                actions.add(CutsceneAction.setObjective(
+                        "escape_monastery",
+                        "Escape the Monastery",
+                        "Reach the outer gate before the attackers overrun the sanctuary."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Master Ren: Kael... listen carefully.\n" +
+                        "The sanctuary has fallen.\n" +
+                        "You must take the First Breath and leave at once."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Kael: I cannot abandon everyone!\n" +
+                        "Master Ren: If you fall here, the flame of our order dies with you."
+                ));
+                actions.add(CutsceneAction.setFlag(StoryFlag.MONK_ESCAPE_STARTED));
+                actions.add(CutsceneAction.endCutscene());
+                cutscenePlayer.start(actions);
+                return;
+
+            case "monk_exit_gate":
+                if (!storyManager.hasFlag(StoryFlag.MONK_ESCAPE_STARTED)) return;
+                if (storyManager.hasFlag(StoryFlag.MONK_ESCAPE_DONE)) return;
+
+                actions.add(CutsceneAction.dialogue(
+                        "Kael: The outer path is still open...\n" +
+                        "I have no choice now."
+                ));
+                actions.add(CutsceneAction.setFlag(StoryFlag.MONK_ESCAPE_DONE));
+                actions.add(CutsceneAction.setObjective(
+                        "reach_town",
+                        "Reach the Town",
+                        "Descend from the mountain and seek answers in the settlement below."
+                ));
+                actions.add(CutsceneAction.endCutscene());
+                cutscenePlayer.start(actions);
+                return;
+
+            case "road_reflection_1":
+                if (!storyManager.hasFlag(StoryFlag.MONK_ESCAPE_DONE)) return;
+                if (storyManager.hasFlag(StoryFlag.TOWN_REACHED)) return;
+                if (storyManager.hasFlag(StoryFlag.ROAD_REFLECTION_1_DONE)) return;
+
+                actions.add(CutsceneAction.dialogue(
+                        "Kael: The smoke still rises behind me...\n" +
+                        "If they destroyed the monastery for the First Breath, they will not stop there."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Kael: I need answers.\n" +
+                        "And I need them before whoever did this vanishes into the dark."
+                ));
+                actions.add(CutsceneAction.setFlag(StoryFlag.ROAD_REFLECTION_1_DONE));
+                actions.add(CutsceneAction.endCutscene());
+                cutscenePlayer.start(actions);
+                return;
+            
+            case "town_arrival":
+                if (storyManager.hasFlag(StoryFlag.TOWN_REACHED)) return;
+
+                actions.add(CutsceneAction.setFlag(StoryFlag.TOWN_REACHED));
+                actions.add(CutsceneAction.dialogue(
+                        "Kael: So this is the town below the mountain...\n" +
+                        "If the attackers passed through here, someone must know something."
+                ));
+                actions.add(CutsceneAction.setObjective(
+                        "ask_in_town",
+                        "Search for Answers",
+                        "Talk to the townspeople and learn who attacked the monastery."
+                ));
+                actions.add(CutsceneAction.endCutscene());
+                cutscenePlayer.start(actions);
+                return;
+            
+            case "assassin_intro_start":
+                if (!storyManager.hasFlag(StoryFlag.TOWN_REACHED)) return;
+                if (storyManager.hasFlag(StoryFlag.ASSASSIN_INTRO_PLAYED)) return;
+
+                actions.add(CutsceneAction.setFlag(StoryFlag.ASSASSIN_INTRO_PLAYED));
+                actions.add(CutsceneAction.dialogue(
+                        "Voice: Too late.\n" +
+                        "Whoever was here is already gone."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Kael: Show yourself."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Mysterious Woman: Calm. If I wanted you dead, you would not have heard my voice first."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Kael: Were you at the monastery?"
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Mysterious Woman: I was near it.\n" +
+                        "Close enough to smell the ash. Close enough to know you are carrying something others would kill for."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Kael: Then answer me.\n" +
+                        "Who attacked us?"
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Mysterious Woman: Ask better questions.\n" +
+                        "The dead monastery is not the beginning of your trouble. It is the echo."
+                ));
+                actions.add(CutsceneAction.setObjective(
+                        "track_assassin",
+                        "Track the Hooded Woman",
+                        "Search the eastern quarter and learn why the mysterious assassin was investigating the monastery."
+                ));
+                actions.add(CutsceneAction.endCutscene());
+                cutscenePlayer.start(actions);
+                return;
         }
     }
 
@@ -3452,6 +3697,16 @@ public class GamePanel extends JPanel implements Runnable {
         for (Entity npc : currentMapNPCs) {
             int distanceX = Math.abs(player.worldX - npc.worldX);
             int distanceY = Math.abs(player.worldY - npc.worldY);
+
+            if (npc.hidden) continue;
+
+            if (!npc.requiredStoryFlag.isEmpty() && !storyManager.hasFlag(npc.requiredStoryFlag)) {
+                continue;
+            }
+
+            if (!npc.forbiddenStoryFlag.isEmpty() && storyManager.hasFlag(npc.forbiddenStoryFlag)) {
+                continue;
+            }
 
             if (distanceX <= tileSize && distanceY <= tileSize) {
 
@@ -3664,6 +3919,7 @@ public class GamePanel extends JPanel implements Runnable {
         savePartyStats();
         saveOpenedChests();
         saveEquipment();
+        storyManager.save();
         System.out.println("Manual save completed.");
     }
 

@@ -7,6 +7,10 @@ public class Entity {
     public String name = "Entity";
     public String dialogueId = "";
     public String npcType = "normal";
+    public String storyRole = "";
+    public String requiredStoryFlag = "";
+    public String forbiddenStoryFlag = "";
+    public boolean hidden = false;
     
     // Θέση και κίνηση
     public int worldX, worldY;

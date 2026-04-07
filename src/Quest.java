@@ -3,6 +3,8 @@ public class Quest {
     public String description;
     public boolean completed = false;
     public boolean active = false;
+    public String id = "";
+    public int stage = 0;
     
     // Στόχοι quest
     public String targetItem; // Αν θέλει να μαζέψεις κάτι

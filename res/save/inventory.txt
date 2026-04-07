@@ -1,4 +1,0 @@
-gold=0
-STORAGE|Iron Sword|1
-KEY|Lantern|1
-KEY|World Map|1

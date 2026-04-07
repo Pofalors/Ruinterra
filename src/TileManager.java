@@ -99,6 +99,7 @@ public class TileManager {
         loadAtlas("mountains", "res/tilesets/mountains.png");
         loadAtlas("mountains2", "res/tilesets/mountains2.png");
         loadAtlas("other", "res/tilesets/other.png");
+        loadAtlas("Houses", "res/tilesets/Houses.png");
         loadAtlas("water", "res/tilesets/water.png");
         loadAtlas("water_animated", "res/tilesets/water_animated.png");
     }
@@ -159,9 +160,15 @@ public class TileManager {
         // addLegacyMap("SmallHouse", "res/maps/interior01.txt");
 
 
-        addTiledMapFromTMX("town_01", "res/maps/town_01.tmx");
-        addTiledMapFromTMX("fields_01", "res/maps/fields_01.tmx");
-        addTiledMapFromTMX("cave_01", "res/maps/cave_01.tmx");
+        // =========================
+        //        NEW MAPS 
+        // =========================
+        // addTiledMapFromTMX("town_01", "res/maps/town_01.tmx");
+        // addTiledMapFromTMX("fields_01", "res/maps/fields_01.tmx");
+        // addTiledMapFromTMX("cave_01", "res/maps/cave_01.tmx");
+        addTiledMapFromTMX("monastery_start", "res/maps/monastery_start.tmx");
+        addTiledMapFromTMX("first_town", "res/maps/first_town.tmx");
+        addTiledMapFromTMX("mountain_pass", "res/maps/mountain_pass.tmx");
     }
 
     public void addLegacyMap(String name, String filePath) {
@@ -586,6 +593,7 @@ public class TileManager {
             map.objects.addAll(loadTMXObjects(doc, "chests"));
             map.objects.addAll(loadTMXObjects(doc, "encounters"));
             map.objects.addAll(loadTMXObjects(doc, "enemies"));
+            map.objects.addAll(loadTMXObjects(doc, "story_triggers"));
             
 
             addAdvancedMap(map);
@@ -1209,6 +1217,7 @@ public class TileManager {
         if (source.endsWith("water.tsx")) return "water";
         if (source.endsWith("decor.tsx")) return "other";
         if (source.endsWith("other.tsx")) return "other";
+        if (source.endsWith("Houses.tsx")) return "Houses";
         if (source.endsWith("cave.tsx")) return "cave";
         if (source.endsWith("mountains.tsx")) return "mountains";
         if (source.endsWith("mountains2.tsx")) return "mountains2";
