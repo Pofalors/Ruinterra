@@ -653,6 +653,8 @@ public class GamePanel extends JPanel implements Runnable {
         // ========== ΠΡΟΦΟΡΤΩΣΗ ΗΧΩΝ ==========
         // Μουσικές
         sound.preloadMusic("overworld_day", "overworld_day.wav");
+        sound.preloadMusic("monastery", "monastery.wav");
+        sound.preloadMusic("fire_music", "fire_music.wav");
         sound.preloadMusic("overworld_night", "overworld_night.wav");
         sound.preloadMusic("town_day", "town_day.wav");
         sound.preloadMusic("town_night", "town_night.wav");
@@ -2884,9 +2886,9 @@ public class GamePanel extends JPanel implements Runnable {
                         // μουσική
                         if (currentMap == 0) { // Town
                             if (dayTime == 0 || dayTime == 3) {
-                                sound.playMusic("town_day");
+                                sound.playMusic("monastery");
                             } else {
-                                sound.playMusic("town_night");
+                                sound.playMusic("monastery");
                             }
                         } else if (currentMap == 1) { // Fields
                             if (dayTime == 0 || dayTime == 3) {
@@ -3175,7 +3177,10 @@ public class GamePanel extends JPanel implements Runnable {
         if (mapName.contains("town")) {
             return "town_day";
         }
-        if (mapName.contains("cave")) {
+        if (mapName.contains("monastery")) {
+            return "monastery";
+        }
+        if (mapName.contains("cave") || mapName.contains("mountain")) {
             return "dungeon";
         }
         if (mapName.contains("field")) {
@@ -3234,17 +3239,17 @@ public class GamePanel extends JPanel implements Runnable {
 
     public void returnToMapMusic() {
         sound.stopMusic();
-        if (currentMap == 0) { // Town
+        if (currentMap == 0) { // Monastery
+            if (dayTime == 0 || dayTime == 3) {
+                sound.playMusic("monastery");
+            } else {
+                sound.playMusic("monastery");
+            }
+        } else if (currentMap == 1) { // Town
             if (dayTime == 0 || dayTime == 3) {
                 sound.playMusic("town_day");
             } else {
                 sound.playMusic("town_night");
-            }
-        } else if (currentMap == 1) { // Fields
-            if (dayTime == 0 || dayTime == 3) {
-                sound.playMusic("overworld_day");
-            } else {
-                sound.playMusic("overworld_night");
             }
         } else if (currentMap == 2) { // Cave
             sound.playMusic("dungeon");
@@ -3572,14 +3577,16 @@ public class GamePanel extends JPanel implements Runnable {
                         "Kael: Show yourself."
                 ));
                 actions.add(CutsceneAction.dialogue(
-                        "Mysterious Woman: Calm. If I wanted you dead, you would not have heard my voice first."
+                        "Mysterious Woman: Calm. If I wanted you dead, you would not have \n" + 
+                        "heard my voice first."
                 ));
                 actions.add(CutsceneAction.dialogue(
                         "Kael: Were you at the monastery?"
                 ));
                 actions.add(CutsceneAction.dialogue(
                         "Mysterious Woman: I was near it.\n" +
-                        "Close enough to smell the ash. Close enough to know you are carrying something others would kill for."
+                        "Close enough to smell the ash. Close enough to know \n" + 
+                        "you are carrying something others would kill for."
                 ));
                 actions.add(CutsceneAction.dialogue(
                         "Kael: Then answer me.\n" +
@@ -3587,12 +3594,14 @@ public class GamePanel extends JPanel implements Runnable {
                 ));
                 actions.add(CutsceneAction.dialogue(
                         "Mysterious Woman: Ask better questions.\n" +
-                        "The dead monastery is not the beginning of your trouble. It is the echo."
+                        "The dead monastery is not the beginning of your trouble.\n" + 
+                        "It is the echo."
                 ));
                 actions.add(CutsceneAction.setObjective(
                         "track_assassin",
                         "Track the Hooded Woman",
-                        "Search the eastern quarter and learn why the mysterious assassin was investigating the monastery."
+                        "Search the eastern quarter and learn why the mysterious \n" + 
+                        "assassin was investigating the monastery."
                 ));
                 actions.add(CutsceneAction.endCutscene());
                 cutscenePlayer.start(actions);
