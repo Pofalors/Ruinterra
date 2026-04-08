@@ -89,6 +89,11 @@ public class CutscenePlayer {
                 }
                 break;
 
+            case "UNLOCK_PARTY_MEMBER":
+                gp.unlockPartyMember(action.value);
+                index++;
+                break;
+
             case "FACE_PLAYER":
                 gp.player.direction = action.value;
                 gp.player.updateImage();

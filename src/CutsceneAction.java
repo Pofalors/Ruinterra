@@ -18,6 +18,12 @@ public class CutsceneAction {
         return a;
     }
 
+    public static CutsceneAction unlockPartyMember(String className) {
+        CutsceneAction a = new CutsceneAction("UNLOCK_PARTY_MEMBER");
+        a.value = className;
+        return a;
+    }
+
     public static CutsceneAction dialogue(String text) {
         CutsceneAction a = new CutsceneAction("DIALOGUE");
         a.text = text;

@@ -3433,6 +3433,57 @@ public class GamePanel extends JPanel implements Runnable {
                         "Whatever happened up there, it has everyone on edge."
                     };
                 }
+            case "east_quarter_guard":
+                if (!storyManager.hasFlag(StoryFlag.ASSASSIN_INTRO_PLAYED)) {
+                    return new String[]{
+                        "A hooded woman slipped through here not long ago.",
+                        "Did not look like trouble. That is what worries me."
+                    };
+                }
+                return new String[]{
+                    "If you're chasing her, be careful.",
+                    "People like that don't walk in straight lines."
+                };
+
+            case "alley_witness":
+                if (!storyManager.hasFlag(StoryFlag.ASSASSIN_INTRO_PLAYED)) {
+                    return new String[]{
+                        "I heard voices deeper in the alley.",
+                        "One of them sounded calm. Too calm."
+                    };
+                }
+                return new String[]{
+                    "She vanished before I could even blink.",
+                    "I swear she was standing right there."
+                };
+
+            case "academy_guard_1":
+                if (!storyManager.hasFlag(StoryFlag.ASSASSIN_JOINED)) {
+                    return new String[]{
+                        "The academy is closed to outsiders."
+                    };
+                }
+                if (!storyManager.hasFlag(StoryFlag.MAGE_INTRO_PLAYED)) {
+                    return new String[]{
+                        "A young scholar rushed inside not long ago.",
+                        "He looked terrified... and angry."
+                    };
+                }
+                return new String[]{
+                    "Whatever happened inside, it has the whole district on edge."
+                };
+
+            case "worried_student_1":
+                if (!storyManager.hasFlag(StoryFlag.MAGE_INTRO_PLAYED)) {
+                    return new String[]{
+                        "Someone broke into the old archive.",
+                        "I heard shouting from the library hall."
+                    };
+                }
+                return new String[]{
+                    "That scholar said the records were stolen.",
+                    "He kept talking about ancient monastery texts."
+                };
         }
 
         return new String[]{"..."};
@@ -3595,7 +3646,7 @@ public class GamePanel extends JPanel implements Runnable {
                 actions.add(CutsceneAction.dialogue(
                         "Mysterious Woman: Ask better questions.\n" +
                         "The dead monastery is not the beginning of your trouble.\n" + 
-                        "It is the echo."
+                        "Only the echo."
                 ));
                 actions.add(CutsceneAction.setObjective(
                         "track_assassin",
@@ -3606,6 +3657,142 @@ public class GamePanel extends JPanel implements Runnable {
                 actions.add(CutsceneAction.endCutscene());
                 cutscenePlayer.start(actions);
                 return;
+                
+            case "assassin_join_start":
+                if (!storyManager.hasFlag(StoryFlag.ASSASSIN_INTRO_PLAYED)) return;
+                if (storyManager.hasFlag(StoryFlag.ASSASSIN_JOIN_SCENE_DONE)) return;
+
+                actions.add(CutsceneAction.setFlag(StoryFlag.ASSASSIN_JOIN_SCENE_DONE));
+                actions.add(CutsceneAction.dialogue(
+                        "Kael: Stop running."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Mysterious Woman: I was waiting.\n" +
+                        "You are slower than I expected."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Kael: Then speak plainly."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Mysterious Woman: Fine.\n" +
+                        "Men connected to the attack are moving through this town.\n" +
+                        "I am hunting them for my own reasons."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Kael: And you expect me to trust you?"
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Mysterious Woman: No.\n" +
+                        "I expect you to understand that we want the same answers."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Kael: ...Then until I have those answers, we travel together."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Seren: Hm.\n" +
+                        "Very well, monk. Try not to die before you become useful."
+                ));
+                actions.add(CutsceneAction.setFlag(StoryFlag.ASSASSIN_JOINED));
+                actions.add(CutsceneAction.unlockPartyMember("Assassin"));
+                actions.add(CutsceneAction.setObjective(
+                        "seek_scholar",
+                        "Find a Scholar",
+                        "Now that Seren has joined you, investigate who in town might know more about the relic and the monastery records."
+                ));
+                actions.add(CutsceneAction.endCutscene());
+                cutscenePlayer.start(actions);
+                return;
+                
+            case "mage_intro_start":
+                if (!storyManager.hasFlag(StoryFlag.ASSASSIN_JOINED)) return;
+                if (storyManager.hasFlag(StoryFlag.MAGE_INTRO_PLAYED)) return;
+
+                actions.add(CutsceneAction.setFlag(StoryFlag.MAGE_INTRO_PLAYED));
+                actions.add(CutsceneAction.dialogue(
+                        "Eldrin: No, no, no...\n" +
+                        "If the archive pages were taken, then someone knew exactly what to look for."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Kael: You there. What was stolen?"
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Eldrin: Records.\n" +
+                        "Monastic records, pre-royal records, references to a relic sealed by ascetics in the northern heights."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Seren: Convenient.\n" +
+                        "That sounds very close to our monastery problem."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Eldrin: Your monastery problem?\n" +
+                        "Then you are already involved whether you understand it or not."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Kael: Then explain."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Eldrin: Not here.\n" +
+                        "If the thieves are still in the district, the remaining records are in danger."
+                ));
+                actions.add(CutsceneAction.setObjective(
+                        "follow_scholar",
+                        "Follow the Scholar",
+                        "Investigate the academy district and learn what was stolen from the archive."
+                ));
+                actions.add(CutsceneAction.endCutscene());
+                cutscenePlayer.start(actions);
+                return;
+
+            case "mage_join_start":
+                if (!storyManager.hasFlag(StoryFlag.MAGE_INTRO_PLAYED)) return;
+                if (storyManager.hasFlag(StoryFlag.MAGE_JOIN_SCENE_DONE)) return;
+
+                actions.add(CutsceneAction.setFlag(StoryFlag.MAGE_JOIN_SCENE_DONE));
+                actions.add(CutsceneAction.dialogue(
+                        "Eldrin: The missing pages mentioned a name.\n" +
+                        "\"First Breath.\""
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Kael: ..."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Seren: That reaction tells me enough.\n" +
+                        "So the scholar stays."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Eldrin: I beg your pardon?"
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Seren: If people are killing over monastery records, then your research is no longer academic."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Kael: You know what was taken.\n" +
+                        "We know why it matters. We move together."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Eldrin: Hm.\n" +
+                        "Very well. But understand this: if I am correct, then what was stolen is only one part of something far older."
+                ));
+                actions.add(CutsceneAction.setFlag(StoryFlag.MAGE_JOINED));
+                actions.add(CutsceneAction.unlockPartyMember("Mage"));
+                actions.add(CutsceneAction.setObjective(
+                        "prepare_for_ruins",
+                        "Prepare for the Search",
+                        "Now that Eldrin has joined you, gather information and prepare to pursue the trail beyond town."
+                ));
+                actions.add(CutsceneAction.endCutscene());
+                cutscenePlayer.start(actions);
+                return;
+        }
+    }
+
+    public void unlockPartyMember(String className) {
+        for (PartyMember member : partyMembers) {
+            if (member.className.equalsIgnoreCase(className)) {
+                member.joinedParty = true;
+                System.out.println(className + " joined the party.");
+                return;
+            }
         }
     }
 

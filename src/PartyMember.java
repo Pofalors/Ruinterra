@@ -9,6 +9,7 @@ public class PartyMember extends Entity {
     public int expToNextLevel;
     public int level;
     public int baseAttack, baseDefense, baseMagicAttack, baseSpeed;
+    public boolean joinedParty = false;
     
     public PartyMember(GamePanel gp, String name, String className) {
         super(gp);
