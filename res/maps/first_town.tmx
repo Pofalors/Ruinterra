@@ -275,16 +275,7 @@
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 </data>
  </layer>
- <objectgroup id="7" name="portals">
-  <object id="21" name="town_to_pass" x="408.667" y="755.667" width="65.3333" height="20">
-   <properties>
-    <property name="targetMap" type="int" value="2"/>
-    <property name="targetX" type="int" value="37"/>
-    <property name="targetY" type="int" value="11"/>
-    <property name="type" value="portal"/>
-   </properties>
-  </object>
- </objectgroup>
+ <objectgroup id="7" name="portals"/>
  <objectgroup id="11" name="story_triggers">
   <object id="13" name="town_arrival" x="614.5" y="721.5" width="64.5" height="78.5">
    <properties>
@@ -325,7 +316,7 @@
    <properties>
     <property name="eventId" value="mage_join_start"/>
     <property name="forbiddenFlag" value="mage_join_scene_done"/>
-    <property name="requiredFlag" value="mage_join_start"/>
+    <property name="requiredFlag" value="mage_intro_played"/>
    </properties>
   </object>
  </objectgroup>

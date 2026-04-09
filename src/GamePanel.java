@@ -86,7 +86,8 @@ public class GamePanel extends JPanel implements Runnable {
     public ArrayList<ArrayList<Entity>> npcs = new ArrayList<>();
 
     // New classes
-    public ArrayList<PartyMember> partyMembers = new ArrayList<>();
+    public ArrayList<PartyMember> allPartyMembers = new ArrayList<>();
+    public ArrayList<PartyMember> activePartyMembers = new ArrayList<>();
     public ArrayList<BattlePartyMember> battlePartyMembers = new ArrayList<>();
     ArrayList<Point> playerPositions = new ArrayList<>();
 
@@ -508,13 +509,22 @@ public class GamePanel extends JPanel implements Runnable {
         PartyMember assassin = new PartyMember(this, "assassin", "Assassin");
         assassin.worldX = player.worldX - tileSize;
         assassin.worldY = player.worldY;
+        assassin.joinedParty = storyManager.hasFlag(StoryFlag.ASSASSIN_JOINED);
 
         PartyMember mage = new PartyMember(this, "mage", "Mage");
         mage.worldX = player.worldX - tileSize * 2;
         mage.worldY = player.worldY;
+        mage.joinedParty = storyManager.hasFlag(StoryFlag.MAGE_JOINED);
 
-        partyMembers.add(assassin);
-        partyMembers.add(mage);
+        allPartyMembers.add(assassin);
+        allPartyMembers.add(mage);
+
+        if (assassin.joinedParty) {
+            activePartyMembers.add(assassin);
+        }
+        if (mage.joinedParty) {
+            activePartyMembers.add(mage);
+        }
 
         // ΤΩΡΑ που υπάρχουν όλοι, φόρτωσε party stats
         loadPartyStats();
@@ -1845,7 +1855,7 @@ public class GamePanel extends JPanel implements Runnable {
                             }
                             if (keyH.downPressed) {
                                 inventory.selectedPartyMember++;
-                                int maxPartyIndex = partyMembers.size(); // 0 = hero, 1.. = party members
+                                int maxPartyIndex = activePartyMembers.size(); // 0 = hero, 1.. = party members
                                 if (inventory.selectedPartyMember > maxPartyIndex) {
                                     inventory.selectedPartyMember = maxPartyIndex;
                                 }
@@ -2276,7 +2286,7 @@ public class GamePanel extends JPanel implements Runnable {
                     player.addExp(victoryExp);
 
                     // Όλα τα party members παίρνουν το ίδιο EXP
-                    for (PartyMember member : partyMembers) {
+                    for (PartyMember member : activePartyMembers) {
                         member.addExp(victoryExp);
                     }
 
@@ -3786,14 +3796,50 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
-    public void unlockPartyMember(String className) {
-        for (PartyMember member : partyMembers) {
+    public PartyMember findPartyMemberByClassName(String className) {
+        for (PartyMember member : allPartyMembers) {
             if (member.className.equalsIgnoreCase(className)) {
-                member.joinedParty = true;
-                System.out.println(className + " joined the party.");
-                return;
+                return member;
             }
         }
+        return null;
+    }
+
+    public void unlockPartyMember(String className) {
+        PartyMember member = findPartyMemberByClassName(className);
+        if (member == null) return;
+
+        if (!member.joinedParty) {
+            member.joinedParty = true;
+
+            if (!activePartyMembers.contains(member)) {
+                activePartyMembers.add(member);
+            }
+
+            // βάλ’ τον πίσω από τον player όταν μπαίνει
+            if (activePartyMembers.size() == 1) {
+                member.worldX = player.worldX - tileSize;
+                member.worldY = player.worldY;
+            } else {
+                member.worldX = player.worldX - tileSize * activePartyMembers.size();
+                member.worldY = player.worldY;
+            }
+
+            System.out.println(className + " joined the party.");
+        }
+    }
+    
+    private BufferedImage getPartyPortraitForMember(PartyMember pm) {
+        if (pm == null) return null;
+
+        if (pm.className.equalsIgnoreCase("Assassin")) {
+            return assassinPortrait32;
+        }
+        if (pm.className.equalsIgnoreCase("Mage")) {
+            return magePortrait32;
+        }
+
+        return null;
     }
 
     private void spawnTiledChests(int mapIndex) {
@@ -4411,10 +4457,10 @@ public class GamePanel extends JPanel implements Runnable {
             writeEntityStats(writer, "player", player);
 
             // party members
-            writer.println("party.count=" + partyMembers.size());
+            writer.println("party.count=" + activePartyMembers.size());
 
-            for (int i = 0; i < partyMembers.size(); i++) {
-                PartyMember member = partyMembers.get(i);
+            for (int i = 0; i < activePartyMembers.size(); i++) {
+                PartyMember member = activePartyMembers.get(i);
                 writer.println("party." + i + ".className=" + member.className);
                 writeEntityStats(writer, "party." + i, member);
             }
@@ -4461,8 +4507,8 @@ public class GamePanel extends JPanel implements Runnable {
             if (data.containsKey("player.exp")) player.exp = Integer.parseInt(data.get("player.exp"));
 
             // party members
-            for (int i = 0; i < partyMembers.size(); i++) {
-                PartyMember member = partyMembers.get(i);
+            for (int i = 0; i < activePartyMembers.size(); i++) {
+                PartyMember member = activePartyMembers.get(i);
 
                 String base = "party." + i;
 
@@ -4504,8 +4550,8 @@ public class GamePanel extends JPanel implements Runnable {
             }
 
             // 1.. = party members
-            for (int p = 0; p < partyMembers.size(); p++) {
-                PartyMember member = partyMembers.get(p);
+            for (int p = 0; p < activePartyMembers.size(); p++) {
+                PartyMember member = activePartyMembers.get(p);
 
                 for (int slot = 0; slot < 9; slot++) {
                     Item item = getCharacterEquipSlot(member, slot);
@@ -4552,8 +4598,8 @@ public class GamePanel extends JPanel implements Runnable {
                     targetCharacter = player;
                 } else {
                     int partyIndex = ownerIndex - 1;
-                    if (partyIndex < 0 || partyIndex >= partyMembers.size()) continue;
-                    targetCharacter = partyMembers.get(partyIndex);
+                    if (partyIndex < 0 || partyIndex >= activePartyMembers.size()) continue;
+                    targetCharacter = activePartyMembers.get(partyIndex);
                 }
 
                 setCharacterEquipSlot(targetCharacter, slot, item);
@@ -4977,8 +5023,8 @@ public class GamePanel extends JPanel implements Runnable {
         battlePlayers.add(bp);
         
         // ========== ΔΗΜΙΟΥΡΓΙΑ ΤΩΝ ΑΛΛΩΝ ΜΕΛΩΝ ==========
-        for (int i = 0; i < partyMembers.size(); i++) {
-            PartyMember member = partyMembers.get(i);
+        for (int i = 0; i < activePartyMembers.size(); i++) {
+            PartyMember member = activePartyMembers.get(i);
             BattlePartyMember bpm = new BattlePartyMember(member);
 
             bpm.playAnimation("idle");
@@ -5004,8 +5050,8 @@ public class GamePanel extends JPanel implements Runnable {
         battleParty.party.add(playerEntity);
 
         // ΜΕΤΑ τα άλλα μέλη (με διαφορετικά ονόματα)
-        for (int i = 0; i < partyMembers.size(); i++) {
-            PartyMember member = partyMembers.get(i);
+        for (int i = 0; i < activePartyMembers.size(); i++) {
+            PartyMember member = activePartyMembers.get(i);
             BattleEntity memberEntity = new BattleEntity(member, member.down1);
             
             // Δώσε τους διαφορετικά ονόματα!
@@ -6454,9 +6500,9 @@ public class GamePanel extends JPanel implements Runnable {
 
         boolean playerMoving = keyH.leftPressed || keyH.rightPressed || keyH.upPressed || keyH.downPressed;
 
-        for (int i = 0; i < partyMembers.size(); i++) {
+        for (int i = 0; i < activePartyMembers.size(); i++) {
 
-            PartyMember member = partyMembers.get(i);
+            PartyMember member = activePartyMembers.get(i);
 
             // Delay = πόσο πίσω ακολουθεί
             int delay = (i + 1) * 15;
@@ -6848,7 +6894,7 @@ public class GamePanel extends JPanel implements Runnable {
         }
 
         // ========== ΖΩΓΡΑΦΙΣΕ ΤΑ ΜΕΛΗ ΤΗΣ ΟΜΑΔΑΣ (ΠΙΣΩ ΑΠΟ ΤΟΝ ΠΑΙΚΤΗ) ==========
-        for (PartyMember member : partyMembers) {
+        for (PartyMember member : activePartyMembers) {
             int screenX = member.worldX - worldX;
             int screenY = member.worldY - worldY;
             if (screenX + tileSize > 0 && screenX < screenWidth &&
@@ -8014,13 +8060,13 @@ public class GamePanel extends JPanel implements Runnable {
                 int targetY = targetBoxY + 58;
                 g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 16f));
 
-                for (int i = 0; i <= partyMembers.size(); i++) {
+                for (int i = 0; i <= activePartyMembers.size(); i++) {
                     String targetName;
 
                     if (i == 0) {
                         targetName = player.name;
                     } else {
-                        targetName = partyMembers.get(i - 1).name;
+                        targetName = activePartyMembers.get(i - 1).name;
                     }
 
                     if (inventory.itemUseTargetIndex == i) {
@@ -8059,7 +8105,7 @@ public class GamePanel extends JPanel implements Runnable {
             g2.drawString(player.name + " (Leader)", centerX + 25, listY);
             listY += 32;
 
-            for (int i = 0; i < partyMembers.size(); i++) {
+            for (int i = 0; i < activePartyMembers.size(); i++) {
                 boolean selected = (inventory.menuFocus == 1 && inventory.selectedPartyMember == i + 1);
                 if (selected) {
                     g2.setColor(new Color(180, 130, 60, 160));
@@ -8067,7 +8113,7 @@ public class GamePanel extends JPanel implements Runnable {
                 }
 
                 g2.setColor(textMain);
-                g2.drawString(partyMembers.get(i).name, centerX + 25, listY);
+                g2.drawString(activePartyMembers.get(i).name, centerX + 25, listY);
                 listY += 32;
             }
         }
@@ -8208,16 +8254,10 @@ public class GamePanel extends JPanel implements Runnable {
         partyY += 120;
 
         // party members
-        for (int i = 0; i < partyMembers.size(); i++) {
-            PartyMember pm = partyMembers.get(i);
+        for (int i = 0; i < activePartyMembers.size(); i++) {
+            PartyMember pm = activePartyMembers.get(i);
 
-            BufferedImage portrait = null;
-
-            if (i == 0) {
-                portrait = assassinPortrait32;
-            } else if (i == 1) {
-                portrait = magePortrait32;
-            }
+            BufferedImage portrait = getPartyPortraitForMember(pm);
 
             drawPartyPanelEntry(
                 g2,
@@ -8396,7 +8436,7 @@ public class GamePanel extends JPanel implements Runnable {
             spd = player.speed_stat;
             portrait = heroPortrait32;
         } else {
-            PartyMember pm = partyMembers.get(inventory.selectedPartyMember - 1);
+            PartyMember pm = activePartyMembers.get(inventory.selectedPartyMember - 1);
             charName = pm.name;
             level = pm.level;
             hp = pm.hp;
@@ -8669,8 +8709,8 @@ public class GamePanel extends JPanel implements Runnable {
         }
 
         // Party members
-        for (int p = 0; p < partyMembers.size(); p++) {
-            PartyMember member = partyMembers.get(p);
+        for (int p = 0; p < activePartyMembers.size(); p++) {
+            PartyMember member = activePartyMembers.get(p);
 
             for (int i = 0; i < 9; i++) {
                 Item equipped = getCharacterEquipSlot(member, i);
@@ -8707,8 +8747,8 @@ public class GamePanel extends JPanel implements Runnable {
         }
 
         // 3. items από τα equips όλων των party members
-        for (int p = 0; p < partyMembers.size(); p++) {
-            PartyMember member = partyMembers.get(p);
+        for (int p = 0; p < activePartyMembers.size(); p++) {
+            PartyMember member = activePartyMembers.get(p);
 
             for (int i = 0; i < 9; i++) {
                 Item equipped = getCharacterEquipSlot(member, i);
@@ -8813,12 +8853,12 @@ public class GamePanel extends JPanel implements Runnable {
         }
 
         // Assassin
-        if (partyMembers.size() > 0 && character == partyMembers.get(0)) {
+        if (activePartyMembers.size() > 0 && character == activePartyMembers.get(0)) {
             return weaponType.equals("dagger") || weaponType.equals("sword");
         }
 
         // Mage
-        if (partyMembers.size() > 1 && character == partyMembers.get(1)) {
+        if (activePartyMembers.size() > 1 && character == activePartyMembers.get(1)) {
             return weaponType.equals("staff");
         }
 
@@ -8830,12 +8870,12 @@ public class GamePanel extends JPanel implements Runnable {
 
         if (character == player) return player.name;
 
-        if (partyMembers.size() > 0 && character == partyMembers.get(0)) {
-            return partyMembers.get(0).name;
+        if (activePartyMembers.size() > 0 && character == activePartyMembers.get(0)) {
+            return activePartyMembers.get(0).name;
         }
 
-        if (partyMembers.size() > 1 && character == partyMembers.get(1)) {
-            return partyMembers.get(1).name;
+        if (activePartyMembers.size() > 1 && character == activePartyMembers.get(1)) {
+            return activePartyMembers.get(1).name;
         }
 
         return character.name;
@@ -8847,8 +8887,8 @@ public class GamePanel extends JPanel implements Runnable {
         }
 
         int idx = inventory.selectedPartyMember - 1;
-        if (idx >= 0 && idx < partyMembers.size()) {
-            return partyMembers.get(idx);
+        if (idx >= 0 && idx < activePartyMembers.size()) {
+            return activePartyMembers.get(idx);
         }
 
         return player;
@@ -8982,8 +9022,8 @@ public class GamePanel extends JPanel implements Runnable {
         }
 
         // 1.. = party members
-        for (int p = 0; p < partyMembers.size(); p++) {
-            PartyMember member = partyMembers.get(p);
+        for (int p = 0; p < activePartyMembers.size(); p++) {
+            PartyMember member = activePartyMembers.get(p);
 
             for (int i = 0; i < 9; i++) {
                 Item equipped = getCharacterEquipSlot(member, i);
@@ -9012,8 +9052,8 @@ public class GamePanel extends JPanel implements Runnable {
         if (ownerIndex == 0) return player.name;
 
         int partyIndex = ownerIndex - 1;
-        if (partyIndex >= 0 && partyIndex < partyMembers.size()) {
-            return partyMembers.get(partyIndex).name;
+        if (partyIndex >= 0 && partyIndex < activePartyMembers.size()) {
+            return activePartyMembers.get(partyIndex).name;
         }
 
         return "";
@@ -9103,8 +9143,8 @@ public class GamePanel extends JPanel implements Runnable {
                 oldOwner = player;
             } else {
                 int partyIndex = ownerIndex - 1;
-                if (partyIndex < 0 || partyIndex >= partyMembers.size()) return;
-                oldOwner = partyMembers.get(partyIndex);
+                if (partyIndex < 0 || partyIndex >= activePartyMembers.size()) return;
+                oldOwner = activePartyMembers.get(partyIndex);
             }
 
             Item itemFromOldOwner = getCharacterEquipSlot(oldOwner, targetSlot);
@@ -9381,15 +9421,15 @@ public class GamePanel extends JPanel implements Runnable {
         }
 
         int idx = inventory.itemUseTargetIndex - 1;
-        if (idx >= 0 && idx < partyMembers.size()) {
-            return partyMembers.get(idx);
+        if (idx >= 0 && idx < activePartyMembers.size()) {
+            return activePartyMembers.get(idx);
         }
 
         return player;
     }
 
     private int getMaxItemUseTargetIndex() {
-        return partyMembers.size(); // 0 = hero, 1.. = party members
+        return activePartyMembers.size(); // 0 = hero, 1.. = party members
     }
 
     private boolean isUsableItemFromItemsMenu(Item item) {
@@ -9486,8 +9526,8 @@ public class GamePanel extends JPanel implements Runnable {
         playerPositions.clear();
 
         // Βάλε ξανά τα party members ακριβώς πίσω από τον player
-        for (int i = 0; i < partyMembers.size(); i++) {
-            PartyMember pm = partyMembers.get(i);
+        for (int i = 0; i < activePartyMembers.size(); i++) {
+            PartyMember pm = activePartyMembers.get(i);
 
             pm.worldX = player.worldX - ((i + 1) * tileSize);
             pm.worldY = player.worldY;

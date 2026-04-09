@@ -180,7 +180,7 @@
     <property name="enemies" value="Goblin,Skeleton"/>
     <property name="maxGroup" type="int" value="2"/>
     <property name="minGroup" type="int" value="1"/>
-    <property name="rate" type="float" value="0.01"/>
+    <property name="rate" type="float" value="0.05"/>
     <property name="weights" value="40,60"/>
    </properties>
   </object>
