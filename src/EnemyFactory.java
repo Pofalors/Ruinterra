@@ -13,6 +13,9 @@ public class EnemyFactory {
             case "skeleton":
                 return new Enemy_Skeleton(gp);
 
+            case "ashen_guardian":
+                return new Enemy_AshenGuardian(gp);
+
             default:
                 System.out.println("Unknown enemy id: " + enemyId);
                 return null;

@@ -407,6 +407,10 @@ public class GamePanel extends JPanel implements Runnable {
     public final int BATTLE_FRONT_ACTOR_Y_OFFSET = 50;
     public final double BATTLE_FORMATION_LERP = 0.18;
 
+    public String activeStoryBattleId = "";
+    public String forcedBattleMusic = "";
+    public BufferedImage groundRuins;
+
     // variables για victory
     public int victoryTimer = 0;
     public int victoryExp = 0;
@@ -671,6 +675,7 @@ public class GamePanel extends JPanel implements Runnable {
         sound.preloadMusic("dungeon", "dungeon_music.wav");
         sound.preloadMusic("battle", "battle_music.wav");
         sound.preloadMusic("merchant_village", "Merchant.wav");
+        sound.preloadMusic("boss_battle", "boss_battle_music.wav");
         
         // Ηχητικά εφέ
         sound.preloadSound("type", "type.wav");
@@ -2056,7 +2061,11 @@ public class GamePanel extends JPanel implements Runnable {
                     if (waitingForBattleMusic) {
                         battleAppearTimer++;
                         if (battleAppearTimer >= battleAppearDurationFrames) {
-                            sound.playMusic("battle");
+                            String battleTrack = (forcedBattleMusic != null && !forcedBattleMusic.isEmpty())
+                                    ? forcedBattleMusic
+                                    : "battle";
+
+                            sound.playMusic(battleTrack);
                             currentMusicVolume = musicVolume / 100.0f;
                             sound.setMusicVolume(currentMusicVolume);
                             waitingForBattleMusic = false;
@@ -2300,6 +2309,13 @@ public class GamePanel extends JPanel implements Runnable {
                 
                 // Αν πατήσει Enter, ξεκίνα fade out
                 if (keyH.enterPressed && !battleFadeOut) {
+                    if (storyManager.hasFlag(StoryFlag.DEMO_BOSS_DEFEATED) &&
+                        !storyManager.hasFlag(StoryFlag.DEMO_COMPLETE) &&
+                        "ashen_guardian".equals(activeStoryBattleId)) {
+
+                        activeStoryBattleId = "";
+                        startStoryEvent("demo_ending");
+                    }
                     battleFadeOut = true;
                     battleFadeAlpha = 0;
                     keyH.enterPressed = false;
@@ -3787,13 +3803,185 @@ public class GamePanel extends JPanel implements Runnable {
                 actions.add(CutsceneAction.unlockPartyMember("Mage"));
                 actions.add(CutsceneAction.setObjective(
                         "prepare_for_ruins",
-                        "Prepare for the Search",
-                        "Now that Eldrin has joined you, gather information and prepare to pursue the trail beyond town."
+                        "Search the Ashen Chapel Ruins",
+                        "Follow the trail described in the stolen records and discover who is searching for the First Breath."
+                ));
+                actions.add(CutsceneAction.endCutscene());
+                cutscenePlayer.start(actions);
+                return;
+            
+            case "post_mage_regroup":
+                if (!storyManager.hasFlag(StoryFlag.MAGE_JOINED)) return;
+                if (storyManager.hasFlag(StoryFlag.RUINS_OBJECTIVE_SET)) return;
+
+                actions.add(CutsceneAction.setFlag(StoryFlag.RUINS_OBJECTIVE_SET));
+                actions.add(CutsceneAction.dialogue(
+                        "Eldrin: The stolen pages mentioned a sealed site beyond the town.\n" +
+                        "A ruined chapel used long ago to store forbidden records."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Seren: Then that is where your thieves went next."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Kael: If they seek the First Breath, we cannot let them reach it first."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Eldrin: The site is known in the old texts as the Ashen Chapel Ruins."
+                ));
+                actions.add(CutsceneAction.setObjective(
+                        "go_to_ruins",
+                        "Search the Ashen Chapel Ruins",
+                        "Leave town and investigate the ruined chapel mentioned in the stolen academy records."
+                ));
+                actions.add(CutsceneAction.endCutscene());
+                cutscenePlayer.start(actions);
+                return;
+
+            case "ruins_path_scene":
+                if (!storyManager.hasFlag(StoryFlag.RUINS_OBJECTIVE_SET)) return;
+                if (storyManager.hasFlag(StoryFlag.RUINS_PATH_SCENE_DONE)) return;
+
+                actions.add(CutsceneAction.setFlag(StoryFlag.RUINS_PATH_SCENE_DONE));
+                actions.add(CutsceneAction.dialogue(
+                        "Seren: Someone passed through here recently.\n" +
+                        "Three, maybe four people. Light steps. Organized."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Eldrin: Then we are close."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Kael: Stay alert.\n" +
+                        "If they came for the same relic, they may still be inside."
+                ));
+                actions.add(CutsceneAction.endCutscene());
+                cutscenePlayer.start(actions);
+                return;
+
+            case "ruins_entered":
+                if (!storyManager.hasFlag(StoryFlag.RUINS_OBJECTIVE_SET)) return;
+                if (storyManager.hasFlag(StoryFlag.RUINS_ENTERED)) return;
+
+                actions.add(CutsceneAction.setFlag(StoryFlag.RUINS_ENTERED));
+                actions.add(CutsceneAction.dialogue(
+                        "Eldrin: These markings...\n" +
+                        "They were deliberately broken."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Kael: A seal?"
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Eldrin: Yes.\n" +
+                        "And not a minor one."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Seren: Then whoever came here was not merely stealing records.\n" +
+                        "They were opening something."
+                ));
+                actions.add(CutsceneAction.setObjective(
+                        "search_inner_ruins",
+                        "Search the Inner Ruins",
+                        "Go deeper into the Ashen Chapel and find the source of the broken seal."
+                ));
+                actions.add(CutsceneAction.endCutscene());
+                cutscenePlayer.start(actions);
+                return;
+
+            case "demo_boss_intro":
+                if (!storyManager.hasFlag(StoryFlag.RUINS_ENTERED)) return;
+                if (storyManager.hasFlag(StoryFlag.DEMO_BOSS_INTRO_PLAYED)) return;
+
+                actions.add(CutsceneAction.setFlag(StoryFlag.DEMO_BOSS_INTRO_PLAYED));
+                actions.add(CutsceneAction.dialogue(
+                        "Kael: The chamber... it was already opened."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Eldrin: No.\n" +
+                        "Not opened. Disturbed."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Seren: Move."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "???: ...Unworthy..."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Eldrin: The guardian is waking!"
+                ));
+                actions.add(CutsceneAction.startBattle("ashen_guardian"));
+                actions.add(CutsceneAction.endCutscene());
+                cutscenePlayer.start(actions);
+                return;
+
+            case "demo_ending":
+                if (!storyManager.hasFlag(StoryFlag.DEMO_BOSS_DEFEATED)) return;
+                if (storyManager.hasFlag(StoryFlag.DEMO_COMPLETE)) return;
+
+                actions.add(CutsceneAction.setFlag(StoryFlag.DEMO_COMPLETE));
+                actions.add(CutsceneAction.dialogue(
+                        "Eldrin: Look...\n" +
+                        "That mark on the altar. It matches the stolen pages."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Seren: So the town was only a stop on their route."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Kael: Then this is larger than the monastery."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Eldrin: Much larger.\n" +
+                        "If the First Breath is only one fragment, then others may already be in danger."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Kael: Then we move before they do."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                        "Demo Complete\n" +
+                        "The hunt for the remaining fragments will continue..."
                 ));
                 actions.add(CutsceneAction.endCutscene());
                 cutscenePlayer.start(actions);
                 return;
         }
+    }
+
+    public void startStoryBattle(String battleId) {
+        ArrayList<Enemy> enemiesForBattle = new ArrayList<>();
+
+        if (battleId == null || battleId.isEmpty()) return;
+
+        switch (battleId) {
+            case "ashen_guardian":
+                Enemy boss = EnemyFactory.createEnemy(this, "ashen_guardian");
+                if (boss != null) {
+                    enemiesForBattle.add(boss);
+                    forcedBattleMusic = "boss_battle";
+                }
+                break;
+        }
+
+        if (enemiesForBattle.isEmpty()) return;
+
+        activeStoryBattleId = battleId;
+        pendingEncounterEnemies.clear();
+        pendingEncounterEnemies.addAll(enemiesForBattle);
+
+        battleStarting = true;
+        startBattleWithTransition(enemiesForBattle);
+
+        if (enemiesForBattle.size() == 1) {
+            battleMessage = "Εμφανίστηκε " + enemiesForBattle.get(0).name + "!";
+        } else {
+            battleMessage = "Εμφανίστηκαν εχθροί!";
+        }
+
+        sound.stopMusic();
+        sound.playBattleSE("ENEMY_APPEAR");
+        waitingForBattleMusic = true;
+        battleAppearTimer = 0;
+        battleAppearDurationFrames = (int)(sound.getBattleSoundLengthMs("ENEMY_APPEAR") / 16.67);
+        battleAppearDurationFrames -= 200;
+
+        if (battleAppearDurationFrames <= 0) battleAppearDurationFrames = 40;
     }
 
     public PartyMember findPartyMemberByClassName(String className) {
@@ -4832,11 +5020,13 @@ public class GamePanel extends JPanel implements Runnable {
         try {
             groundGrass = ImageIO.read(new File("res/battle/ground_grass.png"));
             groundDungeon = ImageIO.read(new File("res/battle/ground_dungeon.png"));
+            groundRuins = ImageIO.read(new File("res/battle/ground_dungeon.png"));
             System.out.println("Ground images loaded successfully!");
         } catch (IOException e) {
             e.printStackTrace();
             groundGrass = createGroundGradient(new Color(34, 139, 34), new Color(144, 238, 144));
             groundDungeon = createGroundGradient(new Color(70, 70, 70), new Color(120, 70, 70));
+            groundRuins = createGroundGradient(new Color(90, 80, 70), new Color(140, 120, 100));
         }
 
         createBattleBackground();
@@ -4890,24 +5080,29 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     public void createBattleBackground() {
-        // Διάλεξε τυχαίο background ανάλογα με τον χάρτη
-        String[] possibleBackgrounds;
-        
-        if (currentMap == 1) { // Overworld
-            possibleBackgrounds = new String[]{"field1"};
-        } else if (currentMap == 2) { // Dungeon
-            possibleBackgrounds = new String[]{"dungeon1", "dungeon2"};
-        } else {
-            possibleBackgrounds = new String[]{"field1"};
+        String battleTheme = "";
+        if (currentEnemy != null && currentEnemy.battleBg != null) {
+            battleTheme = currentEnemy.battleBg.toLowerCase();
         }
-        
-        String bgName = possibleBackgrounds[(int)(Math.random() * possibleBackgrounds.length)];
-        
+
+        String bgName;
+
+        if (battleTheme.equals("ruins")) {
+            bgName = "ruins1";
+        } else if (battleTheme.equals("dungeon")) {
+            String[] possibleBackgrounds = {"dungeon1", "dungeon2"};
+            bgName = possibleBackgrounds[(int)(Math.random() * possibleBackgrounds.length)];
+        } else {
+            String[] possibleBackgrounds = {"field1"};
+            bgName = possibleBackgrounds[(int)(Math.random() * possibleBackgrounds.length)];
+        }
+
         try {
-            battleBackground = ImageIO.read(new File("res/battle/bg_" + bgName + ".png"));
-        } catch (Exception e) {
-            // Αν δεν υπάρχει εικόνα, δημιούργησε gradient background
-            battleBackground = createGradientBackground();
+            battleBackground = ImageIO.read(new File("res/battle/" + bgName + ".png"));
+            System.out.println("Battle background loaded: " + bgName);
+        } catch (IOException e) {
+            e.printStackTrace();
+            createGradientBackground();
         }
     }
 
@@ -4970,10 +5165,16 @@ public class GamePanel extends JPanel implements Runnable {
         boostVisualStartTime = System.currentTimeMillis();
 
         // ========== ΕΠΙΛΕΞΕ ΤΗΝ ΚΑΤΑΛΛΗΛΗ ΕΙΚΟΝΑ ΕΔΑΦΟΥΣ ==========
-        if (currentMap == 1) {
-            groundImage = groundGrass;
-        } else if (currentMap == 2) {
-            groundImage = groundDungeon;
+        if (currentEnemy != null && currentEnemy.groundType != null) {
+            String groundTheme = currentEnemy.groundType.toLowerCase();
+
+            if (groundTheme.equals("ruins")) {
+                groundImage = groundRuins;
+            } else if (groundTheme.equals("dungeon")) {
+                groundImage = groundDungeon;
+            } else {
+                groundImage = groundGrass;
+            }
         } else {
             groundImage = groundGrass;
         }
@@ -6490,6 +6691,10 @@ public class GamePanel extends JPanel implements Runnable {
                 sound.playBattleSE("VICTORYASSASSIN");
             } else if (lastKillerName.equals("Mage")) {
                 sound.playBattleSE("VICTORYMAGE");
+            }
+
+            if ("ashen_guardian".equals(activeStoryBattleId)) {
+                storyManager.setFlag(StoryFlag.DEMO_BOSS_DEFEATED);
             }
         }
     }

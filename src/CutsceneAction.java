@@ -24,6 +24,12 @@ public class CutsceneAction {
         return a;
     }
 
+    public static CutsceneAction startBattle(String battleId) {
+        CutsceneAction a = new CutsceneAction("START_BATTLE");
+        a.value = battleId;
+        return a;
+    }
+
     public static CutsceneAction dialogue(String text) {
         CutsceneAction a = new CutsceneAction("DIALOGUE");
         a.text = text;

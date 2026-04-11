@@ -100,6 +100,7 @@ public class TileManager {
         loadAtlas("mountains2", "res/tilesets/mountains2.png");
         loadAtlas("other", "res/tilesets/other.png");
         loadAtlas("Houses", "res/tilesets/Houses.png");
+        loadAtlas("ruins_set", "res/tilesets/ruins_set.png");
         loadAtlas("water", "res/tilesets/water.png");
         loadAtlas("water_animated", "res/tilesets/water_animated.png");
     }
@@ -169,6 +170,7 @@ public class TileManager {
         addTiledMapFromTMX("monastery_start", "res/maps/monastery_start.tmx");
         addTiledMapFromTMX("first_town", "res/maps/first_town.tmx");
         addTiledMapFromTMX("mountain_pass", "res/maps/mountain_pass.tmx");
+        addTiledMapFromTMX("ashen_ruins_entrance", "res/maps/ashen_ruins_entrance.tmx");
     }
 
     public void addLegacyMap(String name, String filePath) {
@@ -1218,6 +1220,7 @@ public class TileManager {
         if (source.endsWith("decor.tsx")) return "other";
         if (source.endsWith("other.tsx")) return "other";
         if (source.endsWith("Houses.tsx")) return "Houses";
+        if (source.endsWith("ruins_set.tsx")) return "ruins_set";
         if (source.endsWith("cave.tsx")) return "cave";
         if (source.endsWith("mountains.tsx")) return "mountains";
         if (source.endsWith("mountains2.tsx")) return "mountains2";

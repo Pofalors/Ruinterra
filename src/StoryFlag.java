@@ -14,8 +14,13 @@ public class StoryFlag {
     public static final String MAGE_JOINED = "mage_joined";
     public static final String MAGE_JOIN_SCENE_DONE = "mage_join_scene_done";
 
+    public static final String RUINS_OBJECTIVE_SET = "ruins_objective_set";
+    public static final String RUINS_PATH_SCENE_DONE = "ruins_path_scene_done";
+    public static final String RUINS_ENTERED = "ruins_entered";
+    public static final String RUINS_INNER_SCENE_DONE = "ruins_inner_scene_done";
     public static final String DEMO_BOSS_INTRO_PLAYED = "demo_boss_intro_played";
     public static final String DEMO_BOSS_DEFEATED = "demo_boss_defeated";
-
     public static final String DEMO_COMPLETE = "demo_complete";
+
+
 }

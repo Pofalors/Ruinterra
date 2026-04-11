@@ -94,6 +94,11 @@ public class CutscenePlayer {
                 index++;
                 break;
 
+            case "START_BATTLE":
+                gp.startStoryBattle(action.value);
+                index++;
+                break;
+
             case "FACE_PLAYER":
                 gp.player.direction = action.value;
                 gp.player.updateImage();
