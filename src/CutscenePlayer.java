@@ -76,6 +76,7 @@ public class CutscenePlayer {
 
             case "SET_OBJECTIVE":
                 gp.storyManager.setObjective(action.target, action.text, action.value);
+                gp.showObjectivePopup(action.text, action.value);
                 index++;
                 break;
 

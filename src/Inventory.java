@@ -52,6 +52,8 @@ public class Inventory {
     public int worldMapTransitionAlpha = 0;
     public boolean worldMapOpening = false;
     public boolean worldMapClosing = false;
+    // ===== JOURNAL =====
+    public boolean journalOpenFromMenu = false;
     
     public Inventory() {
         for (int i = 0; i < storage.length; i++) {

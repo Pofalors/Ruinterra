@@ -1,3 +1,0 @@
-gold=0
-KEY|Lantern|1
-KEY|World Map|1

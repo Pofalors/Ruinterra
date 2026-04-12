@@ -17,15 +17,9 @@ import java.awt.Point;
 import java.awt.Font;
 import java.awt.GradientPaint;
 import java.awt.BasicStroke;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.Clip;
-import javax.sound.sampled.AudioInputStream;
-import java.net.URL;
 import java.awt.Toolkit;
 import java.awt.RadialGradientPaint;
 import java.awt.AlphaComposite;              
-import java.awt.GraphicsEnvironment;  
-import java.awt.GraphicsDevice;  
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.event.WindowAdapter;
@@ -257,6 +251,12 @@ public class GamePanel extends JPanel implements Runnable {
     public int selectedOption = 0;
     // Διάλογος
     public String currentDialogue = "";
+    // ===== OBJECTIVE POPUP =====
+    public boolean showObjectivePopup = false;
+    public String objectivePopupTitle = "";
+    public String objectivePopupDescription = "";
+    public int objectivePopupTimer = 0;
+    public final int OBJECTIVE_POPUP_DURATION = 240; // 4 sec at 60fps
 
     // ========== ΜΑΧΗ ==========
     /*
@@ -1346,6 +1346,27 @@ public class GamePanel extends JPanel implements Runnable {
 
             // ----- INVENTORY NAVIGATION -----
             if (gameState == inventoryState) {
+                // ===== JOURNAL FULLSCREEN SUBMODE =====
+                if (inventory.journalOpenFromMenu) {
+
+                    if (keyH.escapePressed || keyH.iPressed || keyH.enterPressed) {
+                        inventory.journalOpenFromMenu = false;
+                        inventory.menuFocus = 0;
+
+                        playSound("menu_close");
+
+                        keyH.escapePressed = false;
+                        keyH.iPressed = false;
+                        keyH.enterPressed = false;
+
+                        try { Thread.sleep(120); } catch (Exception e) {}
+                    }
+
+                    repaint();
+                    try { Thread.sleep(16); } catch (Exception e) {}
+
+                    continue;
+                }
                 // ===== WORLD MAP FULLSCREEN SUBMODE =====
                     if (inventory.worldMapOpenFromMenu) {
 
@@ -1561,21 +1582,38 @@ public class GamePanel extends JPanel implements Runnable {
                         }
 
                         if (keyH.enterPressed) {
-                            inventory.menuFocus = 1;
 
+                            // =========================
+                            // ITEMS
+                            // =========================
                             if (inventory.menuSection == 0) {
+                                inventory.menuFocus = 1;
                                 inventory.selectedItemsCategory = 0;
                                 inventory.selectedItemsListIndex = 0;
                                 inventory.itemUseTargetMode = false;
                                 inventory.itemUseTargetIndex = 0;
                             }
+
+                            // =========================
+                            // STATUS
+                            // =========================
                             else if (inventory.menuSection == 1) {
+                                inventory.menuFocus = 1;
                                 inventory.selectedEquipSlot = 0;
                                 inventory.inventoryMode = 1;
                             }
+
+                            // =========================
+                            // EQUIPMENT
+                            // =========================
                             else if (inventory.menuSection == 2) {
+                                inventory.menuFocus = 1;
                                 inventory.selectedPartyMember = 0;
                             }
+
+                            // =========================
+                            // WORLD MAP
+                            // =========================
                             else if (inventory.menuSection == 3) {
 
                                 boolean hasMap = false;
@@ -1609,14 +1647,36 @@ public class GamePanel extends JPanel implements Runnable {
 
                                 continue;
                             }
+
                             // =========================
-                            // SAVE SECTION
+                            // JOURNAL
+                            // =========================
+                            else if (inventory.menuSection == 4) {
+                                inventory.journalOpenFromMenu = true;
+
+                                playSound("menu_select");
+
+                                keyH.enterPressed = false;
+                                try { Thread.sleep(180); } catch (Exception e) {}
+
+                                continue;
+                            }
+
+                            // =========================
+                            // SAVE
                             // =========================
                             else if (inventory.menuSection == 5) {
                                 saveGame();
                                 startDialogue("Το παιχνίδι αποθηκεύτηκε!");
                                 gameState = dialogueState;
                                 keyH.enterPressed = false;
+                            }
+
+                            // =========================
+                            // OPTIONS
+                            // =========================
+                            else if (inventory.menuSection == 6) {
+                                inventory.menuFocus = 1;
                             }
 
                             playSound("menu_select");
@@ -3061,8 +3121,26 @@ public class GamePanel extends JPanel implements Runnable {
                     
                     // Αν είμαστε σε victory state, γύρνα στο playState
                     if (gameState == battleVictoryState) {
-                        gameState = playState;
+                        boolean wasAshenGuardianStoryBattle =
+                                "ashen_guardian".equals(activeStoryBattleId);
+
+                        if (wasAshenGuardianStoryBattle) {
+                            storyManager.setFlag(StoryFlag.DEMO_BOSS_DEFEATED);
+                        }
+
+                        forcedBattleMusic = "";
                         returnToMapMusic();
+
+                        gameState = playState;
+
+                        if (wasAshenGuardianStoryBattle &&
+                            !storyManager.hasFlag(StoryFlag.DEMO_COMPLETE)) {
+
+                            activeStoryBattleId = "";
+                            startStoryEvent("demo_ending");
+                        } else {
+                            activeStoryBattleId = "";
+                        }
                         battleParty = new BattleParty();
                         pendingExp = 0;
                         pendingGold = 0;
@@ -3088,6 +3166,14 @@ public class GamePanel extends JPanel implements Runnable {
                 if (battleFadeAlpha <= 0) {
                     battleFadeAlpha = 0;
                     battleFadeIn = false;
+                }
+            }
+
+            if (showObjectivePopup) {
+                objectivePopupTimer--;
+                if (objectivePopupTimer <= 0) {
+                    objectivePopupTimer = 0;
+                    showObjectivePopup = false;
                 }
             }
             
@@ -4805,20 +4891,6 @@ public class GamePanel extends JPanel implements Runnable {
     //     END OF SAVE/LOAD HELPERS
     // ====================================
 
-    private void setEquipSlotDirect(int slot, Item item) {
-        switch(slot) {
-            case 0: inventory.ring = item; break;
-            case 1: inventory.helmet = item; break;
-            case 2: inventory.necklace = item; break;
-            case 3: inventory.sword = item; break;
-            case 4: inventory.chest = item; break;
-            case 5: inventory.shield = item; break;
-            case 6: inventory.gloves = item; break;
-            case 7: inventory.belt = item; break;
-            case 8: inventory.boots = item; break;
-        }
-    }
-
     private void faceNPCToPlayer(Entity npc) {
         if (player.worldX < npc.worldX) {
             npc.direction = "left";
@@ -5952,7 +6024,6 @@ public class GamePanel extends JPanel implements Runnable {
         Graphics2D g = (Graphics2D) g2.create();
 
         float progress = (float) swingTrailTimer / swingTrailDuration;
-        float inv = 1.0f - progress;
 
         Color trailColor;
         int arcSize;
@@ -7046,6 +7117,7 @@ public class GamePanel extends JPanel implements Runnable {
             if (gameState == chestLootState) {
                 drawChestLootWindow(g2);
             }
+            drawObjectivePopup(g2);
         }
         // ========== ΠΡΟΣΘΕΣΕ ΤΟ FADE EFFECT ΓΙΑ ΟΛΕΣ ΤΙΣ ΚΑΤΑΣΤΑΣΕΙΣ ==========
         // Αυτό ζωγραφίζεται ΠΑΝΤΑ από πάνω, ανεξάρτητα από το gameState
@@ -8078,6 +8150,10 @@ public class GamePanel extends JPanel implements Runnable {
 
             return;
         }
+        if (inventory.journalOpenFromMenu) {
+            drawJournalScreen(g2);
+            return;
+        }
 
         // =========================
         // BACKDROP
@@ -8152,7 +8228,6 @@ public class GamePanel extends JPanel implements Runnable {
         int contentTopH = 260;
 
         int contentBottomY = contentTopY + contentTopH + 15;
-        int contentBottomH = centerH - (contentBottomY - centerY) - 20;
 
         // divider line
         g2.setColor(new Color(180, 150, 90, 100));
@@ -8565,7 +8640,6 @@ public class GamePanel extends JPanel implements Runnable {
         Color panelDark = new Color(20, 20, 20, 230);
         Color panelMid = new Color(40, 35, 30, 230);
         Color border = new Color(180, 150, 90, 180);
-        Color highlight = new Color(180, 130, 60, 180);
         Color textMain = new Color(240, 230, 210);
         Color textDim = new Color(180, 170, 150);
 
@@ -8834,7 +8908,6 @@ public class GamePanel extends JPanel implements Runnable {
         String selectedCharacterName = getCharacterDisplayName(selectedCharacter);
 
         Color border = new Color(180, 150, 90, 180);
-        Color highlight = new Color(180, 130, 60, 180);
         Color textMain = new Color(240, 230, 210);
         Color textDim = new Color(180, 170, 150);
 
@@ -9803,6 +9876,204 @@ public class GamePanel extends JPanel implements Runnable {
             }
         }
         return null;
+    }
+
+    public void drawJournalScreen(Graphics2D g2) {
+        int screenW = screenWidth;
+        int screenH = screenHeight;
+
+        // backdrop
+        if (worldMapBackground != null) {
+            g2.drawImage(worldMapBackground, 0, 0, screenW, screenH, null);
+        } else {
+            g2.setColor(new Color(0, 0, 0, 170));
+            g2.fillRect(0, 0, screenW, screenH);
+        }
+
+        g2.setColor(new Color(0, 0, 0, 70));
+        g2.fillRect(0, 0, screenW, screenH);
+
+        int leftX = 0;
+        int leftY = 0;
+        int leftW = 220;
+        int leftH = screenH - 70;
+
+        int centerX = leftW + 18;
+        int centerY = 20;
+        int centerW = screenW - centerX - 18;
+        int centerH = screenH - 90;
+
+        Color panelDark = new Color(0, 0, 0, 145);
+        Color panelMid = new Color(0, 0, 0, 135);
+        Color border = new Color(180, 150, 90, 140);
+        Color textMain = new Color(240, 230, 210);
+        Color textDim = new Color(180, 170, 150);
+
+        // left panel
+        g2.setColor(panelDark);
+        g2.fillRect(leftX, leftY, leftW, leftH);
+        g2.setColor(border);
+        g2.drawLine(leftW - 1, 0, leftW - 1, leftH);
+
+        // center panel
+        g2.setColor(panelMid);
+        g2.fillRoundRect(centerX, centerY, centerW, centerH, 20, 20);
+        g2.setColor(border);
+        g2.drawRoundRect(centerX, centerY, centerW, centerH, 20, 20);
+
+        // left menu title
+        g2.setFont(g2.getFont().deriveFont(Font.BOLD, 28f));
+        g2.setColor(textMain);
+        g2.drawString("Menu", leftX + 24, leftY + 42);
+
+        g2.setFont(g2.getFont().deriveFont(Font.BOLD, 22f));
+        int optionY = leftY + 90;
+
+        for (int i = 0; i < mainMenuOptions.length; i++) {
+            boolean selected = (inventory.menuFocus == 0 && inventory.menuSection == i);
+
+            if (selected) {
+                g2.setColor(new Color(180, 130, 60, 180));
+                g2.fillRoundRect(leftX + 10, optionY - 24, leftW - 20, 36, 14, 14);
+                g2.setColor(new Color(210, 180, 90, 220));
+            } else {
+                g2.setColor(textMain);
+            }
+
+            g2.drawString(mainMenuOptions[i], leftX + 28, optionY);
+            optionY += 52;
+        }
+
+        // header
+        g2.setFont(maruMonicaLarge);
+        g2.setColor(textMain);
+        g2.drawString("Journal", centerX + 20, centerY + 40);
+
+        int y = centerY + 90;
+
+        g2.setFont(maruMonicaBold);
+        g2.setColor(new Color(255, 220, 140));
+        g2.drawString("Current Chapter", centerX + 25, y);
+
+        y += 28;
+        g2.setFont(maruMonica);
+        g2.setColor(Color.WHITE);
+        g2.drawString(storyManager.currentChapter != null ? storyManager.currentChapter : "Unknown", centerX + 25, y);
+
+        y += 50;
+        g2.setFont(maruMonicaBold);
+        g2.setColor(new Color(255, 220, 140));
+        g2.drawString("Current Objective", centerX + 25, y);
+
+        y += 28;
+        g2.setFont(maruMonicaBold);
+        g2.setColor(Color.WHITE);
+
+        String objTitle = "No active objective";
+        String objDesc = "";
+
+        if (storyManager.currentObjective != null) {
+            objTitle = storyManager.currentObjective.title;
+            objDesc = storyManager.currentObjective.description;
+        }
+
+        g2.drawString(objTitle, centerX + 25, y);
+
+        y += 34;
+        g2.setFont(maruMonica);
+        g2.setColor(textMain);
+
+        String[] lines = wrapText(objDesc, 58);
+        for (String line : lines) {
+            g2.drawString(line, centerX + 25, y);
+            y += 24;
+        }
+
+        y += 24;
+        g2.setFont(maruMonicaSmall);
+        g2.setColor(textDim);
+        g2.drawString("Press X / ESC / I to return", centerX + 25, centerY + centerH - 20);
+    }
+
+    public void drawObjectivePopup(Graphics2D g2) {
+        if (!showObjectivePopup) return;
+
+        int width = 420;
+        int height = 110;
+        int x = screenWidth - width - 20;
+        int y = 20;
+
+        float alpha = 1.0f;
+        if (objectivePopupTimer < 40) {
+            alpha = objectivePopupTimer / 40.0f;
+        }
+
+        java.awt.Composite oldComposite = g2.getComposite();
+        g2.setComposite(java.awt.AlphaComposite.getInstance(java.awt.AlphaComposite.SRC_OVER, alpha));
+
+        // background
+        g2.setColor(new Color(20, 20, 30, 220));
+        g2.fillRoundRect(x, y, width, height, 20, 20);
+
+        // border
+        g2.setColor(new Color(180, 180, 220));
+        g2.setStroke(new BasicStroke(2f));
+        g2.drawRoundRect(x, y, width, height, 20, 20);
+
+        // title label
+        g2.setFont(maruMonicaBold);
+        g2.setColor(new Color(255, 220, 140));
+        g2.drawString("New Objective", x + 20, y + 28);
+
+        // objective title
+        g2.setFont(maruMonicaBold.deriveFont(20f));
+        g2.setColor(Color.WHITE);
+        g2.drawString(objectivePopupTitle, x + 20, y + 55);
+
+        // description
+        g2.setFont(maruMonicaSmall);
+        g2.setColor(new Color(210, 210, 210));
+
+        String[] lines = wrapText(objectivePopupDescription, 42);
+        int lineY = y + 78;
+        for (int i = 0; i < lines.length && i < 2; i++) {
+            g2.drawString(lines[i], x + 20, lineY);
+            lineY += 18;
+        }
+
+        g2.setComposite(oldComposite);
+    }
+
+    public String[] wrapText(String text, int maxCharsPerLine) {
+        if (text == null || text.isEmpty()) return new String[]{""};
+
+        java.util.ArrayList<String> lines = new java.util.ArrayList<>();
+        String[] words = text.split(" ");
+        StringBuilder current = new StringBuilder();
+
+        for (String word : words) {
+            if (current.length() == 0) {
+                current.append(word);
+            } else if (current.length() + 1 + word.length() <= maxCharsPerLine) {
+                current.append(" ").append(word);
+            } else {
+                lines.add(current.toString());
+                current = new StringBuilder(word);
+            }
+        }
+
+        if (current.length() > 0) {
+            lines.add(current.toString());
+        }
+
+        return lines.toArray(new String[0]);
+    }
+
+    public void showObjectivePopup(String title, String description) {
+        showObjectivePopup = true;
+        objectivePopupTitle = title != null ? title : "";
+        objectivePopupDescription = description != null ? description : "";
+        objectivePopupTimer = OBJECTIVE_POPUP_DURATION;
     }
 
 
