@@ -25,6 +25,8 @@ import java.awt.RenderingHints;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.FontMetrics;
+import java.util.HashMap;
+import java.util.Map;
 
 public class GamePanel extends JPanel implements Runnable {
     // Ρυθμίσεις οθόνης
@@ -326,6 +328,15 @@ public class GamePanel extends JPanel implements Runnable {
     public boolean selectingTarget = false;
     public int selectedBoost = 0;
     public boolean selectingBoost = false;
+    // ===== BOOST AURA SPRITE ANIMATION =====
+    public BufferedImage[] boostAuraLv1Frames;
+    public BufferedImage[] boostAuraLv2Frames;
+    public BufferedImage[] boostAuraLv3Frames;
+
+    public int boostAuraFrameDelay = 3; // πόσα game frames κρατά κάθε sprite frame
+    public float boostAuraScaleLv1 = 1.4f;
+    public float boostAuraScaleLv2 = 1.55f;
+    public float boostAuraScaleLv3 = 1.7f;
     public boolean actionInProgress = false;
     public String lastKillerName = "";
     public boolean waitingForBattleMusic = false;
@@ -348,6 +359,10 @@ public class GamePanel extends JPanel implements Runnable {
     public int hitFlashDuration = 0;
     public int hitFlashLevel = 0;
     public ArrayList<BattleEffectInstance> activeBattleEffects = new ArrayList<>();
+    // ===== BATTLE EFFECT SPRITE REGISTRY =====
+    public Map<String, BufferedImage[]> battleEffectFrames = new HashMap<>();
+    public Map<String, Integer> battleEffectFrameDelays = new HashMap<>();
+    public Map<String, Float> battleEffectScales = new HashMap<>();
     public double boostSlashAngle = -0.65; // βασική διαγώνια φορά
 
     public int screenShakeTimer = 0;
@@ -629,6 +644,10 @@ public class GamePanel extends JPanel implements Runnable {
             System.out.println("Failed to load player battle animations");
         }
 
+        // ========== ΦΟΡΤΩΣΗ EFFECT SPRITE SHEETS ==========
+        loadBattleEffectAssets();
+        loadBoostAuraEffects();
+
         // === FONTS ===
         try {
             // Φόρτωσε το κανονικό font
@@ -704,6 +723,7 @@ public class GamePanel extends JPanel implements Runnable {
         sound.preloadBattleSound("DEATHMAGE", "deathMage.wav");
         sound.preloadBattleSound("ENEMY_APPEAR", "enemy_appear.wav");
         sound.preloadBattleSound("GOBLIN_SLASH", "goblin_slash.wav");
+        sound.preloadBattleSound("SKELETON_SLASH", "goblin_slash.wav");
         sound.preloadBattleSound("GUARD", "guard.wav");
         sound.preloadBattleSound("FLEE", "flee.wav");
         sound.preloadBattleSound("HEAL", "heal.wav");
@@ -5551,9 +5571,9 @@ public class GamePanel extends JPanel implements Runnable {
                 playPlayerAttackSound(actor);
                 triggerLunge(actor, actor.boostUsed);
                 triggerSwingTrail(actor, actor.boostUsed);
+                triggerSlashImpact(actor.queuedTarget, 1);
 
                 if (actor.boostUsed > 0) {
-                    triggerBoostBurst(actor.queuedTarget, actor.boostUsed);
                     triggerHitFlash(actor.boostUsed);
                     triggerZoomPop(actor.boostUsed);
                 }
@@ -6207,8 +6227,140 @@ public class GamePanel extends JPanel implements Runnable {
         return new Point(screenWidth / 2, screenHeight / 2);
     }
 
+    private void loadBattleEffectAssets() {
+        try {
+            registerBattleEffect("break", "res/effects/break.png", 64, 64, 3, 2.0f);
+            registerBattleEffect("slash", "res/effects/slash.png", 48, 48, 2, 2.5f);
+
+            registerBattleEffect("boost_lv1", "res/effects/boost_lv1.png", 128, 128, 2, 1.4f);
+            registerBattleEffect("boost_lv2", "res/effects/boost_lv2.png", 128, 128, 2, 1.4f);
+            registerBattleEffect("boost_lv3", "res/effects/boost_lv3.png", 128, 128, 2, 1.4f);
+
+            System.out.println("Battle effect sprite sheets loaded successfully.");
+        } catch (Exception e) {
+            System.out.println("Failed to load battle effect sprite sheets.");
+            e.printStackTrace();
+        }
+    }
+
+    private void loadBoostAuraEffects() {
+        try {
+            SpriteSheet boostLv1Sheet = new SpriteSheet("res/effects/boost_lv1.png", 128, 128);
+            SpriteSheet boostLv2Sheet = new SpriteSheet("res/effects/boost_lv2.png", 128, 128);
+            SpriteSheet boostLv3Sheet = new SpriteSheet("res/effects/boost_lv3.png", 128, 128);
+
+            boostAuraLv1Frames = boostLv1Sheet.getAllFrames();
+            boostAuraLv2Frames = boostLv2Sheet.getAllFrames();
+            boostAuraLv3Frames = boostLv3Sheet.getAllFrames();
+
+            System.out.println("Boost aura sprite sheets loaded successfully.");
+        } catch (Exception e) {
+            System.out.println("Failed to load boost aura sprite sheets.");
+            e.printStackTrace();
+        }
+    }
+
+    private void registerBattleEffect(String effectType, String path,
+                                    int frameWidth, int frameHeight,
+                                    int frameDelay, float scale) {
+        SpriteSheet sheet = new SpriteSheet(path, frameWidth, frameHeight);
+        BufferedImage[] frames = sheet.getAllFrames();
+
+        battleEffectFrames.put(effectType, frames);
+        battleEffectFrameDelays.put(effectType, frameDelay);
+        battleEffectScales.put(effectType, scale);
+    }
+
+    public BufferedImage[] getBattleEffectFrames(String type) {
+        return battleEffectFrames.get(type);
+    }
+
+    public int getBattleEffectFrameDelay(String type) {
+        Integer value = battleEffectFrameDelays.get(type);
+        return value != null ? value : 2;
+    }
+
+    public float getBattleEffectScale(String type) {
+        Float value = battleEffectScales.get(type);
+        return value != null ? value : 1.0f;
+    }
+
     public void spawnBattleEffect(String type, int x, int y, int duration, int level) {
-        activeBattleEffects.add(new BattleEffectInstance(type, x, y, duration, level));
+        String resolvedType = resolveBattleEffectType(type, level);
+
+        BufferedImage[] frames = getBattleEffectFrames(resolvedType);
+
+        if (frames != null && frames.length > 0) {
+            int frameDelay = getBattleEffectFrameDelay(resolvedType);
+            float scale = getBattleEffectScale(resolvedType);
+
+            BattleEffectInstance fx = new BattleEffectInstance(
+                    resolvedType,
+                    x,
+                    y,
+                    duration,
+                    level,
+                    frames,
+                    frameDelay,
+                    scale
+            );
+
+            configureBattleEffectOffsets(fx, resolvedType, level);
+            activeBattleEffects.add(fx);
+            return;
+        }
+
+        BattleEffectInstance fx = new BattleEffectInstance(type, x, y, duration, level);
+        configureBattleEffectOffsets(fx, type, level);
+        activeBattleEffects.add(fx);
+    }
+
+    private String resolveBattleEffectType(String type, int level) {
+        switch (type) {
+            case "boost_burst":
+                if (level == 1) return "boost_lv1";
+                if (level == 2) return "boost_lv2";
+                return "boost_lv3";
+
+            case "hit_slash":
+            case "slash":
+            case "impact":
+                return "slash";
+
+            case "break":
+                return "break";
+
+            default:
+                return type;
+        }
+    }
+
+    private void configureBattleEffectOffsets(BattleEffectInstance fx, String resolvedType, int level) {
+        fx.centered = true;
+
+        switch (resolvedType) {
+            case "slash":
+                fx.offsetX = -10;
+                fx.offsetY = 120;
+                break;
+
+            case "break":
+                fx.offsetX = 0;
+                fx.offsetY = 0;
+                break;
+
+            case "boost_lv1":
+            case "boost_lv2":
+            case "boost_lv3":
+                fx.offsetX = 0;
+                fx.offsetY = 20;
+                break;
+
+            default:
+                fx.offsetX = 0;
+                fx.offsetY = 0;
+                break;
+        }
     }
 
     public void spawnBattleEffectAtEntity(String type, BattleEntity target, int duration, int level) {
@@ -6235,30 +6387,42 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
-    public void triggerBoostBurst(BattleEntity target, int boostLevel) {
-        if (target == null || boostLevel <= 0) return;
+    // public void triggerBoostBurst(BattleEntity target, int boostLevel) {
+    //     if (target == null || boostLevel <= 0) return;
+
+    //     Point p = getBattleEntityScreenCenter(target);
+
+    //     int duration;
+    //     if (boostLevel == 1) {
+    //         duration = 12;
+    //         screenShakeStrength = 3;
+    //         screenShakeDuration = 6;
+    //     } else if (boostLevel == 2) {
+    //         duration = 16;
+    //         screenShakeStrength = 5;
+    //         screenShakeDuration = 8;
+    //     } else {
+    //         duration = 20;
+    //         screenShakeStrength = 7;
+    //         screenShakeDuration = 10;
+    //     }
+
+    //     screenShakeTimer = screenShakeDuration;
+
+    //     spawnBattleEffect("hit_slash", p.x, p.y, duration, boostLevel);
+    // }
+
+    public void triggerSlashImpact(BattleEntity target, int level) {
+        if (target == null) return;
 
         Point p = getBattleEntityScreenCenter(target);
 
-        int duration;
-        if (boostLevel == 1) {
-            duration = 12;
-            screenShakeStrength = 3;
-            screenShakeDuration = 6;
-        } else if (boostLevel == 2) {
-            duration = 16;
-            screenShakeStrength = 5;
-            screenShakeDuration = 8;
-        } else {
-            duration = 20;
-            screenShakeStrength = 7;
-            screenShakeDuration = 10;
-        }
-
+        int duration = 12;
+        screenShakeStrength = 3;
+        screenShakeDuration = 6;
         screenShakeTimer = screenShakeDuration;
 
-        spawnBattleEffect("boost_burst", p.x, p.y, duration, boostLevel);
-        spawnBattleEffect("hit_slash", p.x, p.y, duration, boostLevel);
+        spawnBattleEffect("hit_slash", p.x, p.y, duration, 1);
     }
 
     // public void drawBoostBurstEffect(Graphics2D g2) {
@@ -6366,128 +6530,47 @@ public class GamePanel extends JPanel implements Runnable {
     public void drawBoostAura(Graphics2D g2, int centerX, int footY, int boostLevel) {
         if (boostLevel <= 0) return;
 
-        Graphics2D g = (Graphics2D) g2.create();
-
-        double time = System.currentTimeMillis() * 0.006;
-        double spin = System.currentTimeMillis() * 0.0042;
-        float pulse = (float)(Math.sin(time) * 0.5 + 0.5f);
-
-        Color mainColor;
-        Color glowColor;
-        Color particleColor;
-        int baseRadius;
-        int coneHeight;
-        int ringCount;
-        int particleCount;
+        BufferedImage[] frames = null;
+        float scale = 1.0f;
 
         if (boostLevel == 1) {
-            mainColor = new Color(255, 80, 80, 150);
-            glowColor = new Color(255, 140, 140, 85);
-            particleColor = new Color(255, 220, 220, 170);
-            baseRadius = 86;
-            coneHeight = 88;
-            ringCount = 4;
-            particleCount = 10;
+            frames = boostAuraLv1Frames;
+            scale = boostAuraScaleLv1;
         } else if (boostLevel == 2) {
-            mainColor = new Color(255, 220, 90, 165);
-            glowColor = new Color(255, 245, 170, 95);
-            particleColor = new Color(255, 248, 220, 180);
-            baseRadius = 108;
-            coneHeight = 122;
-            ringCount = 5;
-            particleCount = 14;
+            frames = boostAuraLv2Frames;
+            scale = boostAuraScaleLv2;
         } else {
-            mainColor = new Color(95, 175, 255, 185);
-            glowColor = new Color(170, 225, 255, 110);
-            particleColor = new Color(235, 245, 255, 190);
-            baseRadius = 132;
-            coneHeight = 162;
-            ringCount = 6;
-            particleCount = 18;
+            frames = boostAuraLv3Frames;
+            scale = boostAuraScaleLv3;
         }
 
-        // ===== soft ground glow =====
-        int groundW = baseRadius * 2 + (int)(pulse * 14);
-        int groundH = baseRadius / 2 + 12;
-        g.setColor(new Color(glowColor.getRed(), glowColor.getGreen(), glowColor.getBlue(), 60));
-        g.fillOval(centerX - groundW / 2, footY - groundH / 2, groundW, groundH);
+        if (frames == null || frames.length == 0) return;
 
-        // ===== dense cyclone layers =====
-        g.setStroke(new BasicStroke(2.4f));
+        int frameIndex = getLoopingBoostAuraFrameIndex(frames.length);
+        BufferedImage frame = frames[frameIndex];
+        if (frame == null) return;
 
-        for (int i = 0; i < ringCount; i++) {
-            float layer = i / (float)Math.max(1, ringCount - 1);
+        int drawWidth = Math.round(frame.getWidth() * scale);
+        int drawHeight = Math.round(frame.getHeight() * scale);
 
-            int width = baseRadius - (int)(layer * (baseRadius * 0.48f)) + (int)(pulse * 6);
-            int height = Math.max(18, width / 3);
+        // Το aura πρέπει να "κάθεται" πάνω στον active χαρακτήρα.
+        // Χρησιμοποιούμε centerX για οριζόντιο centering
+        // και footY σαν anchor κοντά στα πόδια, ώστε το effect να αγκαλιάζει το σώμα.
+        int drawX = centerX - drawWidth / 2;
 
-            int y = footY - (int)(layer * coneHeight);
+        // Ρύθμιση κατακόρυφης θέσης:
+        // θέλουμε το κάτω μέρος του aura να πέφτει λίγο κάτω από τα πόδια,
+        // όχι όμως τόσο χαμηλά ώστε να φαίνεται αποκομμένο από τον χαρακτήρα.
+        int drawY = footY - drawHeight + 36;
 
-            double phase = spin + i * 0.72;
-            int sway = (int)(Math.sin(phase) * (10 + i * 2));
+        g2.drawImage(frame, drawX, drawY, drawWidth, drawHeight, null);
+    }
 
-            int x = centerX - width / 2 + sway;
+    private int getLoopingBoostAuraFrameIndex(int totalFrames) {
+        if (totalFrames <= 0) return 0;
 
-            int alpha = 135 - i * 15;
-            if (alpha < 38) alpha = 38;
-
-            // main band
-            g.setColor(new Color(mainColor.getRed(), mainColor.getGreen(), mainColor.getBlue(), alpha));
-            g.drawArc(x, y - 10, width, height, 0, 310);
-
-            // outer glow band
-            g.setColor(new Color(glowColor.getRed(), glowColor.getGreen(), glowColor.getBlue(), alpha / 2));
-            g.drawArc(x - 5, y - 12, width + 10, height + 6, 16, 275);
-
-            // inner bright band στα μεγαλύτερα boost
-            if (boostLevel >= 2 && i < ringCount - 1) {
-                g.setColor(new Color(255, 255, 255, Math.max(20, alpha / 3)));
-                g.drawArc(x + 4, y - 8, width - 8, Math.max(10, height - 4), 24, 240);
-            }
-        }
-
-        // ===== upward inner wisps =====
-        for (int i = 0; i < boostLevel + 4; i++) {
-            double phase = spin * 1.6 + i * 1.15;
-            int sway = (int)(Math.sin(phase) * (10 + boostLevel * 3));
-
-            int wx = centerX + sway;
-            int wy = footY - 18 - i * 16;
-            int wh = 26 + i * 11;
-
-            g.setColor(new Color(glowColor.getRed(), glowColor.getGreen(), glowColor.getBlue(), 75));
-            g.drawArc(wx - 10, wy - wh / 2, 20, wh, 95, 170);
-        }
-
-        // ===== circular energy particles instead of lightning =====
-        for (int i = 0; i < particleCount; i++) {
-            double ang = spin * 1.8 + i * (Math.PI * 2 / particleCount);
-            int radius = 18 + (i % 5) * 9 + (int)(pulse * 4);
-
-            int px = centerX + (int)(Math.cos(ang) * radius);
-            int py = footY - 12 - (int)(Math.abs(Math.sin(ang * 1.15)) * (coneHeight * 0.78));
-
-            int size = 3 + (i % 3);
-            if (boostLevel == 3 && i % 4 == 0) size += 1;
-
-            g.setColor(new Color(particleColor.getRed(), particleColor.getGreen(), particleColor.getBlue(), 150));
-            g.fillOval(px - size / 2, py - size / 2, size, size);
-
-            g.setColor(new Color(255, 255, 255, 110));
-            g.fillOval(px, py, Math.max(1, size - 2), Math.max(1, size - 2));
-        }
-
-        // ===== top mist / release cloud =====
-        for (int i = 0; i < 5 + boostLevel; i++) {
-            int size = 14 + i * 4 + (int)(pulse * 3);
-            int px = centerX - baseRadius / 4 + i * (baseRadius / 7);
-            int py = footY - coneHeight + 10 - i * 5;
-
-            g.setColor(new Color(glowColor.getRed(), glowColor.getGreen(), glowColor.getBlue(), 35));
-            g.fillOval(px - size / 2, py - size / 2, size, size);
-        }
-
-        g.dispose();
+        long ticks = System.currentTimeMillis() / 16L; // περίπου 60fps reference
+        return (int)((ticks / boostAuraFrameDelay) % totalFrames);
     }
 
     public void triggerHitFlash(int boostLevel) {
@@ -7460,6 +7543,9 @@ public class GamePanel extends JPanel implements Runnable {
             int recoilY = getHitRecoilDrawOffsetY(enemyEntity);
 
             // sprite
+            if (selectingTarget && i == selectedTarget && enemyEntity != null && enemyEntity.isAlive()) {
+                drawEnemySelectionGlow(g, drawX + recoilX, drawY + recoilY, enemySpriteSize, enemySpriteSize);
+            }
             g.drawImage(be.getCurrentImage(), drawX + recoilX, drawY + recoilY, enemySpriteSize, enemySpriteSize, null);
 
             // dust στα πόδια
@@ -7730,43 +7816,72 @@ public class GamePanel extends JPanel implements Runnable {
                 }
 
             } else if (selectingTarget) {
-                // Μενού επιλογής στόχου
                 g.setFont(maruMonicaBold);
                 g.setColor(Color.yellow);
-                g.drawString("Select target:", menuX + 50, menuY + 70);
+                g.drawString("Select target:", menuX + 50, menuY + 30);
 
                 g.setFont(maruMonicaSmall);
                 g.setColor(Color.lightGray);
-                g.drawString("ENTER=Confirm   ESC=Back", menuX + 50, menuY + 92);
-                g.drawString("Boost: " + selectedBoost, menuX + 260, menuY + 92);
+                g.drawString("ENTER=Confirm   ESC=Back", menuX + 50, menuY + 52);
+                g.drawString("Boost: " + selectedBoost, menuX + 260, menuY + 52);
 
                 int targetY = menuY + 110;
+
                 for (int i = 0; i < battleParty.enemies.size(); i++) {
                     BattleEntity enemy = battleParty.enemies.get(i);
                     int x = menuX + 100 + (i * 150);
 
                     if (i == selectedTarget) {
-                        g.setColor(Color.yellow);
-                        g.drawString("▶ " + enemy.name, x, targetY);
+                        g.setColor(new Color(255, 245, 180));
+
+                        // POINTER
+                        if (menuPointer != null) {
+                            g.drawImage(menuPointer, x - 40, targetY - 20, 32, 32, null);
+                        }
+
+                        g.setFont(maruMonicaBold);
+                        g.drawString(enemy.name, x, targetY);
+
                     } else {
                         g.setColor(Color.white);
                         g.drawString(enemy.name, x + 15, targetY);
                     }
-
-                    int barWidth = 100;
-                    int barHeight = 8;
-                    int barX = x;
-                    int barY = targetY + 10;
-
-                    g.setColor(Color.black);
-                    g.fillRect(barX, barY, barWidth, barHeight);
-                    g.setColor(Color.green);
-                    double hpPercentage = (double) enemy.hp / enemy.maxHp;
-                    int hpWidth = (int) (barWidth * hpPercentage);
-                    g.fillRect(barX, barY, hpWidth, barHeight);
                 }
             }
         }
+
+        g.dispose();
+    }
+
+    private void drawEnemySelectionGlow(Graphics2D g2, int enemyX, int enemyY, int enemyW, int enemyH) {
+        Graphics2D g = (Graphics2D) g2.create();
+
+        long t = System.currentTimeMillis();
+        float pulse = 0.65f + 0.35f * (float)Math.sin(t * 0.01);
+
+        int centerX = enemyX + enemyW / 2;
+        int footY = enemyY + enemyH;
+
+        int ovalWidth = (int)(enemyW * 0.45);
+        int ovalHeight = (int)(enemyH * 0.12);
+
+        int x = centerX - ovalWidth / 2 - 12;
+        int y = footY - ovalHeight / 2 + 6;
+
+        // soft glow
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.18f * pulse));
+        g.setColor(Color.white);
+        g.fillOval(x - 6, y - 4, ovalWidth + 12, ovalHeight + 8);
+
+        // main glow
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.28f * pulse));
+        g.fillOval(x, y, ovalWidth, ovalHeight);
+
+        // outline
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.9f));
+        g.setStroke(new BasicStroke(2.5f));
+        g.setColor(new Color(255, 255, 255, 200));
+        g.drawOval(x, y, ovalWidth, ovalHeight);
 
         g.dispose();
     }

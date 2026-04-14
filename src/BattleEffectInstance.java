@@ -4,14 +4,25 @@ import java.awt.image.BufferedImage;
 public class BattleEffectInstance {
     public String type;
     public int x, y;
+
+    // legacy/general timer
     public int timer = 0;
     public int duration = 12;
     public int level = 1;
     public boolean finished = false;
 
-    // future use για sprite sheets
+    // sprite animation data
     public BufferedImage[] frames = null;
     public boolean useSpriteFrames = false;
+    public int currentFrame = 0;
+    public int frameTimer = 0;
+    public int frameDelay = 2; // πόσα update ticks κρατά κάθε frame
+
+    // draw tuning
+    public float scale = 1.0f;
+    public int offsetX = 0;
+    public int offsetY = 0;
+    public boolean centered = true;
 
     public BattleEffectInstance(String type, int x, int y, int duration, int level) {
         this.type = type;
@@ -21,16 +32,56 @@ public class BattleEffectInstance {
         this.level = level;
     }
 
+    public BattleEffectInstance(String type, int x, int y, int duration, int level,
+                                BufferedImage[] frames, int frameDelay, float scale) {
+        this.type = type;
+        this.x = x;
+        this.y = y;
+        this.duration = duration;
+        this.level = level;
+        this.frames = frames;
+        this.frameDelay = Math.max(1, frameDelay);
+        this.scale = scale;
+
+        if (frames != null && frames.length > 0) {
+            this.useSpriteFrames = true;
+            this.duration = frames.length * this.frameDelay;
+        }
+    }
+
     public void update() {
+        if (finished) return;
+
         timer++;
-        if (timer >= duration) {
-            finished = true;
+
+        if (useSpriteFrames && frames != null && frames.length > 0) {
+            frameTimer++;
+
+            if (frameTimer >= frameDelay) {
+                frameTimer = 0;
+                currentFrame++;
+
+                if (currentFrame >= frames.length) {
+                    finished = true;
+                    currentFrame = frames.length - 1;
+                }
+            }
+        } else {
+            if (timer >= duration) {
+                finished = true;
+            }
         }
     }
 
     public void draw(Graphics2D g2, GamePanel gp) {
         if (finished) return;
 
+        if (useSpriteFrames && frames != null && frames.length > 0) {
+            drawSpriteFrame(g2);
+            return;
+        }
+
+        // fallback / legacy placeholder drawing
         float progress = (float) timer / Math.max(1, duration);
         float inv = 1.0f - progress;
 
@@ -50,6 +101,24 @@ public class BattleEffectInstance {
             default:
                 break;
         }
+    }
+
+    private void drawSpriteFrame(Graphics2D g2) {
+        BufferedImage frame = frames[Math.max(0, Math.min(currentFrame, frames.length - 1))];
+        if (frame == null) return;
+
+        int drawWidth = Math.round(frame.getWidth() * scale);
+        int drawHeight = Math.round(frame.getHeight() * scale);
+
+        int drawX = x + offsetX;
+        int drawY = y + offsetY;
+
+        if (centered) {
+            drawX -= drawWidth / 2;
+            drawY -= drawHeight / 2;
+        }
+
+        g2.drawImage(frame, drawX, drawY, drawWidth, drawHeight, null);
     }
 
     private void drawBoostBurstPlaceholder(Graphics2D g, float progress, float inv) {
