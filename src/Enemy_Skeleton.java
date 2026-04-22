@@ -20,6 +20,9 @@ public class Enemy_Skeleton extends Enemy {
             speed_stat = 7;
             exp = 22;
 
+            battleBg = "dungeon";
+            groundType = "dungeon";
+
             name = "Skeleton";
             enemyType = "skeleton";
             spriteSize = 64;

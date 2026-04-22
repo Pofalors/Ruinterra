@@ -32,6 +32,22 @@ public class BattleEntity {
     public boolean actionFinished = false;
     public boolean defending = false;
 
+    // ===== BREAK SYSTEM =====
+    public int shieldPoints = 0;
+    public int maxShieldPoints = 0;
+
+    public boolean broken = false;
+
+    // Θέλουμε να χάνει την τωρινή σειρά και την επόμενη
+    public int brokenTurnsRemaining = 0;
+
+    // Weakness slots
+    public String[] weaknessTypes = new String[6];
+    public boolean[] weaknessRevealed = new boolean[6];
+
+    // Damage multiplier όσο είναι broken
+    public float brokenDamageMultiplier = 1.5f;
+
     // Recoil etc.
     public int hitBlinkTimer = 0;
     public int hitBlinkDuration = 0;
@@ -171,4 +187,94 @@ public class BattleEntity {
         dustDuration = 10 + strength * 2;
         dustTimer = dustDuration;
     }
+
+    public void setupBreakData(int shields, String... weaknesses) {
+        this.maxShieldPoints = Math.max(0, shields);
+        this.shieldPoints = this.maxShieldPoints;
+
+        this.broken = false;
+        this.brokenTurnsRemaining = 0;
+
+        for (int i = 0; i < weaknessTypes.length; i++) {
+            weaknessTypes[i] = null;
+            weaknessRevealed[i] = false;
+        }
+
+        if (weaknesses != null) {
+            for (int i = 0; i < weaknesses.length && i < weaknessTypes.length; i++) {
+                weaknessTypes[i] = weaknesses[i];
+            }
+        }
+    }
+
+    public boolean hasBreakSystem() {
+        return maxShieldPoints > 0;
+    }
+
+    public boolean isWeakTo(String attackType) {
+        if (attackType == null) return false;
+
+        for (String weakness : weaknessTypes) {
+            if (weakness != null && weakness.equalsIgnoreCase(attackType)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public void revealWeakness(String attackType) {
+        if (attackType == null) return;
+
+        for (int i = 0; i < weaknessTypes.length; i++) {
+            if (weaknessTypes[i] != null && weaknessTypes[i].equalsIgnoreCase(attackType)) {
+                weaknessRevealed[i] = true;
+            }
+        }
+    }
+
+    public boolean canLoseShield() {
+        return hasBreakSystem() && !broken && shieldPoints > 0;
+    }
+
+    public boolean applyShieldDamage(int amount) {
+        if (!canLoseShield()) return false;
+
+        shieldPoints -= Math.max(1, amount);
+        if (shieldPoints < 0) shieldPoints = 0;
+
+        if (shieldPoints == 0) {
+            broken = true;
+            brokenTurnsRemaining = 2; // τρέχουσα + επόμενη σειρά του enemy
+            return true;
+        }
+
+        return false;
+    }
+
+    public boolean shouldSkipTurnBecauseBroken() {
+        return broken && brokenTurnsRemaining > 0;
+    }
+
+    public void consumeBrokenTurn() {
+        if (brokenTurnsRemaining > 0) {
+            brokenTurnsRemaining--;
+        }
+
+        if (broken && brokenTurnsRemaining <= 0) {
+            recoverFromBreak();
+        }
+    }
+
+    public void recoverFromBreak() {
+        broken = false;
+        brokenTurnsRemaining = 0;
+        shieldPoints = maxShieldPoints;
+    }
+
+    public int applyBrokenDamageMultiplier(int baseDamage) {
+        if (broken) {
+            return Math.max(1, Math.round(baseDamage * brokenDamageMultiplier));
+        }
+        return baseDamage;
+    }    
 }

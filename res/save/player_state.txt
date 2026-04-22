@@ -1,0 +1,3 @@
+currentMap=3
+worldX=736
+worldY=456

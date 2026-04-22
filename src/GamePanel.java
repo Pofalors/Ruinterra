@@ -723,7 +723,6 @@ public class GamePanel extends JPanel implements Runnable {
         sound.preloadBattleSound("DEATHMAGE", "deathMage.wav");
         sound.preloadBattleSound("ENEMY_APPEAR", "enemy_appear.wav");
         sound.preloadBattleSound("GOBLIN_SLASH", "goblin_slash.wav");
-        sound.preloadBattleSound("SKELETON_SLASH", "goblin_slash.wav");
         sound.preloadBattleSound("GUARD", "guard.wav");
         sound.preloadBattleSound("FLEE", "flee.wav");
         sound.preloadBattleSound("HEAL", "heal.wav");
@@ -731,7 +730,6 @@ public class GamePanel extends JPanel implements Runnable {
         sound.preloadBattleSound("LOWHPASSASSIN", "lowHpAssassin.wav");
         sound.preloadBattleSound("LOWHPMAGE", "LowHpMage.wav");
         sound.preloadBattleSound("MUSHROOM_ATTACK", "mushroom_attack.wav");
-        sound.preloadBattleSound("SKELETON_ATTACK", "skeleton_attack.wav");
         sound.preloadBattleSound("SPEAR", "spear.wav");
         sound.preloadBattleSound("SPEAR2", "spear2.wav");
         sound.preloadBattleSound("STAFF", "staff.wav");
@@ -2998,9 +2996,9 @@ public class GamePanel extends JPanel implements Runnable {
                             }
                         } else if (currentMap == 1) { // Fields
                             if (dayTime == 0 || dayTime == 3) {
-                                sound.playMusic("overworld_day");
+                                sound.playMusic("town_day");
                             } else {
-                                sound.playMusic("overworld_night");
+                                sound.playMusic("town_night");
                             }
                         } else if (currentMap == 2) { // Cave
                             sound.playMusic("dungeon");
@@ -5292,6 +5290,7 @@ public class GamePanel extends JPanel implements Runnable {
             battleEnemies.add(be);
 
             BattleEntity enemyEntity = new BattleEntity(enemy, enemy.currentImage);
+            setupEnemyBreakData(enemyEntity);
             battleParty.enemies.add(enemyEntity);
         }
         
@@ -5581,7 +5580,18 @@ public class GamePanel extends JPanel implements Runnable {
                 int reactStrength = (actor.boostUsed > 0) ? actor.boostUsed : 1;
                 actor.queuedTarget.triggerHitReact(reactStrength);
 
+                String attackType = getBasicAttackType(actor);
+
+                boolean targetWasAlreadyBroken = actor.queuedTarget.broken;
+                boolean justBroken = processBreakHit(actor, actor.queuedTarget, attackType);
+
                 int damage = calculateAttackDamage(actor, actor.queuedTarget, actor.boostUsed);
+
+                // όσο είναι broken τρώει παραπάνω damage
+                if (targetWasAlreadyBroken || justBroken) {
+                    damage = actor.queuedTarget.applyBrokenDamageMultiplier(damage);
+                }
+
                 actor.queuedTarget.takeDamage(damage);
 
                 playTargetHurt(actor.queuedTarget);
@@ -5637,6 +5647,18 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     public void updateEnemyAction(BattleEntity actor) {
+        if (actor.shouldSkipTurnBecauseBroken()) {
+            showActionMessage(actor.name + " is broken and cannot act!");
+            actor.consumeBrokenTurn();
+            actor.resetTurnFlags();
+            actor.enterState(CombatState.IDLE);
+
+            actionInProgress = false;
+            waitingForNextTurn = true;
+            commandLocked = false;
+            battleTurnDelay = 0;
+            return;
+        }
         if (actor.queuedTarget == null) {
             ArrayList<BattleEntity> alivePlayers = new ArrayList<>();
             for (BattleEntity playerEntity : battleParty.party) {
@@ -5733,7 +5755,7 @@ public class GamePanel extends JPanel implements Runnable {
         } else if (enemyName.contains("mushroom")) {
             sound.playBattleSE("MUSHROOM_ATTACK");
         } else if (enemyName.contains("skeleton")) {
-            sound.playBattleSE("SKELETON_ATTACK");
+            sound.playBattleSE("GOBLIN_SLASH");
         }
     }
 
@@ -6313,6 +6335,162 @@ public class GamePanel extends JPanel implements Runnable {
         BattleEffectInstance fx = new BattleEffectInstance(type, x, y, duration, level);
         configureBattleEffectOffsets(fx, type, level);
         activeBattleEffects.add(fx);
+    }
+
+    private String getBasicAttackType(BattleEntity actor) {
+        if (actor == null) return "sword";
+
+        String n = actor.name.toLowerCase();
+
+        // Προσωρινό mapping με βάση τα ονόματα / classes
+        if (n.contains("mage")) return "staff";
+        if (n.contains("assassin")) return "sword";
+        if (n.contains("hero")) return "spear";
+
+        // enemies / default
+        return "sword";
+    }
+
+    private boolean processBreakHit(BattleEntity attacker, BattleEntity target, String attackType) {
+        if (attacker == null || target == null) return false;
+        if (!target.isAlive()) return false;
+        if (!target.hasBreakSystem()) return false;
+        if (target.broken) return false;
+
+        if (!target.isWeakTo(attackType)) {
+            return false;
+        }
+
+        target.revealWeakness(attackType);
+
+        boolean justBroken = target.applyShieldDamage(1);
+
+        if (justBroken) {
+            Point p = getBattleEntityScreenCenter(target);
+            spawnBattleEffect("break", p.x, p.y, 18, 1);
+
+            screenShakeStrength = Math.max(screenShakeStrength, 5);
+            screenShakeDuration = Math.max(screenShakeDuration, 8);
+            screenShakeTimer = screenShakeDuration;
+
+            showActionMessage(target.name + " is broken!");
+        }
+
+        return justBroken;
+    }
+
+    private String getWeaknessShortLabel(String type) {
+        if (type == null) return "?";
+
+        switch (type.toLowerCase()) {
+            case "sword": return "SW";
+            case "spear": return "SP";
+            case "staff": return "ST";
+            default: return "?";
+        }
+    }
+
+    private void setupEnemyBreakData(BattleEntity enemy) {
+        if (enemy == null || enemy.isPlayer) return;
+
+        String n = enemy.name.toLowerCase();
+
+        if (n.contains("goblin")) {
+            enemy.setupBreakData(2, "sword", "spear");
+        } else if (n.contains("skeleton")) {
+            enemy.setupBreakData(3, "staff", "spear");
+        } else if (n.contains("mushroom")) {
+            enemy.setupBreakData(2, "sword", "staff");
+        } else {
+            // default προσωρινό setup
+            enemy.setupBreakData(2, "sword");
+        }
+    }
+
+    private void drawEnemyBreakUI(Graphics2D g2, BattleEntity enemy, int enemyX, int enemyY, int enemyW, int enemyH) {
+        if (enemy == null || !enemy.isAlive() || !enemy.hasBreakSystem()) return;
+
+        Graphics2D g = (Graphics2D) g2.create();
+
+        g.setFont(maruMonicaSmall);
+
+        int weaknessCount = 0;
+        for (int i = 0; i < enemy.weaknessTypes.length; i++) {
+            if (enemy.weaknessTypes[i] != null) {
+                weaknessCount++;
+            }
+        }
+
+        int shieldBoxW = 22;
+        int shieldBoxH = 18;
+        int slotW = 24;
+        int slotH = 18;
+        int slotGap = 4;
+        int gapAfterShield = 6;
+
+        int totalWidth = shieldBoxW + gapAfterShield;
+        if (weaknessCount > 0) {
+            totalWidth += weaknessCount * slotW + (weaknessCount - 1) * slotGap;
+        }
+
+        int uiX = enemyX + enemyW / 2 - totalWidth / 2;
+        int uiY = enemyY + enemyH + 8;
+
+        // shield box
+        g.setColor(new Color(20, 20, 30, 190));
+        g.fillRoundRect(uiX, uiY, shieldBoxW, shieldBoxH, 8, 8);
+
+        g.setColor(new Color(220, 230, 255));
+        g.drawRoundRect(uiX, uiY, shieldBoxW, shieldBoxH, 8, 8);
+
+        // shield number
+        if (enemy.broken) {
+            g.setColor(new Color(255, 210, 120));
+            g.drawString("0", uiX + 7, uiY + 14);
+        } else {
+            g.setColor(Color.white);
+            g.drawString(String.valueOf(enemy.shieldPoints), uiX + 7, uiY + 14);
+        }
+
+        // shield shape hint
+        g.setColor(new Color(180, 210, 255, 180));
+        g.drawLine(uiX + 3, uiY + 4, uiX + 18, uiY + 4);
+        g.drawLine(uiX + 3, uiY + 4, uiX + 6, uiY + 14);
+        g.drawLine(uiX + 18, uiY + 4, uiX + 15, uiY + 14);
+        g.drawLine(uiX + 6, uiY + 14, uiX + 15, uiY + 14);
+
+        // weakness slots
+        int slotX = uiX + shieldBoxW + gapAfterShield;
+
+        for (int i = 0; i < enemy.weaknessTypes.length; i++) {
+            if (enemy.weaknessTypes[i] == null) continue;
+
+            g.setColor(new Color(20, 20, 30, 190));
+            g.fillRoundRect(slotX, uiY, slotW, slotH, 8, 8);
+
+            g.setColor(new Color(220, 230, 255));
+            g.drawRoundRect(slotX, uiY, slotW, slotH, 8, 8);
+
+            String label = enemy.weaknessRevealed[i]
+                    ? getWeaknessShortLabel(enemy.weaknessTypes[i])
+                    : "?";
+
+            if (enemy.weaknessRevealed[i]) {
+                g.setColor(new Color(255, 245, 180));
+            } else {
+                g.setColor(Color.white);
+            }
+
+            g.drawString(label, slotX + 5, uiY + 14);
+            slotX += slotW + slotGap;
+        }
+
+        if (enemy.broken) {
+            g.setColor(new Color(255, 220, 140));
+            g.drawString("BREAK", uiX + 8, uiY - 6);
+        }
+
+        g.dispose();
     }
 
     private String resolveBattleEffectType(String type, int level) {
@@ -7547,6 +7725,7 @@ public class GamePanel extends JPanel implements Runnable {
                 drawEnemySelectionGlow(g, drawX + recoilX, drawY + recoilY, enemySpriteSize, enemySpriteSize);
             }
             g.drawImage(be.getCurrentImage(), drawX + recoilX, drawY + recoilY, enemySpriteSize, enemySpriteSize, null);
+            drawEnemyBreakUI(g, enemyEntity, drawX + recoilX, drawY + recoilY, enemySpriteSize, enemySpriteSize);
 
             // dust στα πόδια
             drawImpactDust(g, enemyEntity,
@@ -8053,7 +8232,54 @@ public class GamePanel extends JPanel implements Runnable {
 
         BufferedImage icon = getBattleTurnPortrait(entity);
         if (icon != null) {
-            g2.drawImage(icon, x + 4, y + 4, slotWidth - 8, slotHeight - 8, null);
+            int iconX = x + 4;
+            int iconY = y + 4;
+            int iconW = slotWidth - 8;
+            int iconH = slotHeight - 8;
+
+            g2.drawImage(icon, iconX, iconY, iconW, iconH, null);
+
+            // ===== BROKEN TURN ICON OVERLAY =====
+            if (entity.broken) {
+                Graphics2D g = (Graphics2D) g2.create();
+
+                // warm broken tint
+                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.28f));
+                g.setColor(new Color(255, 210, 120));
+                g.fillRoundRect(iconX, iconY, iconW, iconH, 8, 8);
+
+                // crack lines
+                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.90f));
+                g.setColor(new Color(255, 245, 220, 230));
+                g.setStroke(new BasicStroke(2f));
+
+                g.drawLine(iconX + 8, iconY + 8, iconX + 18, iconY + 20);
+                g.drawLine(iconX + 18, iconY + 20, iconX + 14, iconY + 32);
+
+                g.drawLine(iconX + 24, iconY + 6, iconX + 30, iconY + 16);
+                g.drawLine(iconX + 30, iconY + 16, iconX + 36, iconY + 10);
+
+                g.drawLine(iconX + 28, iconY + 24, iconX + 22, iconY + 34);
+                g.drawLine(iconX + 22, iconY + 34, iconX + 34, iconY + 38);
+
+                // BRK badge
+                int badgeW = 24;
+                int badgeH = 12;
+                int badgeX = x + slotWidth - badgeW - 3;
+                int badgeY = y + 3;
+
+                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+                g.setColor(new Color(40, 20, 10, 220));
+                g.fillRoundRect(badgeX, badgeY, badgeW, badgeH, 6, 6);
+
+                g.setColor(new Color(255, 220, 140));
+                g.drawRoundRect(badgeX, badgeY, badgeW, badgeH, 6, 6);
+
+                g.setFont(maruMonicaSmall.deriveFont(Font.BOLD, 9f));
+                g.drawString("BRK", badgeX + 4, badgeY + 9);
+
+                g.dispose();
+            }
         }
     }
 
