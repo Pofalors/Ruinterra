@@ -365,6 +365,11 @@ public class GamePanel extends JPanel implements Runnable {
     public Map<String, Float> battleEffectScales = new HashMap<>();
     public double boostSlashAngle = -0.65; // βασική διαγώνια φορά
 
+    // === BREAK VARIABLES ====
+    private BufferedImage swordIcon;
+    private BufferedImage spearIcon;
+    private BufferedImage staffIcon;
+
     public int screenShakeTimer = 0;
     public int screenShakeDuration = 0;
     public int screenShakeStrength = 0;
@@ -584,30 +589,30 @@ public class GamePanel extends JPanel implements Runnable {
         }
         
         // MENU PORTRAITS
-        try {
-            heroPortrait32 = ImageIO.read(new File("res/menu/hero_portrait_32.png"));
-            assassinPortrait32 = ImageIO.read(new File("res/menu/assassin_portrait_32.png"));
-            magePortrait32 = ImageIO.read(new File("res/menu/mage_portrait_32.png"));
-            equipmentGridBg = ImageIO.read(new File("res/gui/equipment_bg.png"));
-            menuPointer = ImageIO.read(new File("res/gui/menu_pointer.png"));
-            worldMapBackground = ImageIO.read(new File("res/gui/world_map_bg.png"));
-            worldMapTownIcon = ImageIO.read(new File("res/gui/map_icon_town.png"));
-            worldMapPathIcon = ImageIO.read(new File("res/gui/map_icon_path.png"));
-            worldMapForestIcon = ImageIO.read(new File("res/gui/map_icon_forest.png"));
-            worldMapCaveIcon = ImageIO.read(new File("res/gui/map_icon_cave.png"));
+        heroPortrait32 = loadImageSafe("res/menu/hero_portrait_32.png");
+        assassinPortrait32 = loadImageSafe("res/menu/assassin_portrait_32.png");
+        magePortrait32 = loadImageSafe("res/menu/mage_portrait_32.png");
+        equipmentGridBg = loadImageSafe("res/gui/equipment_bg.png");
+        menuPointer = loadImageSafe("res/gui/menu_pointer.png");
+        worldMapBackground = loadImageSafe("res/gui/world_map_bg.png");
+        worldMapTownIcon = loadImageSafe("res/gui/map_icon_town.png");
+        worldMapPathIcon = loadImageSafe("res/gui/map_icon_path.png");
+        worldMapForestIcon = loadImageSafe("res/gui/map_icon_forest.png");
+        worldMapCaveIcon = loadImageSafe("res/gui/map_icon_cave.png");
 
-            itemCatAllIcon = ImageIO.read(new File("res/gui/item_cat_all.png"));
-            itemCatPotionsIcon = ImageIO.read(new File("res/gui/item_cat_potions.png"));
-            itemCatWeaponsIcon = ImageIO.read(new File("res/gui/item_cat_weapons.png"));
-            itemCatShieldsIcon = ImageIO.read(new File("res/gui/item_cat_shields.png"));
-            itemCatHelmetsIcon = ImageIO.read(new File("res/gui/item_cat_helmets.png"));
-            itemCatBodyArmorIcon = ImageIO.read(new File("res/gui/item_cat_body_armor.png"));
-            itemCatNecklacesIcon = ImageIO.read(new File("res/gui/item_cat_necklaces.png"));
-            itemCatConsumablesIcon = ImageIO.read(new File("res/gui/item_cat_consumables.png"));
-            itemCatScrollsIcon = ImageIO.read(new File("res/gui/item_cat_scrolls.png"));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        itemCatAllIcon = loadImageSafe("res/gui/item_cat_all.png");
+        itemCatPotionsIcon = loadImageSafe("res/gui/item_cat_potions.png");
+        itemCatWeaponsIcon = loadImageSafe("res/gui/item_cat_weapons.png");
+        itemCatShieldsIcon = loadImageSafe("res/gui/item_cat_shields.png");
+        itemCatHelmetsIcon = loadImageSafe("res/gui/item_cat_helmets.png");
+        itemCatBodyArmorIcon = loadImageSafe("res/gui/item_cat_body_armor.png");
+        itemCatNecklacesIcon = loadImageSafe("res/gui/item_cat_necklaces.png");
+        itemCatConsumablesIcon = loadImageSafe("res/gui/item_cat_consumables.png");
+        itemCatScrollsIcon = loadImageSafe("res/gui/item_cat_scrolls.png");
+
+        swordIcon = loadImageSafe("res/gui/weapons/sword.png");
+        spearIcon = loadImageSafe("res/gui/weapons/spear.png");
+        staffIcon = loadImageSafe("res/gui/weapons/staff.png");
 
         try {
             titleLogo = ImageIO.read(new File("res/title/logo.png")); // Δημιούργησε αυτό το μονοπάτι
@@ -4905,6 +4910,19 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
+    private BufferedImage loadImageSafe(String path) {
+        try {
+            BufferedImage img = ImageIO.read(new File(path));
+            if (img == null) {
+                System.out.println("WARNING: Image not found or unsupported format: " + path);
+            }
+            return img;
+        } catch (IOException e) {
+            System.out.println("ERROR loading image: " + path + " - " + e.getMessage());
+            return null;
+        }
+    }
+
     // ====================================
     //     END OF SAVE/LOAD HELPERS
     // ====================================
@@ -6363,10 +6381,12 @@ public class GamePanel extends JPanel implements Runnable {
 
         target.revealWeakness(attackType);
 
+        Point p = getBattleEntityScreenCenter(target);
+        spawnBattleEffect("hit_slash", p.x, p.y - 40, 10, 1);
+
         boolean justBroken = target.applyShieldDamage(1);
 
         if (justBroken) {
-            Point p = getBattleEntityScreenCenter(target);
             spawnBattleEffect("break", p.x, p.y, 18, 1);
 
             screenShakeStrength = Math.max(screenShakeStrength, 5);
@@ -6374,19 +6394,22 @@ public class GamePanel extends JPanel implements Runnable {
             screenShakeTimer = screenShakeDuration;
 
             showActionMessage(target.name + " is broken!");
+        } else {
+            // μικρό shield hit effect
+            spawnBattleEffect("hit_slash", p.x, p.y - 20, 6, 0); // μικρό, γρήγορο
         }
 
         return justBroken;
     }
 
-    private String getWeaknessShortLabel(String type) {
-        if (type == null) return "?";
-
+    private BufferedImage getWeaknessIcon(String type) {
+        if (type == null) return null;
+        
         switch (type.toLowerCase()) {
-            case "sword": return "SW";
-            case "spear": return "SP";
-            case "staff": return "ST";
-            default: return "?";
+            case "sword": return swordIcon;
+            case "spear": return spearIcon;
+            case "staff": return staffIcon;
+            default: return null;
         }
     }
 
@@ -6471,17 +6494,23 @@ public class GamePanel extends JPanel implements Runnable {
             g.setColor(new Color(220, 230, 255));
             g.drawRoundRect(slotX, uiY, slotW, slotH, 8, 8);
 
-            String label = enemy.weaknessRevealed[i]
-                    ? getWeaknessShortLabel(enemy.weaknessTypes[i])
-                    : "?";
-
             if (enemy.weaknessRevealed[i]) {
-                g.setColor(new Color(255, 245, 180));
+                BufferedImage icon = getWeaknessIcon(enemy.weaknessTypes[i]);
+                if (icon != null) {
+                    // icon μικρό μέσα στο slot
+                    int iconPadding = 3;
+                    g.drawImage(icon, slotX + iconPadding, uiY + iconPadding, 
+                            slotW - iconPadding*2, slotH - iconPadding*2, null);
+                } else {
+                    // fallback label
+                    g.setColor(new Color(255, 245, 180));
+                    g.drawString("SW/...", slotX + 5, uiY + 14);
+                }
             } else {
                 g.setColor(Color.white);
+                g.drawString("?", slotX + 5, uiY + 14);
             }
-
-            g.drawString(label, slotX + 5, uiY + 14);
+            
             slotX += slotW + slotGap;
         }
 
