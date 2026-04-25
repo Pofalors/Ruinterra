@@ -21,6 +21,13 @@ public class BattlePlayer {
         }
     }
 
+    public int getCurrentFrameIndex() {
+        if (anim != null) {
+            return anim.getCurrentFrameIndex();
+        }
+        return 0;
+    }
+
     public BufferedImage getCurrentImage() {
         if (anim != null) {
             return anim.getCurrentImage();

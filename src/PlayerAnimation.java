@@ -7,6 +7,7 @@ public class PlayerAnimation {
     public BufferedImage[] attack1;
     public BufferedImage[] attack2;
     public BufferedImage[] attack3;
+    public BufferedImage[] attack4;
     public BufferedImage[] lowHpIdle;
     public BufferedImage[] defend;
     public BufferedImage[] useItem;
@@ -36,6 +37,7 @@ public class PlayerAnimation {
 
         this.attack2 = null;
         this.attack3 = null;
+        this.attack4 = null;
         this.lowHpIdle = null;
         this.defend = null;
         this.useItem = null;
@@ -127,6 +129,11 @@ public class PlayerAnimation {
             case "attack3":
                 selected = (attack3 != null) ? attack3 : ((attack2 != null) ? attack2 : attack1);
                 break;
+            case "attack4":
+                selected = (attack4 != null) ? attack4 : 
+                        ((attack3 != null) ? attack3 : 
+                        ((attack2 != null) ? attack2 : attack1));
+                break;    
             case "lowHpIdle":
                 selected = (lowHpIdle != null) ? lowHpIdle : idle;
                 break;
@@ -164,6 +171,10 @@ public class PlayerAnimation {
         currentAnimation = selected;
     }
 
+    public int getCurrentFrameIndex() {
+        return currentFrame;
+    }
+
     public boolean isFinished() {
         return actionJustFinished;
     }
@@ -171,11 +182,13 @@ public class PlayerAnimation {
     public int getStrikeFrame() {
         switch (currentAnimName) {
             case "attack1":
-                return 2;
+                return 1;  // Hero: 1, Assassin: 2 — οπότε βάζουμε 1 (ο hero έχει πάντα μικρότερο, οι άλλοι έχουν +1)
             case "attack2":
-                return 3;
+                return 1;
             case "attack3":
-                return 4;
+                return 1;
+            case "attack4":
+                return 1;
             case "useItem":
                 return 2;
             default:

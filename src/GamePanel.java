@@ -372,6 +372,7 @@ public class GamePanel extends JPanel implements Runnable {
     // SLOW MOTION EFFECT
     public float battleTimeScale = 1.0f;
     public int slowMotionTimer = 0;
+    public final int MULTI_HIT_DELAY = 16; // frames ανάμεσα στα hits
 
     public int screenShakeTimer = 0;
     public int screenShakeDuration = 0;
@@ -630,18 +631,49 @@ public class GamePanel extends JPanel implements Runnable {
             SpriteSheet idleSheet = new SpriteSheet("res/player/battle/idle.png", 64, 64);
             SpriteSheet hurtSheet = new SpriteSheet("res/player/battle/hurt.png", 64, 64);
             SpriteSheet deathSheet = new SpriteSheet("res/player/battle/death.png", 64, 64);
-            SpriteSheet attack1Sheet = new SpriteSheet("res/player/battle/attack.png", 64, 64);
+            SpriteSheet attack0Sheet = new SpriteSheet("res/player/battle/attack.png", 64, 64);
             SpriteSheet runLeftSheet = new SpriteSheet("res/player/battle/run_left.png", 64, 64);
             SpriteSheet runRightSheet = new SpriteSheet("res/player/battle/run_right.png", 64, 64);
 
             BufferedImage[] idleFrames = idleSheet.getAllFrames();
             BufferedImage[] hurtFrames = hurtSheet.getAllFrames();
             BufferedImage[] deathFrames = deathSheet.getAllFrames();
-            BufferedImage[] attack1Frames = attack1Sheet.getAllFrames();
+            BufferedImage[] attack0Frames = attack0Sheet.getAllFrames();
             BufferedImage[] runLeftFrames = runLeftSheet.getAllFrames();
             BufferedImage[] runRightFrames = runRightSheet.getAllFrames();
+            BufferedImage[] attack1Frames = null;
+            BufferedImage[] attack2Frames = null;
+            BufferedImage[] attack3Frames = null;
+            try {
+                SpriteSheet attack1Sheet = new SpriteSheet("res/player/battle/attack2.png", 64, 64);
+                attack1Frames = attack1Sheet.getAllFrames();
+            } catch (Exception e) {
+                System.out.println("attack2.png not found, using fallback");
+                attack1Frames = attack0Frames;
+            }
 
-            playerBattleAnim = new PlayerAnimation(idleFrames, hurtFrames, deathFrames, attack1Frames);
+            try {
+                SpriteSheet attack2Sheet = new SpriteSheet("res/player/battle/attack3.png", 64, 64);
+                attack2Frames = attack2Sheet.getAllFrames();
+            } catch (Exception e) {
+                System.out.println("attack3.png not found, using fallback");
+                attack2Frames = attack1Frames != null ? attack1Frames : attack0Frames;
+            }
+
+            try {
+                SpriteSheet attack3Sheet = new SpriteSheet("res/player/battle/attack4.png", 64, 64);
+                attack3Frames = attack3Sheet.getAllFrames();
+            } catch (Exception e) {
+                System.out.println("attack4.png not found, using fallback");
+                attack3Frames = attack2Frames != null ? attack2Frames : 
+                            (attack1Frames != null ? attack1Frames : attack0Frames);
+            }
+
+            playerBattleAnim = new PlayerAnimation(idleFrames, hurtFrames, deathFrames, attack0Frames);
+            playerBattleAnim.attack1 = attack0Frames;
+            playerBattleAnim.attack2 = attack1Frames;
+            playerBattleAnim.attack3 = attack2Frames;
+            playerBattleAnim.attack4 = attack3Frames;
             playerBattleAnim.runLeft = runLeftFrames;
             playerBattleAnim.runRight = runRightFrames;
             
@@ -5602,78 +5634,55 @@ public class GamePanel extends JPanel implements Runnable {
         if (actor.state == CombatState.ATTACKING) {
             if (!actor.strikeTriggered && actor.queuedTarget != null && isActorOnStrikeFrame(actor)) {
                 actor.strikeTriggered = true;
-
+                
+                actor.multiHitCount = 1 + actor.boostUsed;
+                actor.currentHitIndex = 0;
+                
+                // Πρώτο hit
+                executeSingleHit(actor, actor.queuedTarget);
+                actor.currentHitIndex = 1;
+                
                 playPlayerAttackSound(actor);
                 triggerLunge(actor, actor.boostUsed);
                 triggerSwingTrail(actor, actor.boostUsed);
-                triggerSlashImpact(actor.queuedTarget, 1);
-
-                if (actor.boostUsed > 0) {
-                    triggerHitFlash(actor.boostUsed);
-                    triggerZoomPop(actor.boostUsed);
-                }
-
-                int reactStrength = (actor.boostUsed > 0) ? actor.boostUsed : 1;
-                actor.queuedTarget.triggerHitReact(reactStrength);
-
-                String attackType = getBasicAttackType(actor);
-
-                boolean targetWasAlreadyBroken = actor.queuedTarget.broken;
-                boolean justBroken = processBreakHit(actor, actor.queuedTarget, attackType);
-
-                int damage = calculateAttackDamage(actor, actor.queuedTarget, actor.boostUsed);
-
-                // όσο είναι broken τρώει παραπάνω damage
-                if (targetWasAlreadyBroken || justBroken) {
-                    damage = actor.queuedTarget.applyBrokenDamageMultiplier(damage);
-                }
-
-                actor.queuedTarget.takeDamage(damage);
-
-                playTargetHurt(actor.queuedTarget);
-                syncVisualHp(actor.queuedTarget);
-
-                showActionMessage(actor.name + " attacks " + actor.queuedTarget.name + " for " + damage + " damage!");
-
-                if (!actor.queuedTarget.isAlive()) {
-                    lastKillerName = actor.name;
-                    playTargetDeath(actor.queuedTarget);
-                }
-
-                if (actor.boostUsed == 1) {
-                    hitPauseTimer = HIT_PAUSE_DURATION + 3;
-                } else if (actor.boostUsed == 2) {
-                    hitPauseTimer = HIT_PAUSE_DURATION + 5;
-                } else if (actor.boostUsed >= 3) {
-                    hitPauseTimer = HIT_PAUSE_DURATION + 7;
-                } else {
-                    hitPauseTimer = HIT_PAUSE_DURATION;
-                }
-
-                actor.enterState(CombatState.HIT_PAUSE);
             }
-            return;
-        }
-
-        if (actor.state == CombatState.HIT_PAUSE) {
-            hitPauseTimer--;
-            if (hitPauseTimer <= 0) {
+            
+            // Έλεγχος για επόμενα hits μέσα στο ΙΔΙΟ animation (νέα spritesheets)
+            if (actor.strikeTriggered && actor.currentHitIndex < actor.multiHitCount) {
+                int hitFrame = getHitFrameForIndex(actor, actor.currentHitIndex);
+                if (hitFrame >= 0 && isActorOnFrame(actor, hitFrame)) {
+                    executeSingleHit(actor, actor.queuedTarget);
+                    actor.currentHitIndex++;
+                    playPlayerAttackSound(actor);
+                    
+                    // Μικρό shake/flash για κάθε hit
+                    screenShakeStrength = 2;
+                    screenShakeDuration = 3;
+                    screenShakeTimer = screenShakeDuration;
+                    spawnBattleEffect("hit_flash", screenWidth/2, screenHeight/2, 3, 1);
+                }
+            }
+            
+            // Τέλος animation → RECOVERY
+            if (isActorAnimationFinished(actor)) {
                 actor.enterState(CombatState.RECOVERY);
             }
             return;
         }
 
         if (actor.state == CombatState.RECOVERY) {
-            if (isActorAnimationFinished(actor)) {
+            // Μικρό delay για να φανεί το τελευταίο frame
+            actor.stateTimer++;
+            if (actor.stateTimer >= 10) {
                 finalizeDeathsAndRewards();
                 actor.resetTurnFlags();
                 actor.enterState(CombatState.IDLE);
-
+                
                 selectedBoost = 0;
                 boostLoopLevel = 0;
                 boostLoopTimer = 0;
                 sound.stopBattleLoop();
-
+                
                 actionInProgress = false;
                 waitingForNextTurn = true;
                 commandLocked = false;
@@ -5765,6 +5774,113 @@ public class GamePanel extends JPanel implements Runnable {
                 battleTurnDelay = 0;
                 commandLocked = false;
             }
+        }
+    }
+
+    public String getAttackAnimationName(BattleEntity actor) {
+        switch (actor.boostUsed) {
+            case 0: return "attack1";
+            case 1: return "attack2";
+            case 2: return "attack3";
+            case 3: return "attack4";
+            default: return "attack1";
+        }
+    }
+
+    private int getHitFrameForIndex(BattleEntity actor, int hitIndex) {
+        if (actor == null) return -1;
+        
+        boolean isHero = actor.name.equals("Hero");
+        
+        if (isHero) {
+            // HERO: 5 frames total, 4 ανά hit + 1 pause, 1 recovery
+            switch (actor.boostUsed) {
+                case 0: return -1;
+                case 1: return (hitIndex == 1) ? 5 : -1;     // 2ο hit στο frame 5
+                case 2:
+                    if (hitIndex == 1) return 5;              // 2ο hit
+                    if (hitIndex == 2) return 10;             // 3ο hit
+                    return -1;
+                case 3:
+                    if (hitIndex == 1) return 5;              // 2ο hit
+                    if (hitIndex == 2) return 10;             // 3ο hit
+                    if (hitIndex == 3) return 15;             // 4ο hit
+                    return -1;
+                default: return -1;
+            }
+        } else {
+            // ASSASSIN/MAGE: 9 frames total, 7 ανά hit + 1 pause, 2 recovery
+            switch (actor.boostUsed) {
+                case 0: return -1;
+                case 1: return (hitIndex == 1) ? 8 : -1;     // 2ο hit στο frame 8
+                case 2:
+                    if (hitIndex == 1) return 8;              // 2ο hit
+                    if (hitIndex == 2) return 16;             // 3ο hit
+                    return -1;
+                case 3:
+                    if (hitIndex == 1) return 8;              // 2ο hit
+                    if (hitIndex == 2) return 16;             // 3ο hit
+                    if (hitIndex == 3) return 24;             // 4ο hit
+                    return -1;
+                default: return -1;
+            }
+        }
+    }
+
+    private boolean isActorOnFrame(BattleEntity actor, int targetFrame) {
+        if (actor == null || targetFrame < 0) return false;
+        
+        if (actor.isPlayer) {
+            if (actor.name.equals("Hero")) {
+                if (!battlePlayers.isEmpty()) {
+                    return battlePlayers.get(0).getCurrentFrameIndex() == targetFrame;
+                }
+            } else {
+                for (BattlePartyMember bpm : battlePartyMembers) {
+                    if (bpm.member.className.equals(actor.name)) {
+                        return bpm.getCurrentFrameIndex() == targetFrame;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private void executeSingleHit(BattleEntity attacker, BattleEntity target) {
+        if (target == null || !target.isAlive()) return;
+        
+        String attackType = getBasicAttackType(attacker);
+        
+        boolean targetWasAlreadyBroken = target.broken;
+        boolean justBroken = processBreakHit(attacker, target, attackType);
+        
+        int damage = calculateAttackDamage(attacker, target, attacker.boostUsed);
+        
+        // Broken damage multiplier
+        if (targetWasAlreadyBroken || justBroken) {
+            damage = target.applyBrokenDamageMultiplier(damage);
+        }
+        
+        target.takeDamage(damage);
+        
+        playTargetHurt(target);
+        syncVisualHp(target);
+        
+        // Trigger hit react μόνο στο πρώτο hit
+        if (attacker.currentHitIndex == 0) {
+            int reactStrength = (attacker.boostUsed > 0) ? attacker.boostUsed : 1;
+            target.triggerHitReact(reactStrength);
+        }
+        
+        // Trigger slash effect
+        triggerSlashImpact(target, 1);
+        
+        showActionMessage(attacker.name + " hits " + target.name + " for " + damage + " damage!" +
+                        (attacker.multiHitCount > 1 ? " (" + (attacker.currentHitIndex + 1) + "/" + attacker.multiHitCount + ")" : ""));
+        
+        if (!target.isAlive()) {
+            lastKillerName = attacker.name;
+            playTargetDeath(target);
         }
     }
 
@@ -6842,20 +6958,9 @@ public class GamePanel extends JPanel implements Runnable {
     // }
 
     public int calculateAttackDamage(BattleEntity attacker, BattleEntity target, int boostUsed) {
-        double multiplier = 1.0 + (boostUsed * 0.5);
         int baseDamage = attacker.attack - target.defense;
         if (baseDamage < 1) baseDamage = 1;
-        return Math.max(1, (int)(baseDamage * multiplier));
-    }
-
-    public String getAttackAnimationName(BattleEntity actor) {
-        switch (actor.boostUsed) {
-            case 0: return "attack1";
-            case 1: return "attack1";
-            case 2: return "attack2";
-            case 3: return "attack3";
-            default: return "attack1";
-        }
+        return baseDamage;
     }
 
     private void setActorRunAnimation(BattleEntity actor, String animName) {
@@ -6933,11 +7038,13 @@ public class GamePanel extends JPanel implements Runnable {
     public boolean isActorOnStrikeFrame(BattleEntity actor) {
         if (actor.isPlayer) {
             if (actor.name.equals("Hero")) {
-                return !battlePlayers.isEmpty() && battlePlayers.get(0).isOnStrikeFrame();
+                if (!battlePlayers.isEmpty()) {
+                    return battlePlayers.get(0).getCurrentFrameIndex() == 1; // Hero: frame 1
+                }
             } else {
                 for (BattlePartyMember bpm : battlePartyMembers) {
                     if (bpm.member.className.equals(actor.name)) {
-                        return bpm.isOnStrikeFrame();
+                        return bpm.getCurrentFrameIndex() == 2; // Assassin/Mage: frame 2
                     }
                 }
             }

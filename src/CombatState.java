@@ -6,6 +6,7 @@ public enum CombatState {
     SELECTING_TARGET,
     WINDUP,
     ATTACKING,
+    MULTI_HIT,
     HIT_PAUSE,
     RECOVERY,
     HURT,

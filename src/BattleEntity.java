@@ -47,6 +47,10 @@ public class BattleEntity {
 
     // Damage multiplier όσο είναι broken
     public float brokenDamageMultiplier = 1.5f;
+    // MULTI-HIT SYSTEM
+    public int multiHitCount = 1;
+    public int currentHitIndex = 0;
+    public int multiHitTimer = 0;
 
     // Recoil etc.
     public int hitBlinkTimer = 0;
