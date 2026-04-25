@@ -369,6 +369,9 @@ public class GamePanel extends JPanel implements Runnable {
     private BufferedImage swordIcon;
     private BufferedImage spearIcon;
     private BufferedImage staffIcon;
+    // SLOW MOTION EFFECT
+    public float battleTimeScale = 1.0f;
+    public int slowMotionTimer = 0;
 
     public int screenShakeTimer = 0;
     public int screenShakeDuration = 0;
@@ -756,6 +759,7 @@ public class GamePanel extends JPanel implements Runnable {
         sound.preloadBattleSound("BOOSTLVL2S", "boostLvl2s.wav");
         sound.preloadBattleSound("BOOSTLVL3", "boostLvl3.wav");
         sound.preloadBattleSound("BOOSTLVL3S", "boostLvl3s.wav");
+        sound.preloadBattleSound("BREAK", "break.wav");
         
         // Ξεκίνα με την μουσική ΤΙΤΛΟΥ
         sound.preloadMusic("title", "title_music.wav");
@@ -2074,13 +2078,27 @@ public class GamePanel extends JPanel implements Runnable {
                     battleBLatch = keyH.bPressed;
                     battleCLatch = keyH.cPressed;
 
-                    updateBattleVisuals();
-                    updateBattleAction();
-                    updateBoostBurstEffect();
+                    // SLOW MOTION TIMER
+                    if (slowMotionTimer > 0) {
+                        slowMotionTimer--;
+                        if (slowMotionTimer <= 0) {
+                            battleTimeScale = 1.0f;
+                        }
+                    }
+
+                    // BATTLE UPDATES με time scale
+                    if (battleTimeScale >= 1.0f || slowMotionTimer % Math.max(1, (int)(1.0f / battleTimeScale)) == 0) {
+                        updateBattleVisuals();
+                        updateBattleAction();
+                    }
+
+                    // Αυτά τρέχουν πάντα
                     updateHitReactions();
+                    updateBoostBurstEffect();
                     updateZoomPop();
                     updateLunge();
                     updateSwingTrail();
+                    updateBattleEffects();
                     // Έλεγξε αν τελείωσε η μάχη
                     if (battleParty.battleEnded) {
                         if (battleParty.party.isEmpty()) {
@@ -6388,11 +6406,18 @@ public class GamePanel extends JPanel implements Runnable {
 
         if (justBroken) {
             spawnBattleEffect("break", p.x, p.y, 18, 1);
-
-            screenShakeStrength = Math.max(screenShakeStrength, 5);
-            screenShakeDuration = Math.max(screenShakeDuration, 8);
+            
+            // Ήχος break
+            sound.playBattleSE("BREAK");
+            
+            // SLOW MOTION αντί για freeze
+            battleTimeScale = 0.5f;  // 1/4 ταχύτητα
+            slowMotionTimer = 80;     // ~0.67 δευτερόλεπτα στους 60fps
+            
+            screenShakeStrength = Math.max(screenShakeStrength, 8);
+            screenShakeDuration = Math.max(screenShakeDuration, 15);
             screenShakeTimer = screenShakeDuration;
-
+            
             showActionMessage(target.name + " is broken!");
         } else {
             // μικρό shield hit effect
@@ -6552,8 +6577,8 @@ public class GamePanel extends JPanel implements Runnable {
                 break;
 
             case "break":
-                fx.offsetX = 0;
-                fx.offsetY = 0;
+                fx.offsetX = -10;
+                fx.offsetY = 120;
                 break;
 
             case "boost_lv1":
@@ -7041,6 +7066,9 @@ public class GamePanel extends JPanel implements Runnable {
             }
             return true;
         });
+
+        // Ενημέρωσε το next turn preview μετά από deaths
+        rebuildNextTurnPreview();       
 
         if (battleParty.battleEnded) {
             victoryExp = pendingExp;
@@ -8191,13 +8219,19 @@ public class GamePanel extends JPanel implements Runnable {
         int currentIndex = battleParty.currentTurnIndex;
         int currentCount = battleParty.turnOrder.size() - currentIndex;
 
+        int slotIndex = 0;
         for (int i = 0; i < currentCount; i++) {
             BattleEntity entity = battleParty.turnOrder.get(currentIndex + i);
-
-            int x = startX + i * (slotWidth + spacing);
+            
+            // ΠΑΡΑΛΕΙΨΕ broken enemies στο current turn
+            if (entity.broken && !entity.isPlayer) {
+                continue;
+            }
+            
+            int x = startX + slotIndex * (slotWidth + spacing);
             int y = startY;
-
-            drawTurnSlot(g2, entity, x, y, slotWidth, slotHeight, i == 0);
+            drawTurnSlot(g2, entity, x, y, slotWidth, slotHeight, slotIndex == 0);
+            slotIndex++;
         }
 
         int currentLabelX = startX;
@@ -8210,17 +8244,23 @@ public class GamePanel extends JPanel implements Runnable {
         // =========================
         // NEXT TURN QUEUE
         // =========================
-        int nextStartX = startX + currentCount * (slotWidth + spacing) + blockGap;
+        int nextStartX = startX + slotIndex * (slotWidth + spacing) + blockGap;
 
         removeDeadFromNextTurnPreview();
 
+        int nextSlotIndex = 0;
         for (int i = 0; i < revealedNextTurnCount && i < nextTurnPreview.size(); i++) {
             BattleEntity entity = nextTurnPreview.get(i);
-
-            int x = nextStartX + i * (slotWidth + spacing);
+            
+            // ΠΑΡΑΛΕΙΨΕ broken enemies
+            if (entity.broken && !entity.isPlayer) {
+                continue;
+            }
+            
+            int x = nextStartX + nextSlotIndex * (slotWidth + spacing);
             int y = startY;
-
             drawTurnSlot(g2, entity, x, y, slotWidth, slotHeight, false);
+            nextSlotIndex++;
         }
 
         g2.setFont(maruMonicaSmall.deriveFont(Font.BOLD, 10f));
@@ -8268,46 +8308,18 @@ public class GamePanel extends JPanel implements Runnable {
 
             g2.drawImage(icon, iconX, iconY, iconW, iconH, null);
 
-            // ===== BROKEN TURN ICON OVERLAY =====
-            if (entity.broken) {
+            // ===== BROKEN ENEMY - SLOT ΕΞΑΦΑΝΙΖΕΤΑΙ =====
+            if (entity.broken && !entity.isPlayer) {
                 Graphics2D g = (Graphics2D) g2.create();
-
-                // warm broken tint
-                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.28f));
-                g.setColor(new Color(255, 210, 120));
-                g.fillRoundRect(iconX, iconY, iconW, iconH, 8, 8);
-
-                // crack lines
-                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.90f));
-                g.setColor(new Color(255, 245, 220, 230));
-                g.setStroke(new BasicStroke(2f));
-
-                g.drawLine(iconX + 8, iconY + 8, iconX + 18, iconY + 20);
-                g.drawLine(iconX + 18, iconY + 20, iconX + 14, iconY + 32);
-
-                g.drawLine(iconX + 24, iconY + 6, iconX + 30, iconY + 16);
-                g.drawLine(iconX + 30, iconY + 16, iconX + 36, iconY + 10);
-
-                g.drawLine(iconX + 28, iconY + 24, iconX + 22, iconY + 34);
-                g.drawLine(iconX + 22, iconY + 34, iconX + 34, iconY + 38);
-
-                // BRK badge
-                int badgeW = 24;
-                int badgeH = 12;
-                int badgeX = x + slotWidth - badgeW - 3;
-                int badgeY = y + 3;
-
-                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
-                g.setColor(new Color(40, 20, 10, 220));
-                g.fillRoundRect(badgeX, badgeY, badgeW, badgeH, 6, 6);
-
-                g.setColor(new Color(255, 220, 140));
-                g.drawRoundRect(badgeX, badgeY, badgeW, badgeH, 6, 6);
-
-                g.setFont(maruMonicaSmall.deriveFont(Font.BOLD, 9f));
-                g.drawString("BRK", badgeX + 4, badgeY + 9);
-
+                
+                // Σχεδίασε ΚΑΝΟΝΙΚΑ το slot αλλά με opacity
+                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.0f));
+                
+                // Το αφήνουμε κενό - ο χώρος παραμένει αλλά άδειος
+                // (Αν θες να φαίνεται και ο κενός χώρος, μπορείς να βάλεις 0.1f opacity)
+                
                 g.dispose();
+                return; // ΒΓΕΣ ΑΜΕΣΩΣ - μη ζωγραφίσεις τίποτα άλλο
             }
         }
     }
@@ -8339,7 +8351,17 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     private void rebuildNextTurnPreview() {
-        nextTurnPreview = battleParty.buildSpeedOrderSnapshot();
+        ArrayList<BattleEntity> fullOrder = battleParty.buildSpeedOrderSnapshot();
+        nextTurnPreview.clear();
+        
+        // ΦΙΛΤΡΑΡΕ - ΑΦΑΙΡΕΣΕ broken enemies από το preview
+        for (BattleEntity entity : fullOrder) {
+            if (entity.broken && !entity.isPlayer) {
+                continue; // ΠΑΡΑΛΕΙΨΕ broken enemies
+            }
+            nextTurnPreview.add(entity);
+        }
+        
         revealedNextTurnCount = Math.min(INITIAL_NEXT_TURN_REVEAL, nextTurnPreview.size());
     }
 
