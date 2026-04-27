@@ -329,9 +329,12 @@ public class GamePanel extends JPanel implements Runnable {
     public int selectedBoost = 0;
     public boolean selectingBoost = false;
     // ===== BOOST AURA SPRITE ANIMATION =====
-    public BufferedImage[] boostAuraLv1Frames;
-    public BufferedImage[] boostAuraLv2Frames;
-    public BufferedImage[] boostAuraLv3Frames;
+    public BufferedImage[] boostAuraLv1FrontFrames;
+    public BufferedImage[] boostAuraLv1BackFrames;
+    public BufferedImage[] boostAuraLv2FrontFrames;
+    public BufferedImage[] boostAuraLv2BackFrames;
+    public BufferedImage[] boostAuraLv3FrontFrames;
+    public BufferedImage[] boostAuraLv3BackFrames;
 
     public int boostAuraFrameDelay = 3; // πόσα game frames κρατά κάθε sprite frame
     public float boostAuraScaleLv1 = 1.4f;
@@ -369,6 +372,7 @@ public class GamePanel extends JPanel implements Runnable {
     private BufferedImage swordIcon;
     private BufferedImage spearIcon;
     private BufferedImage staffIcon;
+    private BufferedImage shieldIcon;
     // SLOW MOTION EFFECT
     public float battleTimeScale = 1.0f;
     public int slowMotionTimer = 0;
@@ -617,6 +621,7 @@ public class GamePanel extends JPanel implements Runnable {
         swordIcon = loadImageSafe("res/gui/weapons/sword.png");
         spearIcon = loadImageSafe("res/gui/weapons/spear.png");
         staffIcon = loadImageSafe("res/gui/weapons/staff.png");
+        shieldIcon = loadImageSafe("res/gui/weapons/break_shield.png");
 
         try {
             titleLogo = ImageIO.read(new File("res/title/logo.png")); // Δημιούργησε αυτό το μονοπάτι
@@ -6419,15 +6424,21 @@ public class GamePanel extends JPanel implements Runnable {
 
     private void loadBoostAuraEffects() {
         try {
-            SpriteSheet boostLv1Sheet = new SpriteSheet("res/effects/boost_lv1.png", 128, 128);
-            SpriteSheet boostLv2Sheet = new SpriteSheet("res/effects/boost_lv2.png", 128, 128);
-            SpriteSheet boostLv3Sheet = new SpriteSheet("res/effects/boost_lv3.png", 128, 128);
+            SpriteSheet boostLv1FrontSheet = new SpriteSheet("res/effects/boost_lv1_front.png", 128, 128);
+            SpriteSheet boostLv1BackSheet = new SpriteSheet("res/effects/boost_lv1_back.png", 128, 128);
+            SpriteSheet boostLv2FrontSheet = new SpriteSheet("res/effects/boost_lv2_front.png", 128, 128);
+            SpriteSheet boostLv2BackSheet = new SpriteSheet("res/effects/boost_lv2_back.png", 128, 128);
+            SpriteSheet boostLv3FrontSheet = new SpriteSheet("res/effects/boost_lv3_front.png", 128, 128);
+            SpriteSheet boostLv3BackSheet = new SpriteSheet("res/effects/boost_lv3_back.png", 128, 128);
 
-            boostAuraLv1Frames = boostLv1Sheet.getAllFrames();
-            boostAuraLv2Frames = boostLv2Sheet.getAllFrames();
-            boostAuraLv3Frames = boostLv3Sheet.getAllFrames();
+            boostAuraLv1FrontFrames = boostLv1FrontSheet.getAllFrames();
+            boostAuraLv1BackFrames = boostLv1BackSheet.getAllFrames();
+            boostAuraLv2FrontFrames = boostLv2FrontSheet.getAllFrames();
+            boostAuraLv2BackFrames = boostLv2BackSheet.getAllFrames();
+            boostAuraLv3FrontFrames = boostLv3FrontSheet.getAllFrames();
+            boostAuraLv3BackFrames = boostLv3BackSheet.getAllFrames();
 
-            System.out.println("Boost aura sprite sheets loaded successfully.");
+            System.out.println("Boost aura sprite sheets loaded successfully (front/back).");
         } catch (Exception e) {
             System.out.println("Failed to load boost aura sprite sheets.");
             e.printStackTrace();
@@ -6585,12 +6596,12 @@ public class GamePanel extends JPanel implements Runnable {
             }
         }
 
-        int shieldBoxW = 22;
-        int shieldBoxH = 18;
-        int slotW = 24;
-        int slotH = 18;
-        int slotGap = 4;
-        int gapAfterShield = 6;
+        int shieldBoxW = 42;
+        int shieldBoxH = 42;
+        int slotW = 26;
+        int slotH = 26;
+        int slotGap = 6;
+        int gapAfterShield = 10;
 
         int totalWidth = shieldBoxW + gapAfterShield;
         if (weaknessCount > 0) {
@@ -6600,56 +6611,85 @@ public class GamePanel extends JPanel implements Runnable {
         int uiX = enemyX + enemyW / 2 - totalWidth / 2;
         int uiY = enemyY + enemyH + 8;
 
-        // shield box
-        g.setColor(new Color(20, 20, 30, 190));
-        g.fillRoundRect(uiX, uiY, shieldBoxW, shieldBoxH, 8, 8);
+        // shield icon με αριθμό από πάνω
+        int shieldIconSize = 42;
 
-        g.setColor(new Color(220, 230, 255));
-        g.drawRoundRect(uiX, uiY, shieldBoxW, shieldBoxH, 8, 8);
-
-        // shield number
-        if (enemy.broken) {
-            g.setColor(new Color(255, 210, 120));
-            g.drawString("0", uiX + 7, uiY + 14);
+        if (shieldIcon != null) {
+            g.drawImage(shieldIcon, uiX - 3, uiY - 3, shieldIconSize, shieldIconSize, null);
+            
+            g.setFont(maruMonicaSmall.deriveFont(Font.BOLD, 17f));
+            
+            String shieldText;
+            if (enemy.broken) {
+                g.setColor(new Color(255, 210, 120));
+                shieldText = "0";
+            } else {
+                g.setColor(Color.white);
+                shieldText = String.valueOf(enemy.shieldPoints);
+            }
+            
+            FontMetrics fm = g.getFontMetrics();
+            int textWidth = fm.stringWidth(shieldText);
+            int textHeight = fm.getAscent();
+            
+            // 2 pixels πιο αριστερά, 2 pixels πιο πάνω από την προηγούμενη θέση
+            int textX = uiX + shieldIconSize / 2 - textWidth / 2 - 5;
+            int textY = uiY + shieldIconSize / 2 + textHeight / 3 - 2;
+            
+            // Σκιά
+            g.setColor(new Color(0, 0, 0, 200));
+            g.drawString(shieldText, textX + 1, textY + 1);
+            
+            // Αριθμός
+            if (enemy.broken) {
+                g.setColor(new Color(255, 210, 120));
+            } else {
+                g.setColor(Color.white);
+            }
+            g.drawString(shieldText, textX, textY);
         } else {
-            g.setColor(Color.white);
-            g.drawString(String.valueOf(enemy.shieldPoints), uiX + 7, uiY + 14);
+            // FALLBACK
+            g.setColor(new Color(20, 20, 30, 190));
+            g.fillRoundRect(uiX, uiY, shieldBoxW, shieldBoxH, 8, 8);
+            g.setColor(new Color(220, 230, 255));
+            g.drawRoundRect(uiX, uiY, shieldBoxW, shieldBoxH, 8, 8);
+            
+            if (enemy.broken) {
+                g.setColor(new Color(255, 210, 120));
+                g.drawString("0", uiX + 16, uiY + 27);
+            } else {
+                g.setColor(Color.white);
+                g.drawString(String.valueOf(enemy.shieldPoints), uiX + 16, uiY + 27);
+            }
         }
 
-        // shield shape hint
-        g.setColor(new Color(180, 210, 255, 180));
-        g.drawLine(uiX + 3, uiY + 4, uiX + 18, uiY + 4);
-        g.drawLine(uiX + 3, uiY + 4, uiX + 6, uiY + 14);
-        g.drawLine(uiX + 18, uiY + 4, uiX + 15, uiY + 14);
-        g.drawLine(uiX + 6, uiY + 14, uiX + 15, uiY + 14);
-
         // weakness slots
-        int slotX = uiX + shieldBoxW + gapAfterShield;
+        int slotX = uiX + shieldIconSize + gapAfterShield - 4;
 
         for (int i = 0; i < enemy.weaknessTypes.length; i++) {
             if (enemy.weaknessTypes[i] == null) continue;
 
             g.setColor(new Color(20, 20, 30, 190));
-            g.fillRoundRect(slotX, uiY, slotW, slotH, 8, 8);
+            g.fillRoundRect(slotX, uiY + 6, slotW, slotH, 8, 8);
 
             g.setColor(new Color(220, 230, 255));
-            g.drawRoundRect(slotX, uiY, slotW, slotH, 8, 8);
+            g.drawRoundRect(slotX, uiY + 6, slotW, slotH, 8, 8);
 
             if (enemy.weaknessRevealed[i]) {
                 BufferedImage icon = getWeaknessIcon(enemy.weaknessTypes[i]);
                 if (icon != null) {
-                    // icon μικρό μέσα στο slot
-                    int iconPadding = 3;
-                    g.drawImage(icon, slotX + iconPadding, uiY + iconPadding, 
+                    int iconPadding = 2;
+                    g.drawImage(icon, slotX + iconPadding, uiY + 6 + iconPadding, 
                             slotW - iconPadding*2, slotH - iconPadding*2, null);
                 } else {
-                    // fallback label
                     g.setColor(new Color(255, 245, 180));
-                    g.drawString("SW/...", slotX + 5, uiY + 14);
+                    g.setFont(g.getFont().deriveFont(Font.BOLD, 12f));
+                    g.drawString("?", slotX + 6, uiY + 24);
                 }
             } else {
                 g.setColor(Color.white);
-                g.drawString("?", slotX + 5, uiY + 14);
+                g.setFont(g.getFont().deriveFont(Font.BOLD, 12f));
+                g.drawString("?", slotX + 6, uiY + 24);
             }
             
             slotX += slotW + slotGap;
@@ -6875,23 +6915,48 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
-    public void drawBoostAura(Graphics2D g2, int centerX, int footY, int boostLevel) {
+    public void drawBoostAuraBack(Graphics2D g2, int centerX, int footY, int boostLevel) {
         if (boostLevel <= 0) return;
 
         BufferedImage[] frames = null;
         float scale = 1.0f;
 
         if (boostLevel == 1) {
-            frames = boostAuraLv1Frames;
+            frames = boostAuraLv1BackFrames;
             scale = boostAuraScaleLv1;
         } else if (boostLevel == 2) {
-            frames = boostAuraLv2Frames;
+            frames = boostAuraLv2BackFrames;
             scale = boostAuraScaleLv2;
         } else {
-            frames = boostAuraLv3Frames;
+            frames = boostAuraLv3BackFrames;
             scale = boostAuraScaleLv3;
         }
 
+        drawAuraLayer(g2, centerX, footY, frames, scale);
+    }
+
+    public void drawBoostAuraFront(Graphics2D g2, int centerX, int footY, int boostLevel) {
+        if (boostLevel <= 0) return;
+
+        BufferedImage[] frames = null;
+        float scale = 1.0f;
+
+        if (boostLevel == 1) {
+            frames = boostAuraLv1FrontFrames;
+            scale = boostAuraScaleLv1;
+        } else if (boostLevel == 2) {
+            frames = boostAuraLv2FrontFrames;
+            scale = boostAuraScaleLv2;
+        } else {
+            frames = boostAuraLv3FrontFrames;
+            scale = boostAuraScaleLv3;
+        }
+
+        drawAuraLayer(g2, centerX, footY, frames, scale);
+    }
+
+    private void drawAuraLayer(Graphics2D g2, int centerX, int footY, 
+                            BufferedImage[] frames, float scale) {
         if (frames == null || frames.length == 0) return;
 
         int frameIndex = getLoopingBoostAuraFrameIndex(frames.length);
@@ -6901,14 +6966,7 @@ public class GamePanel extends JPanel implements Runnable {
         int drawWidth = Math.round(frame.getWidth() * scale);
         int drawHeight = Math.round(frame.getHeight() * scale);
 
-        // Το aura πρέπει να "κάθεται" πάνω στον active χαρακτήρα.
-        // Χρησιμοποιούμε centerX για οριζόντιο centering
-        // και footY σαν anchor κοντά στα πόδια, ώστε το effect να αγκαλιάζει το σώμα.
         int drawX = centerX - drawWidth / 2;
-
-        // Ρύθμιση κατακόρυφης θέσης:
-        // θέλουμε το κάτω μέρος του aura να πέφτει λίγο κάτω από τα πόδια,
-        // όχι όμως τόσο χαμηλά ώστε να φαίνεται αποκομμένο από τον χαρακτήρα.
         int drawY = footY - drawHeight + 36;
 
         g2.drawImage(frame, drawX, drawY, drawWidth, drawHeight, null);
@@ -7954,7 +8012,7 @@ public class GamePanel extends JPanel implements Runnable {
 
                 int auraCenterX = drawX + playerSpriteSize / 2;
                 int auraFootY = drawY + playerSpriteSize - 10;
-                drawBoostAura(g, auraCenterX, auraFootY, selectedBoost);
+                drawBoostAuraBack(g, auraCenterX, auraFootY, selectedBoost);
             }
 
             BattleEntity memberEntity = null;
@@ -7982,6 +8040,16 @@ public class GamePanel extends JPanel implements Runnable {
                 g.drawImage(memberImg, drawX + recoilX + lungeX, drawY + recoilY + lungeY, playerSpriteSize, playerSpriteSize, null);
                 drawImpactDust(g, memberEntity, drawX + recoilX + playerSpriteSize / 2, drawY + recoilY + playerSpriteSize - 10,1);
             }
+
+            if (currentTurn != null && currentTurn.isPlayer &&
+                currentTurn.name.equals(bpm.member.className) &&
+                selectedBoost > 0 &&
+                !actionInProgress) {
+
+                int auraCenterX = drawX + playerSpriteSize / 2;
+                int auraFootY = drawY + playerSpriteSize - 10;
+                drawBoostAuraFront(g, auraCenterX, auraFootY, selectedBoost);
+            }
         }
 
         // 2. HERO
@@ -8002,7 +8070,7 @@ public class GamePanel extends JPanel implements Runnable {
 
                 int auraCenterX = drawX + playerSpriteSize / 2;
                 int auraFootY = drawY + playerSpriteSize - 10;
-                drawBoostAura(g, auraCenterX, auraFootY, selectedBoost);
+                drawBoostAuraBack(g, auraCenterX, auraFootY, selectedBoost);  // BACK ΠΡΩΤΑ
             }
 
             BattleEntity heroEntity = null;
@@ -8029,6 +8097,16 @@ public class GamePanel extends JPanel implements Runnable {
                         drawY + recoilY + lungeY + playerSpriteSize / 2);
                 g.drawImage(playerImg, drawX + recoilX + lungeX, drawY + recoilY + lungeY, playerSpriteSize, playerSpriteSize, null);
                 drawImpactDust(g, heroEntity, drawX + recoilX + playerSpriteSize / 2, drawY + recoilY + playerSpriteSize - 10,1);
+            }
+
+            if (currentTurn != null && currentTurn.isPlayer &&
+                currentTurn.name.equals("Hero") &&
+                selectedBoost > 0 &&
+                !actionInProgress) {
+
+                int auraCenterX = drawX + playerSpriteSize / 2;
+                int auraFootY = drawY + playerSpriteSize - 10;
+                drawBoostAuraFront(g, auraCenterX, auraFootY, selectedBoost);  // FRONT ΜΕΤΑ
             }
         }
 
