@@ -8,6 +8,10 @@ public class PlayerAnimation {
     public BufferedImage[] attack2;
     public BufferedImage[] attack3;
     public BufferedImage[] attack4;
+    public BufferedImage[] absorb;
+    public BufferedImage[] poison;
+    public BufferedImage[] beforeCast;
+    public BufferedImage[] attackMagic;
     public BufferedImage[] lowHpIdle;
     public BufferedImage[] defend;
     public BufferedImage[] useItem;
@@ -24,6 +28,7 @@ public class PlayerAnimation {
 
     public final int FRAME_DELAY_NORMAL = 16;
     public final int FRAME_DELAY_FAST = 11;
+    public final int FRAME_DELAY_SLOW = 30;
 
     public PlayerAnimation(BufferedImage[] idleFrames,
                            BufferedImage[] hurtFrames,
@@ -41,6 +46,10 @@ public class PlayerAnimation {
         this.lowHpIdle = null;
         this.defend = null;
         this.useItem = null;
+        this.absorb = null;
+        this.poison = null;
+        this.beforeCast = null;
+        this.attackMagic = null;
         this.runLeft = null;
         this.runRight = null;
 
@@ -64,7 +73,16 @@ public class PlayerAnimation {
             currentAnimName.equals("run_left") ||
             currentAnimName.equals("run_right")) {
             currentDelay = FRAME_DELAY_FAST;
+        } else if (currentAnimName.equals("beforeCast")) {
+            currentDelay = FRAME_DELAY_SLOW;
+            loop = true;
+        } else if (currentAnimName.equals("absorb") ||
+                currentAnimName.equals("poison")) {
+            currentDelay = FRAME_DELAY_NORMAL;
+        } else if (currentAnimName.equals("attackMagic")) {
+            currentDelay = 22;
         }
+        
 
         if (frameCounter >= currentDelay) {
             frameCounter = 0;
@@ -105,7 +123,7 @@ public class PlayerAnimation {
     }
 
     public void setAnimation(String animName, boolean shouldLoop) {
-        if (animName.equals(currentAnimName) && isPlaying) return;
+        if (animName.equals(currentAnimName) && isPlaying && !animName.equals("beforeCast")) return;
 
         BufferedImage[] selected = null;
 
@@ -133,6 +151,19 @@ public class PlayerAnimation {
                 selected = (attack4 != null) ? attack4 : 
                         ((attack3 != null) ? attack3 : 
                         ((attack2 != null) ? attack2 : attack1));
+                break;
+            case "absorb":
+                selected = (absorb != null) ? absorb : attack1;
+                break;
+            case "poison":
+                selected = (poison != null) ? poison : attack1;
+                break;
+            case "beforeCast":
+                selected = (beforeCast != null) ? beforeCast : idle;
+                shouldLoop = true;
+                break;
+            case "attackMagic":
+                selected = (attackMagic != null) ? attackMagic : attack1;
                 break;    
             case "lowHpIdle":
                 selected = (lowHpIdle != null) ? lowHpIdle : idle;

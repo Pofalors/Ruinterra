@@ -328,6 +328,11 @@ public class GamePanel extends JPanel implements Runnable {
     public boolean selectingTarget = false;
     public int selectedBoost = 0;
     public boolean selectingBoost = false;
+    public boolean selectingSkill = false;
+    public int selectedSkill = 0;
+    public String[] currentSkillNames = null;
+    public boolean selectingSkillTarget = false;
+    public boolean skillTargetsAllies = false;
     // ===== BOOST AURA SPRITE ANIMATION =====
     public BufferedImage[] boostAuraLv1FrontFrames;
     public BufferedImage[] boostAuraLv1BackFrames;
@@ -358,6 +363,14 @@ public class GamePanel extends JPanel implements Runnable {
     public int boostBurstLevel = 0;
     public int boostBurstX = 0;
     public int boostBurstY = 0;
+    // ===== LVL3 BOOST CINEMATIC =====
+    public boolean boostCinematicPlaying = false;
+    public int boostCinematicTimer = 0;
+    public final int BOOST_CINEMATIC_DURATION = 90; // 1.5 δευτερόλεπτα στα 60fps
+    public BattleEntity boostCinematicActor = null;
+    public boolean boostCinematicZoomDone = false;
+    public boolean boostCinematicSoundDone = false;
+    public BattleEntity actorForAttack = null;
     public int hitFlashTimer = 0;
     public int hitFlashDuration = 0;
     public int hitFlashLevel = 0;
@@ -681,6 +694,14 @@ public class GamePanel extends JPanel implements Runnable {
             playerBattleAnim.attack4 = attack3Frames;
             playerBattleAnim.runLeft = runLeftFrames;
             playerBattleAnim.runRight = runRightFrames;
+
+            try {
+                SpriteSheet useItemSheet = new SpriteSheet("res/player/battle/useItem.png", 64, 64);
+                playerBattleAnim.useItem = useItemSheet.getAllFrames();
+                System.out.println("Loaded monk useItem spritesheet");
+            } catch (Exception e) {
+                System.out.println("useItem.png not found for monk");
+            }
             
             System.out.println("Player battle animations loaded successfully with SpriteSheet!");
             
@@ -797,6 +818,24 @@ public class GamePanel extends JPanel implements Runnable {
         sound.preloadBattleSound("BOOSTLVL3", "boostLvl3.wav");
         sound.preloadBattleSound("BOOSTLVL3S", "boostLvl3s.wav");
         sound.preloadBattleSound("BREAK", "break.wav");
+        // ΝΕΑ BATTLE SOUNDS
+        sound.preloadBattleSound("BOOSTED_ABILITY", "boosted_ability.wav");
+        sound.preloadBattleSound("ASSASSIN_HIT_ABSORB", "assassin_hit_absorb.wav");
+        sound.preloadBattleSound("ASSASSIN_ABSORB", "assassin_absorb.wav");
+        sound.preloadBattleSound("MONK_BP_SHARE", "monk_bp_share.wav");
+        sound.preloadBattleSound("ASSASSIN_COIN_ATTACK", "assassin_coin_attack.wav");
+        sound.preloadBattleSound("BP_GET", "bp_get.wav");
+        sound.preloadBattleSound("MAGE_THUNDER", "mage_thunder.wav");
+        sound.preloadBattleSound("MAGE_LIGHT", "mage_light.wav");
+        sound.preloadBattleSound("MAGE_EXPLOSION", "mage_explosion.wav");
+        sound.preloadBattleSound("MONK_FIRE_BURST", "monk_fire_burst.wav");
+        sound.preloadBattleSound("ASSASSIN_POISON", "assassin_poison.wav");
+        sound.preloadBattleSound("ASSASSIN_ABSORB_VOICE", "assassin_absorb_voice.wav");
+        sound.preloadBattleSound("ASSASSIN_POISON_VOICE", "assassin_poison_voice.wav");
+        sound.preloadBattleSound("ASSASSIN_COIN_VOICE", "assassin_coin_voice.wav");
+        sound.preloadBattleSound("MAGE_LIGHT_VOICE", "mage_light_voice.wav");
+        sound.preloadBattleSound("MAGE_THUNDER_VOICE", "mage_thunder_voice.wav");
+        sound.preloadBattleSound("MAGE_EXPLOSION_VOICE", "mage_explosion_voice.wav");
         
         // Ξεκίνα με την μουσική ΤΙΤΛΟΥ
         sound.preloadMusic("title", "title_music.wav");
@@ -2123,8 +2162,67 @@ public class GamePanel extends JPanel implements Runnable {
                         }
                     }
 
+                    // ===== LVL3 BOOST CINEMATIC =====
+                    if (boostCinematicPlaying) {
+                        boostCinematicTimer--;
+                        
+                        // Παίξε τον ήχο στην αρχή
+                        if (!boostCinematicSoundDone && boostCinematicTimer <= BOOST_CINEMATIC_DURATION - 10) {
+                            boostCinematicSoundDone = true;
+                            sound.playBattleSE("BOOSTED_ABILITY");
+                        }
+                        
+                        // Slow motion για το cinematic
+                        if (boostCinematicTimer > 40) {
+                            battleTimeScale = 0.3f;
+                        } else if (boostCinematicTimer > 20) {
+                            battleTimeScale = 0.5f;
+                        } else {
+                            battleTimeScale = 0.8f;
+                        }
+                        
+                        // Zoom στον παίκτη
+                        if (!boostCinematicZoomDone && boostCinematicTimer <= BOOST_CINEMATIC_DURATION - 15) {
+                            boostCinematicZoomDone = true;
+                            zoomPopDuration = 30;
+                            zoomPopMaxScale = 1.15f;
+                            zoomPopTimer = zoomPopDuration;
+                        }
+                        
+                        // Ενημέρωσε visuals
+                        updateBattleVisuals();
+                        
+                        // Όταν τελειώσει το cinematic
+                        if (boostCinematicTimer <= 0) {
+                            boostCinematicPlaying = false;
+                            battleTimeScale = 1.0f;
+                            slowMotionTimer = 0;
+                            
+                            // ===== 1.5 ΔΕΥΤΕΡΟΛΕΠΤΑ DELAY ΠΡΙΝ ΤΗΝ ΕΠΙΘΕΣΗ =====
+                            if (boostCinematicActor != null) {
+                                // Αποθήκευσε τον actor και ξεκίνα το delay
+                                actorForAttack = boostCinematicActor;
+                                boostCinematicActor = null;
+                                
+                                // ΚΑΘΑΡΙΣΕ ΤΟ BOOST ΑΜΕΣΩΣ
+                                selectedBoost = 0;
+                                boostLoopLevel = 0;
+                                boostLoopTimer = 0;
+                                sound.stopBattleLoop();
+                                boostVisualStartTime = 0;
+                                
+                                battleTurnDelay = 0;
+                                waitingForNextTurn = true;
+                                commandLocked = true;
+                                actionInProgress = false;
+                            }
+                        }
+                        
+                        repaint();
+                        continue;
+                    }
                     // BATTLE UPDATES με time scale
-                    if (battleTimeScale >= 1.0f || slowMotionTimer % Math.max(1, (int)(1.0f / battleTimeScale)) == 0) {
+                    else if (battleTimeScale >= 1.0f || slowMotionTimer % Math.max(1, (int)(1.0f / battleTimeScale)) == 0) {
                         updateBattleVisuals();
                         updateBattleAction();
                     }
@@ -2158,30 +2256,44 @@ public class GamePanel extends JPanel implements Runnable {
                     if (waitingForNextTurn) {
                         commandLocked = true;
                         battleTurnDelay++;
-                        if (battleTurnDelay >= BATTLE_TURN_DELAY_TIME) {
+                        
+                        // Custom delay για το cinematic (2 δευτερόλεπτα = 120 frames)
+                        int requiredDelay = BATTLE_TURN_DELAY_TIME;
+                        if (boostCinematicActor == null && battleTurnDelay > BATTLE_TURN_DELAY_TIME) {
+                            // Είναι το delay μετά το cinematic
+                            requiredDelay = 90; // 1.5 δευτερόλεπτα
+                        }
+                        
+                        if (battleTurnDelay >= requiredDelay) {
                             waitingForNextTurn = false;
                             battleTurnDelay = 0;
 
-                            selectedBoost = 0;
-                            boostLoopLevel = 0;
-                            boostLoopTimer = 0;
-                            sound.stopBattleLoop();
-
-                            boolean wasLastActorInRound =
-                                    !battleParty.turnOrder.isEmpty() &&
-                                    battleParty.currentTurnIndex == battleParty.turnOrder.size() - 1;
-
-                            battleParty.nextTurn();
-
-                            if (wasLastActorInRound) {
-                                // Μπήκαμε σε νέο round, ξαναχτίζουμε το NEXT TURN
-                                rebuildNextTurnPreview();
+                            // Αν υπάρχει actor που περίμενε από το cinematic
+                            if (actorForAttack != null) {
+                                actorForAttack.enterState(CombatState.WINDUP);
+                                actionInProgress = true;
+                                actorForAttack = null;
+                                commandLocked = true;
                             } else {
-                                // Reveal ακόμα ένα slot από το επόμενο round
-                                revealOneMoreNextTurnSlot();
-                            }
+                                selectedBoost = 0;
+                                boostLoopLevel = 0;
+                                boostLoopTimer = 0;
+                                sound.stopBattleLoop();
 
-                            commandLocked = false;
+                                boolean wasLastActorInRound =
+                                        !battleParty.turnOrder.isEmpty() &&
+                                        battleParty.currentTurnIndex == battleParty.turnOrder.size() - 1;
+
+                                battleParty.nextTurn();
+
+                                if (wasLastActorInRound) {
+                                    rebuildNextTurnPreview();
+                                } else {
+                                    revealOneMoreNextTurnSlot();
+                                }
+
+                                commandLocked = false;
+                            }
                         }
                         repaint();
                     }                   
@@ -2210,7 +2322,7 @@ public class GamePanel extends JPanel implements Runnable {
                         }
                     }
                     // Αν είναι σειρά του παίκτη
-                    else if (battleParty.isPlayerTurn() && !selectingTarget && !selectingBoost && !actionInProgress && !commandLocked) {
+                    else if (battleParty.isPlayerTurn() && !selectingTarget && !selectingBoost && !selectingSkill && !selectingSkillTarget && !actionInProgress && !commandLocked) {
                         BattleEntity currentPlayer = battleParty.getCurrentTurn();
                         int maxSelectableBoost = Math.min(3, currentPlayer.bp);
 
@@ -2302,7 +2414,17 @@ public class GamePanel extends JPanel implements Runnable {
                                     break;
                                     
                                 case 1: // CLASS SKILLS
-                                    try { Thread.sleep(1000); } catch (Exception e) {}
+                                    currentSkillNames = getClassSkillNames(currentPlayer.name);
+                                    if (currentSkillNames.length > 0) {
+                                        selectingSkill = true;
+                                        selectedSkill = 0;
+                                        battleMessage = "Select skill  ENTER=Confirm  ESC=Back";
+                                        
+                                        // Για τον Mage: ξεκίνα το beforeCast animation
+                                        if (currentPlayer.name.equals("Mage")) {
+                                            playActorAnimation(currentPlayer, "beforeCast");
+                                        }
+                                    }
                                     break;
                                     
                                 case 2: // ITEMS
@@ -2384,7 +2506,6 @@ public class GamePanel extends JPanel implements Runnable {
                         
                         if (battleEnterJustPressed) {
                             if (selectedTarget >= 0 && selectedTarget < battleParty.enemies.size()) {
-                                // ΣΗΜΑΝΤΙΚΟ: Το selectedTarget αναφέρεται στο battleParty.enemies
                                 BattleEntity target = battleParty.enemies.get(selectedTarget);
                                 currentPlayer.queuedAction = "attack";
                                 currentPlayer.queuedTarget = target;
@@ -2394,12 +2515,25 @@ public class GamePanel extends JPanel implements Runnable {
                                 boostLoopLevel = 0;
                                 boostLoopTimer = 0;
                                 boostVisualStartTime = 0;
-                                currentPlayer.enterState(CombatState.WINDUP);
 
-                                actionInProgress = true;
-                                selectingTarget = false;
-                                commandLocked = true;
-                                battleMessage = "";
+                                // ===== ΕΛΕΓΧΟΣ ΓΙΑ LVL3 BOOST CINEMATIC =====
+                                if (selectedBoost == 3) {
+                                    selectingTarget = false;
+                                    commandLocked = true;
+                                    boostCinematicPlaying = true;
+                                    boostCinematicTimer = BOOST_CINEMATIC_DURATION;
+                                    boostCinematicActor = currentPlayer;
+                                    boostCinematicZoomDone = false;
+                                    boostCinematicSoundDone = false;
+                                    battleMessage = "";
+                                } else {
+                                    currentPlayer.enterState(CombatState.WINDUP);
+                                    actionInProgress = true;
+                                    selectingTarget = false;
+                                    commandLocked = true;
+                                    battleMessage = "";
+                                }
+                                
                                 keyH.enterPressed = false;
                                 repaint();
                                 continue;
@@ -2416,6 +2550,206 @@ public class GamePanel extends JPanel implements Runnable {
                             boostLoopTimer = 0;
                             commandLocked = false;
                             battleMessage = "";
+                            keyH.escapePressed = false;
+                            repaint();
+                        }
+                    }
+                    // ===== SKILL SELECTION MENU =====
+                    else if (selectingSkill && !actionInProgress && !commandLocked) {
+                        BattleEntity currentPlayer = battleParty.getCurrentTurn();
+
+                        if (currentPlayer.name.equals("Mage")) {
+                            playActorAnimation(currentPlayer, "beforeCast");
+                        }
+                        
+                        int cols = Math.min(currentSkillNames.length, 2);
+                        int rows = (int)Math.ceil((double)currentSkillNames.length / cols);
+                        int currentRow = selectedSkill / cols;
+                        int currentCol = selectedSkill % cols;
+                        
+                        if (keyH.upPressed) {
+                            if (currentRow > 0) {
+                                selectedSkill -= cols;
+                            }
+                            playSound("menu_select");
+                            try { Thread.sleep(150); } catch (Exception e) {}
+                            keyH.upPressed = false;
+                            repaint();
+                        }
+                        if (keyH.downPressed) {
+                            if (currentRow < rows - 1) {
+                                int newIndex = selectedSkill + cols;
+                                if (newIndex < currentSkillNames.length) {
+                                    selectedSkill = newIndex;
+                                }
+                            }
+                            playSound("menu_select");
+                            try { Thread.sleep(150); } catch (Exception e) {}
+                            keyH.downPressed = false;
+                            repaint();
+                        }
+                        if (keyH.leftPressed) {
+                            if (currentCol > 0) {
+                                selectedSkill--;
+                            }
+                            playSound("menu_select");
+                            try { Thread.sleep(150); } catch (Exception e) {}
+                            keyH.leftPressed = false;
+                            repaint();
+                        }
+                        if (keyH.rightPressed) {
+                            if (currentCol < cols - 1 && selectedSkill + 1 < currentSkillNames.length) {
+                                selectedSkill++;
+                            }
+                            playSound("menu_select");
+                            try { Thread.sleep(150); } catch (Exception e) {}
+                            keyH.rightPressed = false;
+                            repaint();
+                        }
+                        
+                        if (battleEnterJustPressed) {
+                            playSound("menu_select");
+                            
+                            String skillName = currentSkillNames[selectedSkill];
+                            
+                            if (currentPlayer.mp < getSkillMpCost(currentPlayer.name, skillName)) {
+                                battleMessage = "Not enough MP!";
+                                selectingSkill = false;
+                                commandLocked = false;
+                                
+                                if (currentPlayer.name.equals("Mage")) {
+                                    setActorIdleAnimation(currentPlayer);
+                                }
+                                
+                                keyH.enterPressed = false;
+                                repaint();
+                                continue;
+                            }
+                            
+                            if (isSkillTargetingEnemy(currentPlayer.name, skillName)) {
+                                selectingSkill = false;
+                                selectingSkillTarget = true;
+                                skillTargetsAllies = false;
+                                selectedTarget = 0;
+                                battleMessage = "Select enemy target  ENTER=Confirm  ESC=Back";
+                            } else {
+                                selectingSkill = false;
+                                selectingSkillTarget = true;
+                                skillTargetsAllies = true;
+                                selectedTarget = 0;
+                                battleMessage = "Select ally target  ENTER=Confirm  ESC=Back";
+                            }
+                            
+                            keyH.enterPressed = false;
+                            repaint();
+                        }
+                        
+                        if (keyH.escapePressed) {
+                            selectingSkill = false;
+                            currentSkillNames = null;
+                            commandLocked = false;
+                            battleMessage = "";
+                            
+                            if (currentPlayer.name.equals("Mage")) {
+                                setActorIdleAnimation(currentPlayer);
+                            }
+                            
+                            keyH.escapePressed = false;
+                            repaint();
+                        }
+                    }
+                    // ===== SKILL TARGET SELECTION =====
+                    else if (selectingSkillTarget && !actionInProgress && !commandLocked) {
+                        BattleEntity currentPlayer = battleParty.getCurrentTurn();
+
+                        if (currentPlayer.name.equals("Mage")) {
+                            playActorAnimation(currentPlayer, "beforeCast");
+                        }
+                        
+                        int maxTarget = skillTargetsAllies ? battleParty.party.size() - 1 : battleParty.enemies.size() - 1;
+                        
+                        if (keyH.leftPressed) {
+                            selectedTarget--;
+                            if (selectedTarget < 0) selectedTarget = 0;
+                            playSound("menu_select");
+                            try { Thread.sleep(150); } catch (Exception e) {}
+                            keyH.leftPressed = false;
+                            repaint();
+                        }
+                        if (keyH.rightPressed) {
+                            selectedTarget++;
+                            if (selectedTarget > maxTarget) selectedTarget = maxTarget;
+                            playSound("menu_select");
+                            try { Thread.sleep(150); } catch (Exception e) {}
+                            keyH.rightPressed = false;
+                            repaint();
+                        }
+                        
+                        if (battleEnterJustPressed) {
+                            String skillName = currentSkillNames[selectedSkill];
+                            BattleEntity target;
+                            
+                            if (skillTargetsAllies) {
+                                if (selectedTarget >= 0 && selectedTarget < battleParty.party.size()) {
+                                    target = battleParty.party.get(selectedTarget);
+                                } else {
+                                    keyH.enterPressed = false;
+                                    repaint();
+                                    return;
+                                }
+                            } else {
+                                if (selectedTarget >= 0 && selectedTarget < battleParty.enemies.size()) {
+                                    target = battleParty.enemies.get(selectedTarget);
+                                } else {
+                                    keyH.enterPressed = false;
+                                    repaint();
+                                    return;
+                                }
+                            }
+                            
+                            currentPlayer.useMp(getSkillMpCost(currentPlayer.name, skillName));
+                            
+                            currentPlayer.queuedAction = skillName;
+                            currentPlayer.queuedTarget = target;
+                            currentPlayer.boostUsed = selectedBoost;
+                            currentPlayer.spendBP(selectedBoost);
+                            
+                            sound.stopBattleLoop();
+                            boostLoopLevel = 0;
+                            boostLoopTimer = 0;
+                            boostVisualStartTime = 0;
+                            
+                            // ===== ΕΛΕΓΧΟΣ ΓΙΑ LVL3 BOOST CINEMATIC =====
+                            if (selectedBoost == 3) {
+                                selectingSkillTarget = false;
+                                commandLocked = true;
+                                boostCinematicPlaying = true;
+                                boostCinematicTimer = BOOST_CINEMATIC_DURATION;
+                                boostCinematicActor = currentPlayer;
+                                boostCinematicZoomDone = false;
+                                boostCinematicSoundDone = false;
+                                battleMessage = "";
+                            } else {
+                                currentPlayer.enterState(CombatState.WINDUP);
+                                actionInProgress = true;
+                                selectingSkillTarget = false;
+                                commandLocked = true;
+                                battleMessage = "";
+                            }
+                            
+                            keyH.enterPressed = false;
+                            repaint();
+                        }
+                        
+                        if (keyH.escapePressed) {
+                            selectingSkillTarget = false;
+                            commandLocked = false;
+                            battleMessage = "";
+                            
+                            if (currentPlayer.name.equals("Mage")) {
+                                setActorIdleAnimation(currentPlayer);
+                            }
+                            
                             keyH.escapePressed = false;
                             repaint();
                         }
@@ -5631,19 +5965,44 @@ public class GamePanel extends JPanel implements Runnable {
         }
         
         if (actor.state == CombatState.WINDUP) {
+            String action = actor.queuedAction;
+            
+            // ΝΕΟ: Αν είναι skill, παίξε το skill animation
+            if (action != null && !action.equals("attack")) {
+                playSkillAnimation(actor, action);
+                actor.enterState(CombatState.ATTACKING);
+                return;
+            }
+            
+            // Κανονική επίθεση
             playActorAnimation(actor, getAttackAnimationName(actor));
             actor.enterState(CombatState.ATTACKING);
             return;
         }
 
         if (actor.state == CombatState.ATTACKING) {
+            String action = actor.queuedAction;
+            
+            // ΝΕΟ: Skill execution
+            if (action != null && !action.equals("attack")) {
+                if (!actor.strikeTriggered && actor.queuedTarget != null && isActorOnStrikeFrame(actor)) {
+                    actor.strikeTriggered = true;
+                    executeSkill(actor, action, actor.queuedTarget, actor.boostUsed);
+                }
+                
+                if (isActorAnimationFinished(actor)) {
+                    actor.enterState(CombatState.RECOVERY);
+                }
+                return;
+            }
+            
+            // Κανονική επίθεση (multi-hit)
             if (!actor.strikeTriggered && actor.queuedTarget != null && isActorOnStrikeFrame(actor)) {
                 actor.strikeTriggered = true;
                 
                 actor.multiHitCount = 1 + actor.boostUsed;
                 actor.currentHitIndex = 0;
                 
-                // Πρώτο hit
                 executeSingleHit(actor, actor.queuedTarget);
                 actor.currentHitIndex = 1;
                 
@@ -5652,7 +6011,6 @@ public class GamePanel extends JPanel implements Runnable {
                 triggerSwingTrail(actor, actor.boostUsed);
             }
             
-            // Έλεγχος για επόμενα hits μέσα στο ΙΔΙΟ animation (νέα spritesheets)
             if (actor.strikeTriggered && actor.currentHitIndex < actor.multiHitCount) {
                 int hitFrame = getHitFrameForIndex(actor, actor.currentHitIndex);
                 if (hitFrame >= 0 && isActorOnFrame(actor, hitFrame)) {
@@ -5660,7 +6018,6 @@ public class GamePanel extends JPanel implements Runnable {
                     actor.currentHitIndex++;
                     playPlayerAttackSound(actor);
                     
-                    // Μικρό shake/flash για κάθε hit
                     screenShakeStrength = 2;
                     screenShakeDuration = 3;
                     screenShakeTimer = screenShakeDuration;
@@ -5668,7 +6025,6 @@ public class GamePanel extends JPanel implements Runnable {
                 }
             }
             
-            // Τέλος animation → RECOVERY
             if (isActorAnimationFinished(actor)) {
                 actor.enterState(CombatState.RECOVERY);
             }
@@ -5779,6 +6135,264 @@ public class GamePanel extends JPanel implements Runnable {
                 battleTurnDelay = 0;
                 commandLocked = false;
             }
+        }
+    }
+
+    private void playSkillAnimation(BattleEntity actor, String skillName) {
+        switch (skillName) {
+            case "BP Share":
+            case "Fire Burst":
+                // Monk: κανονικό attack animation για Fire Burst, useItem για BP Share
+                if (skillName.equals("BP Share")) {
+                    playActorAnimation(actor, "useItem");
+                } else {
+                    playActorAnimation(actor, getAttackAnimationName(actor));
+                }
+                break;
+                
+            case "Absorb":
+                playActorAnimation(actor, "absorb");
+                break;
+                
+            case "Thief":
+                playActorAnimation(actor, "useItem");
+                break;
+                
+            case "Poison":
+                playActorAnimation(actor, "poison");
+                break;
+                
+            case "Explosion":
+            case "Thunder":
+            case "Light":
+                playActorAnimation(actor, "attackMagic");
+                break;
+                
+            default:
+                playActorAnimation(actor, getAttackAnimationName(actor));
+                break;
+        }
+    }
+
+    private void executeSkill(BattleEntity actor, String skillName, BattleEntity target, int boostUsed) {
+        float damageMultiplier = 1.0f + (boostUsed * 0.5f);
+        int baseDamage;
+        int damage;
+        Point targetPoint = getBattleEntityScreenCenter(target);
+        Point actorPoint = getBattleEntityScreenCenter(actor);
+        
+        switch (skillName) {
+            // ===== MONK SKILLS =====
+            case "BP Share":
+                // Δίνει 1-3 BP στον συμπαίκτη
+                int bpAmount = 1 + boostUsed;
+                target.bp = Math.min(target.maxBp, target.bp + bpAmount);
+                
+                spawnBattleEffectAtEntity("bp_share", target, 20, 1);
+                sound.playBattleSE("MONK_BP_SHARE");
+                // Ο ήχος BP_GET θα παίξει μετά από μικρό delay
+                new Thread(() -> {
+                    try { Thread.sleep(400); } catch (Exception e) {}
+                    sound.playBattleSE("BP_GET");
+                }).start();
+                
+                showActionMessage(actor.name + " shares " + bpAmount + " BP with " + target.name + "!");
+                break;
+                
+            case "Fire Burst":
+                baseDamage = (int)((actor.magicAttack - target.magicDefense) * damageMultiplier);
+                if (baseDamage < 1) baseDamage = 1;
+                
+                if (target.broken) baseDamage = target.applyBrokenDamageMultiplier(baseDamage);
+                
+                target.takeDamage(baseDamage);
+                spawnBattleEffectAtEntity("fire-burst", target, 18, 1);
+                sound.playBattleSE("MONK_FIRE_BURST");
+                syncVisualHp(target);
+                playTargetHurt(target);
+                
+                showActionMessage(actor.name + " casts Fire Burst for " + baseDamage + " damage!");
+                
+                if (!target.isAlive()) {
+                    lastKillerName = actor.name;
+                    playTargetDeath(target);
+                }
+                break;
+                
+            // ===== ASSASSIN SKILLS =====
+            case "Absorb":
+                baseDamage = (int)((actor.attack - target.defense) * damageMultiplier);
+                if (baseDamage < 1) baseDamage = 1;
+                
+                if (target.broken) baseDamage = target.applyBrokenDamageMultiplier(baseDamage);
+                
+                target.takeDamage(baseDamage);
+                
+                // Εφέ: slash στον εχθρό, absorb στον Assassin
+                spawnBattleEffectAtEntity("slash", target, 10, 1);
+                spawnBattleEffectAtEntity("absorb", actor, 18, 1);
+                
+                sound.playBattleSE("ASSASSIN_ABSORB_VOICE");
+                new Thread(() -> {
+                    try { Thread.sleep(200); } catch (Exception e) {}
+                    sound.playBattleSE("ASSASSIN_HIT_ABSORB");
+                    try { Thread.sleep(300); } catch (Exception e) {}
+                    sound.playBattleSE("ASSASSIN_ABSORB");
+                }).start();
+                
+                // Heal τον Assassin για το 30% του damage
+                int healAmount = (int)(baseDamage * 0.3f);
+                actor.heal(healAmount);
+                syncVisualHp(actor);
+                syncVisualHp(target);
+                playTargetHurt(target);
+                
+                showActionMessage(actor.name + " absorbs " + baseDamage + " damage, heals " + healAmount + " HP!");
+                
+                if (!target.isAlive()) {
+                    lastKillerName = actor.name;
+                    playTargetDeath(target);
+                }
+                break;
+                
+            case "Thief":
+                baseDamage = (int)((actor.attack - target.defense) * damageMultiplier);
+                if (baseDamage < 1) baseDamage = 1;
+                
+                if (target.broken) baseDamage = target.applyBrokenDamageMultiplier(baseDamage);
+                
+                target.takeDamage(baseDamage);
+                spawnBattleEffectAtEntity("coin", target, 18, 1);
+                
+                sound.playBattleSE("ASSASSIN_COIN_VOICE");
+                new Thread(() -> {
+                    try { Thread.sleep(200); } catch (Exception e) {}
+                    sound.playBattleSE("ASSASSIN_COIN_ATTACK");
+                }).start();
+                
+                syncVisualHp(target);
+                playTargetHurt(target);
+                
+                // Έξτρα gold
+                int stolenGold = 10 + (boostUsed * 5) + (int)(Math.random() * 20);
+                player.gold += stolenGold;
+                
+                showActionMessage(actor.name + " steals " + baseDamage + " damage and " + stolenGold + " gold!");
+                
+                if (!target.isAlive()) {
+                    lastKillerName = actor.name;
+                    playTargetDeath(target);
+                }
+                break;
+                
+            case "Poison":
+                baseDamage = (int)((actor.attack - target.defense) * damageMultiplier);
+                if (baseDamage < 1) baseDamage = 1;
+                
+                if (target.broken) baseDamage = target.applyBrokenDamageMultiplier(baseDamage);
+                
+                target.takeDamage(baseDamage);
+                spawnBattleEffectAtEntity("poison", target, 20, 1);
+                
+                sound.playBattleSE("ASSASSIN_POISON_VOICE");
+                new Thread(() -> {
+                    try { Thread.sleep(250); } catch (Exception e) {}
+                    sound.playBattleSE("ASSASSIN_POISON");
+                }).start();
+                
+                syncVisualHp(target);
+                playTargetHurt(target);
+                
+                showActionMessage(actor.name + " poisons for " + baseDamage + " damage!");
+                
+                if (!target.isAlive()) {
+                    lastKillerName = actor.name;
+                    playTargetDeath(target);
+                }
+                break;
+                
+            // ===== MAGE SKILLS =====
+            case "Explosion":
+                baseDamage = (int)((actor.magicAttack - target.magicDefense) * damageMultiplier);
+                if (baseDamage < 1) baseDamage = 1;
+                
+                if (target.broken) baseDamage = target.applyBrokenDamageMultiplier(baseDamage);
+                
+                target.takeDamage(baseDamage);
+                spawnBattleEffectAtEntity("explosion", target, 22, 1);
+                
+                sound.playBattleSE("MAGE_EXPLOSION_VOICE");
+                new Thread(() -> {
+                    try { Thread.sleep(300); } catch (Exception e) {}
+                    sound.playBattleSE("MAGE_EXPLOSION");
+                }).start();
+                
+                syncVisualHp(target);
+                playTargetHurt(target);
+                
+                screenShakeStrength = 6;
+                screenShakeDuration = 10;
+                screenShakeTimer = screenShakeDuration;
+                
+                showActionMessage(actor.name + " casts Explosion for " + baseDamage + " damage!");
+                
+                if (!target.isAlive()) {
+                    lastKillerName = actor.name;
+                    playTargetDeath(target);
+                }
+                break;
+                
+            case "Thunder":
+                baseDamage = (int)((actor.magicAttack - target.magicDefense) * damageMultiplier);
+                if (baseDamage < 1) baseDamage = 1;
+                
+                if (target.broken) baseDamage = target.applyBrokenDamageMultiplier(baseDamage);
+                
+                target.takeDamage(baseDamage);
+                spawnBattleEffectAtEntity("thunder", target, 20, 1);
+                
+                sound.playBattleSE("MAGE_THUNDER_VOICE");
+                new Thread(() -> {
+                    try { Thread.sleep(300); } catch (Exception e) {}
+                    sound.playBattleSE("MAGE_THUNDER");
+                }).start();
+                
+                syncVisualHp(target);
+                playTargetHurt(target);
+                
+                showActionMessage(actor.name + " casts Thunder for " + baseDamage + " damage!");
+                
+                if (!target.isAlive()) {
+                    lastKillerName = actor.name;
+                    playTargetDeath(target);
+                }
+                break;
+                
+            case "Light":
+                baseDamage = (int)((actor.magicAttack - target.magicDefense) * damageMultiplier);
+                if (baseDamage < 1) baseDamage = 1;
+                
+                if (target.broken) baseDamage = target.applyBrokenDamageMultiplier(baseDamage);
+                
+                target.takeDamage(baseDamage);
+                spawnBattleEffectAtEntity("light", target, 20, 1);
+                
+                sound.playBattleSE("MAGE_LIGHT_VOICE");
+                new Thread(() -> {
+                    try { Thread.sleep(300); } catch (Exception e) {}
+                    sound.playBattleSE("MAGE_LIGHT");
+                }).start();
+                
+                syncVisualHp(target);
+                playTargetHurt(target);
+                
+                showActionMessage(actor.name + " casts Light for " + baseDamage + " damage!");
+                
+                if (!target.isAlive()) {
+                    lastKillerName = actor.name;
+                    playTargetDeath(target);
+                }
+                break;
         }
     }
 
@@ -6410,10 +7024,16 @@ public class GamePanel extends JPanel implements Runnable {
         try {
             registerBattleEffect("break", "res/effects/break.png", 64, 64, 3, 2.0f);
             registerBattleEffect("slash", "res/effects/slash.png", 48, 48, 2, 2.5f);
-
-            registerBattleEffect("boost_lv1", "res/effects/boost_lv1.png", 128, 128, 2, 1.4f);
-            registerBattleEffect("boost_lv2", "res/effects/boost_lv2.png", 128, 128, 2, 1.4f);
-            registerBattleEffect("boost_lv3", "res/effects/boost_lv3.png", 128, 128, 2, 1.4f);
+            
+            // ΝΕΑ EFFECTS
+            registerBattleEffect("coin", "res/effects/coin.png", 64, 64, 8, 2.5f);
+            registerBattleEffect("explosion", "res/effects/explosion.png", 128, 128, 8, 3.0f);
+            registerBattleEffect("poison", "res/effects/poison.png", 128, 128, 8, 2.5f);
+            registerBattleEffect("thunder", "res/effects/thunder.png", 64, 64, 8, 3.0f);
+            registerBattleEffect("light", "res/effects/light.png", 64, 64, 8, 3.0f);
+            registerBattleEffect("fire-burst", "res/effects/fire-burst.png", 64, 64, 8, 3.0f);
+            registerBattleEffect("absorb", "res/effects/absorb.png", 64, 64, 8, 2.5f);
+            registerBattleEffect("bp_share", "res/effects/bp_share.png", 40, 40, 8, 2.5f);
 
             System.out.println("Battle effect sprite sheets loaded successfully.");
         } catch (Exception e) {
@@ -6450,6 +7070,9 @@ public class GamePanel extends JPanel implements Runnable {
                                     int frameDelay, float scale) {
         SpriteSheet sheet = new SpriteSheet(path, frameWidth, frameHeight);
         BufferedImage[] frames = sheet.getAllFrames();
+        
+        // DEBUG
+        System.out.println("Effect '" + effectType + "': " + (frames != null ? frames.length : 0) + " frames from " + path);
 
         battleEffectFrames.put(effectType, frames);
         battleEffectFrameDelays.put(effectType, frameDelay);
@@ -6512,6 +7135,35 @@ public class GamePanel extends JPanel implements Runnable {
 
         // enemies / default
         return "sword";
+    }
+
+    // ===== CLASS SKILL SYSTEM =====
+    public String[] getClassSkillNames(String actorName) {
+        if (actorName.equals("Hero")) return new String[]{"BP Share", "Fire Burst"};
+        if (actorName.equals("Assassin")) return new String[]{"Absorb", "Thief", "Poison"};
+        if (actorName.equals("Mage")) return new String[]{"Explosion", "Thunder", "Light"};
+        return new String[]{};
+    }
+
+    public boolean isSkillTargetingEnemy(String actorName, String skillName) {
+        // BP Share στοχεύει συμπαίκτες
+        if (skillName.equals("BP Share")) return false;
+        // Όλα τα άλλα στοχεύουν εχθρούς
+        return true;
+    }
+
+    public int getSkillMpCost(String actorName, String skillName) {
+        switch (skillName) {
+            case "BP Share": return 10;
+            case "Fire Burst": return 15;
+            case "Absorb": return 12;
+            case "Thief": return 8;
+            case "Poison": return 14;
+            case "Explosion": return 20;
+            case "Thunder": return 18;
+            case "Light": return 16;
+            default: return 10;
+        }
     }
 
     private boolean processBreakHit(BattleEntity attacker, BattleEntity target, String attackType) {
@@ -6743,10 +7395,61 @@ public class GamePanel extends JPanel implements Runnable {
                 fx.offsetX = 0;
                 fx.offsetY = 20;
                 break;
+                
+            // ΝΕΑ ΕΦΕ - πάνω στο σώμα του target
+            case "absorb":
+                fx.offsetX = -30;
+                fx.offsetY = 20;
+                fx.centered = true;
+                break;
+                
+            case "bp_share":
+                fx.offsetX = 0;
+                fx.offsetY = 40;
+                fx.centered = true;
+                break;
+                
+            case "coin":
+                fx.offsetX = 30;
+                fx.offsetY = 100;
+                fx.centered = true;
+                break;
+                
+            case "explosion":
+                fx.offsetX = 0;
+                fx.offsetY = 100;
+                fx.centered = true;
+                break;
+                
+            case "fire-burst":
+            case "fire_burst":
+                fx.offsetX = 0;
+                fx.offsetY = 120;
+                fx.centered = true;
+                break;
+                
+            case "light":
+                fx.offsetX = 0;
+                fx.offsetY = 100;
+                fx.centered = true;
+                break;
+                
+            case "poison":
+                fx.offsetX = 20;
+                fx.offsetY = 140;
+                fx.centered = true;
+                break;
+                
+            case "thunder":
+                fx.offsetX = 0;
+                fx.offsetY = 120;
+                fx.centered = true;
+                break;
 
             default:
                 fx.offsetX = 0;
-                fx.offsetY = 0;
+                fx.offsetY = -40;
+                fx.centered = true;
                 break;
         }
     }
@@ -6770,7 +7473,9 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     public void drawBattleEffects(Graphics2D g2) {
-        for (BattleEffectInstance fx : activeBattleEffects) {
+        // Αντιγραφή για αποφυγή ConcurrentModificationException
+        ArrayList<BattleEffectInstance> effectsCopy = new ArrayList<>(activeBattleEffects);
+        for (BattleEffectInstance fx : effectsCopy) {
             fx.draw(g2, this);
         }
     }
@@ -7078,6 +7783,12 @@ public class GamePanel extends JPanel implements Runnable {
             } else {
                 for (BattlePartyMember bpm : battlePartyMembers) {
                     if (bpm.member.className.equals(actor.name)) {
+                        // ΝΕΑ: skill animations
+                        if (animName.equals("absorb") || animName.equals("poison") || 
+                            animName.equals("useItem") || animName.equals("beforeCast") ||
+                            animName.equals("attackMagic")) {
+                            // Αυτά τα animations υπάρχουν μόνο για συγκεκριμένους χαρακτήρες
+                        }
                         bpm.playAnimation(animName);
                         break;
                     }
@@ -7097,12 +7808,23 @@ public class GamePanel extends JPanel implements Runnable {
         if (actor.isPlayer) {
             if (actor.name.equals("Hero")) {
                 if (!battlePlayers.isEmpty()) {
-                    return battlePlayers.get(0).getCurrentFrameIndex() == 1; // Hero: frame 1
+                    // Αν είναι skill animation, χρησιμοποίησε frame 2
+                    String animName = battlePlayers.get(0).anim.currentAnimName;
+                    if (animName.equals("useItem") || animName.equals("absorb") || 
+                        animName.equals("poison") || animName.equals("attackMagic")) {
+                        return battlePlayers.get(0).getCurrentFrameIndex() == 2;
+                    }
+                    return battlePlayers.get(0).getCurrentFrameIndex() == 1;
                 }
             } else {
                 for (BattlePartyMember bpm : battlePartyMembers) {
                     if (bpm.member.className.equals(actor.name)) {
-                        return bpm.getCurrentFrameIndex() == 2; // Assassin/Mage: frame 2
+                        String animName = bpm.anim.currentAnimName;
+                        if (animName.equals("useItem") || animName.equals("absorb") || 
+                            animName.equals("poison") || animName.equals("attackMagic")) {
+                            return bpm.getCurrentFrameIndex() == 2;
+                        }
+                        return bpm.getCurrentFrameIndex() == 2;
                     }
                 }
             }
@@ -7989,8 +8711,8 @@ public class GamePanel extends JPanel implements Runnable {
         }
 
         // ========== ΠΑΙΚΤΕΣ (ΣΕ ΔΙΑΓΩΝΙΑ ΣΤΟΙΧΙΣΗ) ==========
+        // ========== ΠΑΙΚΤΕΣ ==========
         int playerSpriteSize = tileSize * 4;
-
         BattleEntity currentTurn = battleParty.getCurrentTurn();
 
         // 1. PARTY MEMBERS
@@ -8000,15 +8722,29 @@ public class GamePanel extends JPanel implements Runnable {
             int drawX = (int)Math.round(bpm.x);
             int drawY = (int)Math.round(bpm.y);
 
-            // Σκιά
             g.setColor(new Color(0, 0, 0, 100));
             g.fillOval(drawX + playerSpriteSize / 4, drawY + playerSpriteSize - 10,
                     playerSpriteSize / 2, playerSpriteSize / 8);
 
+            // ΝΕΟ: selection glow για ally targeting
+            if (selectingSkillTarget && skillTargetsAllies) {
+                BattleEntity memberEntity = null;
+                for (int j = 0; j < battleParty.party.size(); j++) {
+                    if (battleParty.party.get(j).name.equals(bpm.member.className)) {
+                        if (j == selectedTarget) {
+                            drawAllySelectionGlow(g, drawX, drawY, playerSpriteSize, playerSpriteSize);
+                        }
+                        break;
+                    }
+                }
+            }
+
             if (currentTurn != null && currentTurn.isPlayer &&
                 currentTurn.name.equals(bpm.member.className) &&
                 selectedBoost > 0 &&
-                !actionInProgress) {
+                !actionInProgress && 
+                !boostCinematicPlaying &&
+                actorForAttack == null) {
 
                 int auraCenterX = drawX + playerSpriteSize / 2;
                 int auraFootY = drawY + playerSpriteSize - 10;
@@ -8044,7 +8780,9 @@ public class GamePanel extends JPanel implements Runnable {
             if (currentTurn != null && currentTurn.isPlayer &&
                 currentTurn.name.equals(bpm.member.className) &&
                 selectedBoost > 0 &&
-                !actionInProgress) {
+                !actionInProgress &&
+                !boostCinematicPlaying &&
+                actorForAttack == null) {
 
                 int auraCenterX = drawX + playerSpriteSize / 2;
                 int auraFootY = drawY + playerSpriteSize - 10;
@@ -8058,19 +8796,25 @@ public class GamePanel extends JPanel implements Runnable {
             int drawX = (int)Math.round(bp.x);
             int drawY = (int)Math.round(bp.y);
 
-            // Σκιά ήρωα
             g.setColor(new Color(0, 0, 0, 100));
             g.fillOval(drawX + playerSpriteSize / 4, drawY + playerSpriteSize - 10,
                     playerSpriteSize / 2, playerSpriteSize / 8);
 
+            // ΝΕΟ: selection glow για ally targeting (Hero = index 0)
+            if (selectingSkillTarget && skillTargetsAllies && selectedTarget == 0) {
+                drawAllySelectionGlow(g, drawX, drawY, playerSpriteSize, playerSpriteSize);
+            }
+
             if (currentTurn != null && currentTurn.isPlayer &&
                 currentTurn.name.equals("Hero") &&
                 selectedBoost > 0 &&
-                !actionInProgress) {
+                !actionInProgress &&
+                !boostCinematicPlaying &&
+                actorForAttack == null) {
 
                 int auraCenterX = drawX + playerSpriteSize / 2;
                 int auraFootY = drawY + playerSpriteSize - 10;
-                drawBoostAuraBack(g, auraCenterX, auraFootY, selectedBoost);  // BACK ΠΡΩΤΑ
+                drawBoostAuraBack(g, auraCenterX, auraFootY, selectedBoost);
             }
 
             BattleEntity heroEntity = null;
@@ -8102,11 +8846,13 @@ public class GamePanel extends JPanel implements Runnable {
             if (currentTurn != null && currentTurn.isPlayer &&
                 currentTurn.name.equals("Hero") &&
                 selectedBoost > 0 &&
-                !actionInProgress) {
+                !actionInProgress &&
+                !boostCinematicPlaying &&
+                actorForAttack == null) {
 
                 int auraCenterX = drawX + playerSpriteSize / 2;
                 int auraFootY = drawY + playerSpriteSize - 10;
-                drawBoostAuraFront(g, auraCenterX, auraFootY, selectedBoost);  // FRONT ΜΕΤΑ
+                drawBoostAuraFront(g, auraCenterX, auraFootY, selectedBoost);
             }
         }
 
@@ -8191,7 +8937,7 @@ public class GamePanel extends JPanel implements Runnable {
             g.drawString(turnText, turnX, menuY + 25);
 
             // Μενού επιλογών (μόνο για παίκτη)
-            if (battleParty.isPlayerTurn() && !selectingTarget && !actionInProgress && !commandLocked) {
+            if (battleParty.isPlayerTurn() && !selectingTarget && !selectingSkill && !selectingSkillTarget && !actionInProgress && !commandLocked) {
                 g.setFont(maruMonica);
                 int optionSpacing = menuWidth / battleMenuOptions.length;
 
@@ -8236,6 +8982,7 @@ public class GamePanel extends JPanel implements Runnable {
                     }
                 }
 
+            // ===== SELECTING TARGET (κανονική επίθεση) =====
             } else if (selectingTarget) {
                 g.setFont(maruMonicaBold);
                 g.setColor(Color.yellow);
@@ -8254,22 +9001,173 @@ public class GamePanel extends JPanel implements Runnable {
 
                     if (i == selectedTarget) {
                         g.setColor(new Color(255, 245, 180));
-
-                        // POINTER
                         if (menuPointer != null) {
                             g.drawImage(menuPointer, x - 40, targetY - 20, 32, 32, null);
                         }
-
                         g.setFont(maruMonicaBold);
                         g.drawString(enemy.name, x, targetY);
-
                     } else {
                         g.setColor(Color.white);
                         g.drawString(enemy.name, x + 15, targetY);
                     }
                 }
+
+            // ===== ΝΕΟ: SELECTING SKILL =====
+            } else if (selectingSkill) {
+                g.setFont(maruMonicaBold);
+                g.setColor(Color.yellow);
+                g.drawString("Select skill:", menuX + 50, menuY + 30);
+
+                g.setFont(maruMonicaSmall);
+                g.setColor(Color.lightGray);
+                g.drawString("↑↓←→ Navigate   ENTER=Confirm   ESC=Back", menuX + 50, menuY + 48);
+                g.drawString("Boost: " + selectedBoost, menuX + 260, menuY + 48);
+
+                // Grid layout: 2 στήλες x 2 γραμμές (ή 3 skills σε μία σειρά)
+                int gridStartX = menuX + 100;
+                int gridStartY = menuY + 75;
+                int cellW = 140;
+                int cellH = 35;
+                int gapX = 20;
+                int gapY = 10;
+                
+                int cols = Math.min(currentSkillNames.length, 2); // max 2 στήλες
+                int rows = (int)Math.ceil((double)currentSkillNames.length / cols);
+
+                for (int i = 0; i < currentSkillNames.length; i++) {
+                    int col = i % cols;
+                    int row = i / cols;
+                    
+                    int x = gridStartX + col * (cellW + gapX);
+                    int y = gridStartY + row * (cellH + gapY);
+
+                    if (i == selectedSkill) {
+                        g.setColor(new Color(60, 60, 80, 220));
+                        g.fillRoundRect(x - 8, y - 18, cellW, cellH, 10, 10);
+                        g.setColor(new Color(255, 245, 180));
+                        g.setStroke(new BasicStroke(2f));
+                        g.drawRoundRect(x - 8, y - 18, cellW, cellH, 10, 10);
+                        
+                        if (menuPointer != null) {
+                            g.drawImage(menuPointer, x - 30, y - 14, 20, 20, null);
+                        }
+                        
+                        g.setFont(maruMonicaBold);
+                        g.drawString(currentSkillNames[i], x, y);
+
+                        // MP cost
+                        g.setFont(maruMonicaSmall);
+                        g.setColor(Color.cyan);
+                        BattleEntity currentPl = battleParty.getCurrentTurn();
+                        int mpCost = getSkillMpCost(currentPl.name, currentSkillNames[i]);
+                        g.drawString("MP:" + mpCost, x + cellW - 55, y);
+                    } else {
+                        g.setColor(Color.white);
+                        g.drawString(currentSkillNames[i], x + 5, y);
+                    }
+                }
+
+            // ===== ΝΕΟ: SELECTING SKILL TARGET =====
+            } else if (selectingSkillTarget) {
+                g.setFont(maruMonicaBold);
+                g.setColor(Color.yellow);
+                g.drawString("Select target:", menuX + 50, menuY + 30);
+
+                g.setFont(maruMonicaSmall);
+                g.setColor(Color.lightGray);
+                g.drawString("ENTER=Confirm   ESC=Back", menuX + 50, menuY + 52);
+                g.drawString("Boost: " + selectedBoost, menuX + 260, menuY + 52);
+
+                int targetY = menuY + 110;
+
+                if (skillTargetsAllies) {
+                    for (int i = 0; i < battleParty.party.size(); i++) {
+                        BattleEntity ally = battleParty.party.get(i);
+                        int x = menuX + 100 + (i * 150);
+
+                        if (i == selectedTarget) {
+                            g.setColor(new Color(255, 245, 180));
+                            if (menuPointer != null) {
+                                g.drawImage(menuPointer, x - 40, targetY - 20, 32, 32, null);
+                            }
+                            g.setFont(maruMonicaBold);
+                            g.drawString(ally.name, x, targetY);
+                        } else {
+                            g.setColor(Color.white);
+                            g.drawString(ally.name, x + 15, targetY);
+                        }
+                    }
+                } else {
+                    for (int i = 0; i < battleParty.enemies.size(); i++) {
+                        BattleEntity enemy = battleParty.enemies.get(i);
+                        int x = menuX + 100 + (i * 150);
+
+                        if (i == selectedTarget) {
+                            g.setColor(new Color(255, 245, 180));
+                            if (menuPointer != null) {
+                                g.drawImage(menuPointer, x - 40, targetY - 20, 32, 32, null);
+                            }
+                            g.setFont(maruMonicaBold);
+                            g.drawString(enemy.name, x, targetY);
+                        } else {
+                            g.setColor(Color.white);
+                            g.drawString(enemy.name, x + 15, targetY);
+                        }
+                    }
+                }
             }
         }
+
+        // ===== LVL3 BOOST CINEMATIC VIGNETTE =====
+        if (boostCinematicPlaying) {
+            float progress = (float) boostCinematicTimer / BOOST_CINEMATIC_DURATION;
+            int alpha = (int)(80 * (1.0f - progress));
+            if (alpha > 0) {
+                // Σκούρα άκρα
+                g.setColor(new Color(0, 0, 0, alpha));
+                g.fillRect(0, 0, screenWidth, screenHeight);
+                
+                // Πιο σκούρο στα άκρα (βινιέτα)
+                RadialGradientPaint vignette = new RadialGradientPaint(
+                    screenWidth / 2, screenHeight / 2, 
+                    Math.max(screenWidth, screenHeight) / 2,
+                    new float[]{0.5f, 1.0f},
+                    new Color[]{new Color(0, 0, 0, 0), new Color(0, 0, 0, alpha + 60)}
+                );
+                g.setPaint(vignette);
+                g.fillRect(0, 0, screenWidth, screenHeight);
+            }
+        }
+
+        g.dispose();
+    }
+
+    private void drawAllySelectionGlow(Graphics2D g2, int allyX, int allyY, int allyW, int allyH) {
+        Graphics2D g = (Graphics2D) g2.create();
+
+        long t = System.currentTimeMillis();
+        float pulse = 0.65f + 0.35f * (float)Math.sin(t * 0.01);
+
+        int centerX = allyX + allyW / 2;
+        int footY = allyY + allyH;
+
+        int ovalWidth = (int)(allyW * 0.45);
+        int ovalHeight = (int)(allyH * 0.12);
+
+        int x = centerX - ovalWidth / 2 - 12;
+        int y = footY - ovalHeight / 2 + 6;
+
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.18f * pulse));
+        g.setColor(new Color(100, 200, 255));  // Μπλε glow για allies
+        g.fillOval(x - 6, y - 4, ovalWidth + 12, ovalHeight + 8);
+
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.28f * pulse));
+        g.fillOval(x, y, ovalWidth, ovalHeight);
+
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.9f));
+        g.setStroke(new BasicStroke(2.5f));
+        g.setColor(new Color(100, 200, 255, 200));
+        g.drawOval(x, y, ovalWidth, ovalHeight);
 
         g.dispose();
     }

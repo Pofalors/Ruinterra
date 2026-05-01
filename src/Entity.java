@@ -39,8 +39,8 @@ public class Entity {
     
     public int maxHp = 50;
     public int hp = 50;
-    public int maxMp = 20;
-    public int mp = 20;
+    public int maxMp = 100;
+    public int mp = 100;
     public int attack = 10;
     public int defense = 5;
     public int magicAttack = 8;

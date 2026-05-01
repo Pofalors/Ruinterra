@@ -35,6 +35,14 @@ public class BattlePartyMember {
             BufferedImage[] attack0Frames = attack0Sheet.getAllFrames();
             BufferedImage[] runLeftFrames = runLeftSheet.getAllFrames();
             BufferedImage[] runRightFrames = runRightSheet.getAllFrames();
+            
+            // ΔΗΜΙΟΥΡΓΙΑ ΤΟΥ anim ΠΡΩΤΑ
+            anim = new PlayerAnimation(idleFrames, hurtFrames, deathFrames, attack0Frames);
+            anim.attack1 = attack0Frames;
+            anim.runLeft = runLeftFrames;
+            anim.runRight = runRightFrames;
+
+            // ΤΩΡΑ φόρτωσε τα boosted attack sprites
             BufferedImage[] attack1Frames = null;
             BufferedImage[] attack2Frames = null;
             BufferedImage[] attack3Frames = null;
@@ -46,6 +54,7 @@ public class BattlePartyMember {
                 System.out.println(basePath + "attack2.png not found, using fallback");
                 attack1Frames = attack0Frames;
             }
+            anim.attack2 = attack1Frames;
 
             try {
                 SpriteSheet attack2Sheet = new SpriteSheet(basePath + "attack3.png", 64, 64);
@@ -54,6 +63,7 @@ public class BattlePartyMember {
                 System.out.println(basePath + "attack3.png not found, using fallback");
                 attack2Frames = attack1Frames != null ? attack1Frames : attack0Frames;
             }
+            anim.attack3 = attack2Frames;
 
             try {
                 SpriteSheet attack3Sheet = new SpriteSheet(basePath + "attack4.png", 64, 64);
@@ -63,15 +73,48 @@ public class BattlePartyMember {
                 attack3Frames = attack2Frames != null ? attack2Frames : 
                             (attack1Frames != null ? attack1Frames : attack0Frames);
             }
-
-
-            anim = new PlayerAnimation(idleFrames, hurtFrames, deathFrames, attack0Frames);
-            anim.attack1 = attack0Frames;
-            anim.attack2 = attack1Frames;
-            anim.attack3 = attack2Frames;
             anim.attack4 = attack3Frames;
-            anim.runLeft = runLeftFrames;
-            anim.runRight = runRightFrames;
+
+            // ΝΕΑ: Φόρτωση skill animations (ΤΩΡΑ ΤΟ anim ΥΠΑΡΧΕΙ)
+            try {
+                SpriteSheet absorbSheet = new SpriteSheet(basePath + "absorb.png", 64, 64);
+                anim.absorb = absorbSheet.getAllFrames();
+                System.out.println("Loaded " + basePath + "absorb.png");
+            } catch (Exception e) {
+                System.out.println(basePath + "absorb.png not found");
+            }
+            
+            try {
+                SpriteSheet poisonSheet = new SpriteSheet(basePath + "poison.png", 64, 64);
+                anim.poison = poisonSheet.getAllFrames();
+                System.out.println("Loaded " + basePath + "poison.png");
+            } catch (Exception e) {
+                System.out.println(basePath + "poison.png not found");
+            }
+            
+            try {
+                SpriteSheet beforeCastSheet = new SpriteSheet(basePath + "beforeCast.png", 64, 64);
+                anim.beforeCast = beforeCastSheet.getAllFrames();
+                System.out.println("Loaded " + basePath + "beforeCast.png");
+            } catch (Exception e) {
+                System.out.println(basePath + "beforeCast.png not found");
+            }
+            
+            try {
+                SpriteSheet attackMagicSheet = new SpriteSheet(basePath + "attackMagic.png", 64, 64);
+                anim.attackMagic = attackMagicSheet.getAllFrames();
+                System.out.println("Loaded " + basePath + "attackMagic.png");
+            } catch (Exception e) {
+                System.out.println(basePath + "attackMagic.png not found");
+            }
+            
+            try {
+                SpriteSheet useItemSheet = new SpriteSheet(basePath + "useItem.png", 64, 64);
+                anim.useItem = useItemSheet.getAllFrames();
+                System.out.println("Loaded " + basePath + "useItem.png");
+            } catch (Exception e) {
+                System.out.println(basePath + "useItem.png not found");
+            }
 
         } catch (Exception e) {
             System.out.println("No battle animations for " + member.name + ", using static images");
@@ -81,12 +124,12 @@ public class BattlePartyMember {
 
     public void playAnimation(String animName) {
         if (anim != null) {
-            boolean loop =
-                    animName.equals("idle") ||
-                    animName.equals("lowHpIdle") ||
-                    animName.equals("run_left") ||
-                    animName.equals("run_right");
+            boolean loop = animName.equals("idle") || animName.equals("lowHpIdle") || 
+            animName.equals("run_left") || animName.equals("run_right") ||
+            animName.equals("beforeCast");
 
+            // ΑΦΑΙΡΕΣΕ το ειδικό reset για beforeCast
+            // Το setAnimation θα κάνει όλα τα απαραίτητα resets
             anim.setAnimation(animName, loop);
         } else {
             currentAnim = animName;

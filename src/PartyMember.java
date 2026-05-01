@@ -26,14 +26,14 @@ public class PartyMember extends Entity {
             this.baseMagicAttack = 2;
             this.baseSpeed = 12;
             this.maxHp = 30;
-            this.maxMp = 15;
+            this.maxMp = 100;
         } else if (className.equals("Mage")) {
             this.baseAttack = 5;
             this.baseDefense = 4;
             this.baseMagicAttack = 15;
             this.baseSpeed = 7;
             this.maxHp = 25;
-            this.maxMp = 30;
+            this.maxMp = 100;
         }
         
         this.attack = baseAttack;
