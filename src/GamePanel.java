@@ -2321,8 +2321,10 @@ public class GamePanel extends JPanel implements Runnable {
                             waitingForBattleMusic = false;
                         }
                     }
-                    // Αν είναι σειρά του παίκτη
-                    else if (battleParty.isPlayerTurn() && !selectingTarget && !selectingBoost && !selectingSkill && !selectingSkillTarget && !actionInProgress && !commandLocked) {
+                    // =====================================================
+                    // BOOST HANDLING - ΔΙΑΘΕΣΙΜΟ ΣΕ ΟΛΑ ΤΑ SUB-MENUS
+                    // =====================================================
+                    if (battleParty.isPlayerTurn() && !actionInProgress && !commandLocked && !boostCinematicPlaying && actorForAttack == null) {
                         BattleEntity currentPlayer = battleParty.getCurrentTurn();
                         int maxSelectableBoost = Math.min(3, currentPlayer.bp);
 
@@ -2344,7 +2346,7 @@ public class GamePanel extends JPanel implements Runnable {
                                     } else if (currentPlayer.name.equals("Mage")) {
                                         sound.playBattleSE("BOOSTMAGE");
                                     }
-                                }                                
+                                }
 
                                 boostLoopLevel = selectedBoost;
                                 battleMessage = "Boost: " + selectedBoost + "   Press B/C";
@@ -2381,6 +2383,11 @@ public class GamePanel extends JPanel implements Runnable {
                         } else {
                             sound.stopBattleLoop();
                         }
+                    }
+
+                    // Αν είναι σειρά του παίκτη (ΚΑΝΟΝΙΚΟ ΜΕΝΟΥ)
+                    if (battleParty.isPlayerTurn() && !selectingTarget && !selectingBoost && !selectingSkill && !selectingSkillTarget && !actionInProgress && !commandLocked) {
+                        BattleEntity currentPlayer = battleParty.getCurrentTurn();
                         // Πλοήγηση στο μενού
                         if (keyH.leftPressed) {
                             battleMenuOption--;
@@ -2406,7 +2413,6 @@ public class GamePanel extends JPanel implements Runnable {
                             
                             switch(battleMenuOption) {
                                 case 0: // ATTACK
-                                    commandLocked = true;
                                     selectingTarget = true;
                                     selectedTarget = 0;
                                     boostLoopLevel = selectedBoost;
@@ -2542,12 +2548,7 @@ public class GamePanel extends JPanel implements Runnable {
                         
                         // Ακύρωση με ESC
                         if (keyH.escapePressed) {
-                            sound.stopBattleLoop();
                             selectingTarget = false;
-                            selectingBoost = false;
-                            selectedBoost = 0;
-                            boostLoopLevel = 0;
-                            boostLoopTimer = 0;
                             commandLocked = false;
                             battleMessage = "";
                             keyH.escapePressed = false;
@@ -6190,10 +6191,21 @@ public class GamePanel extends JPanel implements Runnable {
                 
                 spawnBattleEffectAtEntity("bp_share", target, 20, 1);
                 sound.playBattleSE("MONK_BP_SHARE");
+                
                 // Ο ήχος BP_GET θα παίξει μετά από μικρό delay
                 new Thread(() -> {
                     try { Thread.sleep(400); } catch (Exception e) {}
                     sound.playBattleSE("BP_GET");
+                }).start();
+                
+                // Ο ήχος THANKS θα παίξει ανάλογα με τον χαρακτήρα
+                new Thread(() -> {
+                    try { Thread.sleep(700); } catch (Exception e) {}
+                    if (target.name.equals("Assassin")) {
+                        sound.playBattleSE("THANKSASSASSIN");
+                    } else if (target.name.equals("Mage")) {
+                        sound.playBattleSE("THANKSMAGE");
+                    }
                 }).start();
                 
                 showActionMessage(actor.name + " shares " + bpAmount + " BP with " + target.name + "!");
@@ -7026,11 +7038,11 @@ public class GamePanel extends JPanel implements Runnable {
             registerBattleEffect("slash", "res/effects/slash.png", 48, 48, 2, 2.5f);
             
             // ΝΕΑ EFFECTS
-            registerBattleEffect("coin", "res/effects/coin.png", 64, 64, 8, 2.5f);
-            registerBattleEffect("explosion", "res/effects/explosion.png", 128, 128, 8, 3.0f);
-            registerBattleEffect("poison", "res/effects/poison.png", 128, 128, 8, 2.5f);
-            registerBattleEffect("thunder", "res/effects/thunder.png", 64, 64, 8, 3.0f);
-            registerBattleEffect("light", "res/effects/light.png", 64, 64, 8, 3.0f);
+            registerBattleEffect("coin", "res/effects/coin.png", 64, 64, 10, 2.5f);
+            registerBattleEffect("explosion", "res/effects/explosion.png", 128, 128, 16, 3.0f);
+            registerBattleEffect("poison", "res/effects/poison.png", 128, 128, 16, 2.5f);
+            registerBattleEffect("thunder", "res/effects/thunder.png", 128, 128, 12, 3.0f);
+            registerBattleEffect("light", "res/effects/light.png", 64, 64, 12, 3.0f);
             registerBattleEffect("fire-burst", "res/effects/fire-burst.png", 64, 64, 8, 3.0f);
             registerBattleEffect("absorb", "res/effects/absorb.png", 64, 64, 8, 2.5f);
             registerBattleEffect("bp_share", "res/effects/bp_share.png", 40, 40, 8, 2.5f);
@@ -7385,7 +7397,7 @@ public class GamePanel extends JPanel implements Runnable {
                 break;
 
             case "break":
-                fx.offsetX = -10;
+                fx.offsetX = 20;
                 fx.offsetY = 120;
                 break;
 
@@ -7398,26 +7410,26 @@ public class GamePanel extends JPanel implements Runnable {
                 
             // ΝΕΑ ΕΦΕ - πάνω στο σώμα του target
             case "absorb":
-                fx.offsetX = -30;
+                fx.offsetX = -10;
                 fx.offsetY = 20;
                 fx.centered = true;
                 break;
                 
             case "bp_share":
                 fx.offsetX = 0;
-                fx.offsetY = 40;
+                fx.offsetY = 50;
                 fx.centered = true;
                 break;
                 
             case "coin":
-                fx.offsetX = 30;
-                fx.offsetY = 100;
+                fx.offsetX = 0;
+                fx.offsetY = 140;
                 fx.centered = true;
                 break;
                 
             case "explosion":
                 fx.offsetX = 0;
-                fx.offsetY = 100;
+                fx.offsetY = 40;
                 fx.centered = true;
                 break;
                 
@@ -7435,14 +7447,14 @@ public class GamePanel extends JPanel implements Runnable {
                 break;
                 
             case "poison":
-                fx.offsetX = 20;
-                fx.offsetY = 140;
+                fx.offsetX = 0;
+                fx.offsetY = 80;
                 fx.centered = true;
                 break;
                 
             case "thunder":
                 fx.offsetX = 0;
-                fx.offsetY = 120;
+                fx.offsetY = 70;
                 fx.centered = true;
                 break;
 
@@ -8953,14 +8965,14 @@ public class GamePanel extends JPanel implements Runnable {
                     if (i == battleMenuOption) {
                         g.setFont(maruMonicaBold);
                         g.setColor(Color.yellow);
-                        g.drawString("▶", optionX - 15, optionY);
+                        // g.drawString("▶", optionX - 15, optionY);
 
-                        if (i == 0) {
-                            BufferedImage weaponImg = getWeaponImage();
-                            if (weaponImg != null) {
-                                g.drawImage(weaponImg, optionX + 85, optionY - 20, 20, 20, null);
-                            }
-                        }
+                        // if (i == 0) {
+                        //     BufferedImage weaponImg = getWeaponImage();
+                        //     if (weaponImg != null) {
+                        //         g.drawImage(weaponImg, optionX + 85, optionY - 20, 20, 20, null);
+                        //     }
+                        // }
 
                         g.drawString(optionText, optionX, optionY);
 
@@ -9151,11 +9163,11 @@ public class GamePanel extends JPanel implements Runnable {
         int centerX = allyX + allyW / 2;
         int footY = allyY + allyH;
 
-        int ovalWidth = (int)(allyW * 0.45);
-        int ovalHeight = (int)(allyH * 0.12);
+        int ovalWidth = (int)(allyW * 0.55);  // Πιο φαρδύ
+        int ovalHeight = (int)(allyH * 0.16);  // Πιο ψηλό
 
-        int x = centerX - ovalWidth / 2 - 12;
-        int y = footY - ovalHeight / 2 + 6;
+        int x = centerX - ovalWidth / 2 + 6;  // Πιο δεξιά
+        int y = footY - ovalHeight / 2;
 
         g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.18f * pulse));
         g.setColor(new Color(100, 200, 255));  // Μπλε glow για allies
