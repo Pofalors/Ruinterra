@@ -125,6 +125,7 @@
  <objectgroup id="9" name="portals">
   <object id="9" name="monastery_to_pass" x="140" y="0.545455" width="58" height="23.6364">
    <properties>
+    <property name="message" value="You leave the monastery behind and begin your descent..."/>
     <property name="targetMap" type="int" value="2"/>
     <property name="targetX" type="int" value="10"/>
     <property name="targetY" type="int" value="27"/>
@@ -133,48 +134,43 @@
   </object>
  </objectgroup>
  <objectgroup id="8" name="story_triggers">
-  <object id="7" name="monk_intro_start" x="20.5" y="103" width="284" height="129">
+  <object id="7" name="monastery_invasion_start" x="20.5" y="103" width="284" height="129">
    <properties>
-    <property name="eventId" value="monk_intro_start"/>
-    <property name="forbiddenFlag" value="demo_intro_played"/>
+    <property name="eventId" value="monastery_invasion_start"/>
    </properties>
   </object>
-  <object id="8" name="monk_exit_gate" x="136.5" y="17.5" width="67" height="21">
+  <object id="8" name="monastery_gate_escape" x="136.5" y="17.5" width="67" height="21">
    <properties>
-    <property name="eventId" value="monk_exit_gate"/>
-    <property name="forbiddenFlag" value="monk_escape_done"/>
-    <property name="requiredFlag" value="monk_escape_started"/>
+    <property name="eventId" value="monastery_gate_escape"/>
+    <property name="forbiddenFlag" value="monk_fled_monastery"/>
+    <property name="requiredFlag" value="monastery_invasion_started"/>
    </properties>
   </object>
  </objectgroup>
  <objectgroup id="6" name="npcs">
-  <object id="2" name="master_ren" x="170" y="201.5">
+  <object id="2" name="elder_monk" x="170" y="201">
    <properties>
-    <property name="dialogue" value="master_ren_idle"/>
-    <property name="forbiddenStoryFlag" value="monk_escape_done"/>
+    <property name="dialogue" value="elder_monk_intro"/>
     <property name="npcId" value="old_man"/>
-    <property name="requiredStoryFlag" value="demo_intro_played"/>
-    <property name="storyRole" value="monk_master"/>
+    <property name="storyRole" value="elder_monk"/>
     <property name="type" value="normal"/>
    </properties>
    <point/>
   </object>
-  <object id="3" name="wounded_monk_1" x="230.5" y="103">
+  <object id="3" name="wounded_monk" x="230.5" y="103">
    <properties>
-    <property name="dialogue" value="wounded_monk_1"/>
-    <property name="forbiddenStoryFlag" value="monk_escape_done"/>
+    <property name="dialogue" value="wounded_monk"/>
     <property name="npcId" value="old_man"/>
-    <property name="requiredStoryFlag" value="demo_intro_played"/>
+    <property name="storyRole" value="wounded_monk"/>
     <property name="type" value="normal"/>
    </properties>
    <point/>
   </object>
-  <object id="4" name="wounded_monk_2" x="118" y="64">
+  <object id="4" name="fleeing_monk" x="118" y="64">
    <properties>
-    <property name="dialogue" value="wounded_monk_2"/>
-    <property name="forbiddenStoryFlag" value="monk_escape_done"/>
+    <property name="dialogue" value="fleeing_monk"/>
     <property name="npcId" value="old_man"/>
-    <property name="requiredStoryFlag" value="demo_intro_played"/>
+    <property name="storyRole" value="fleeing_monk"/>
     <property name="type" value="normal"/>
    </properties>
    <point/>

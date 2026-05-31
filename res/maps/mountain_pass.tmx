@@ -196,11 +196,11 @@
   </object>
  </objectgroup>
  <objectgroup id="6" name="story_triggers">
-  <object id="2" name="road_reflection_1" x="95.1667" y="0.75" width="178.667" height="36">
+  <object id="2" name="mountain_path_reflection" x="95.1667" y="0.75" width="178.667" height="36">
    <properties>
-    <property name="eventId" value="road_reflection_1"/>
-    <property name="forbiddenFlag" value="road_reflection_1_done"/>
-    <property name="requiredFlag" value="monk_escape_done"/>
+    <property name="eventId" value="mountain_path_reflection"/>
+    <property name="forbiddenFlag" value="monk_decided_to_seek_help"/>
+    <property name="requiredFlag" value="monk_fled_monastery"/>
    </properties>
   </object>
  </objectgroup>

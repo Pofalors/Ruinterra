@@ -1,13 +1,12 @@
+// StoryManager.java
 import java.io.*;
 import java.util.HashSet;
 
 public class StoryManager {
     private HashSet<String> flags = new HashSet<>();
 
-    public String currentChapter = "monk_ch1";
-    public StoryObjective currentObjective =
-            new StoryObjective("escape_monastery", "Escape the Monastery",
-                    "Find a way out before the attackers reach the inner hall.");
+    public String currentChapter = "prologue";
+    public StoryObjective currentObjective = null;
 
     public boolean hasFlag(String flag) {
         return flags.contains(flag);
@@ -51,7 +50,12 @@ public class StoryManager {
 
     public void load() {
         File file = new File("res/save/story_flags.txt");
-        if (!file.exists()) return;
+        if (!file.exists()) {
+            // Default αρχικοποίηση για νέο παιχνίδι
+            currentChapter = "prologue";
+            currentObjective = null;
+            return;
+        }
 
         flags.clear();
 

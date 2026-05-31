@@ -3873,141 +3873,109 @@ public class GamePanel extends JPanel implements Runnable {
         if (id == null) return new String[]{"..."};
 
         switch (id) {
-            case "master_ren_idle":
-                if (!storyManager.hasFlag(StoryFlag.MONK_ESCAPE_DONE)) {
-                    return new String[]{
-                        "Go, Kael.",
-                        "Do not let fear chain your feet."
-                    };
-                }
+            // ===== MONASTERY NPCs =====
+            case "elder_monk_intro":
                 return new String[]{
-                    "..."
+                    "The demons came from nowhere...",
+                    "Our wards are ancient, but they shattered like glass."
                 };
-
-            case "wounded_monk_1":
+            case "fleeing_monk":
                 return new String[]{
-                    "They came out of the smoke...",
-                    "Not bandits. Not soldiers. Something worse."
+                    "Run! The inner sanctum has fallen!",
+                    "Save yourself before the demons find you!"
                 };
-
-            case "wounded_monk_2":
+            case "wounded_monk":
                 return new String[]{
-                    "Master Ren is still inside...",
-                    "Please... you have to keep moving."
-                };
-
-            case "town_woman_1":
-                if (!storyManager.hasFlag(StoryFlag.TOWN_REACHED)) {
-                    return new String[]{
-                        "The market closes early these days."
-                    };
-                }
-                return new String[]{
-                    "You're from the mountain, aren't you?",
-                    "People saw fire on the ridge before dawn."
-                };
-
-            case "old_scholar_1":
-                if (!storyManager.hasFlag(StoryFlag.TOWN_REACHED)) {
-                    return new String[]{
-                        "Hm..."
-                    };
-                }
-                return new String[]{
-                    "Monasteries keep records older than kingdoms.",
-                    "If someone burned yours, they were not hunting gold."
-                };
-
-            case "merchant_intro":
-                return new String[]{
-                    "You look exhausted, traveler.",
-                    "Supplies cost coin, but information is sometimes cheaper."
-                };
-
-            case "assassin_scene_npc":
-                return new String[]{
-                    "A woman in dark clothes was asking about monks.",
-                    "She headed toward the east quarter."
+                    "They took the relic chamber...",
+                    "The Elder... he stayed behind to buy us time."
                 };
                 
-            case "town_guard":
-                if (!storyManager.hasFlag(StoryFlag.TOWN_REACHED)) {
-                    return new String[]{
-                        "The roads are dangerous lately."
-                    };
-                } else if (!storyManager.hasFlag(StoryFlag.ASSASSIN_JOINED)) {
-                    return new String[]{
-                        "You're from the mountain?",
-                        "A hooded woman came through earlier asking about fires and dead monks."
-                    };
-                } else {
-                    return new String[]{
-                        "The east quarter has been tense all night.",
-                        "Keep your hand near your weapon."
-                    };
-                }
-
-            case "inn_keeper":
-                if (!storyManager.hasFlag(StoryFlag.TOWN_REACHED)) {
-                    return new String[]{
-                        "Welcome, traveler."
-                    };
-                } else {
-                    return new String[]{
-                        "People are whispering about the monastery.",
-                        "Whatever happened up there, it has everyone on edge."
-                    };
-                }
-            case "east_quarter_guard":
-                if (!storyManager.hasFlag(StoryFlag.ASSASSIN_INTRO_PLAYED)) {
-                    return new String[]{
-                        "A hooded woman slipped through here not long ago.",
-                        "Did not look like trouble. That is what worries me."
-                    };
-                }
+            // ===== MOUNTAIN TOWN NPCs =====
+            case "town_guard_intro":
                 return new String[]{
-                    "If you're chasing her, be careful.",
-                    "People like that don't walk in straight lines."
+                    "You came from the monastery?",
+                    "We saw the fires on the mountain. What happened?"
                 };
-
-            case "alley_witness":
-                if (!storyManager.hasFlag(StoryFlag.ASSASSIN_INTRO_PLAYED)) {
+            case "town_elder":
+                if (!storyManager.hasFlag(StoryFlag.MONK_DECIDED_TO_SEEK_HELP)) {
                     return new String[]{
-                        "I heard voices deeper in the alley.",
-                        "One of them sounded calm. Too calm."
+                        "The monastery... destroyed?",
+                        "Then the demons are real. We must prepare defenses."
                     };
                 }
                 return new String[]{
-                    "She vanished before I could even blink.",
-                    "I swear she was standing right there."
+                    "To the south lies a magical forest.",
+                    "An old mage lives there. He may help you."
                 };
-
-            case "academy_guard_1":
-                if (!storyManager.hasFlag(StoryFlag.ASSASSIN_JOINED)) {
-                    return new String[]{
-                        "The academy is closed to outsiders."
-                    };
-                }
-                if (!storyManager.hasFlag(StoryFlag.MAGE_INTRO_PLAYED)) {
-                    return new String[]{
-                        "A young scholar rushed inside not long ago.",
-                        "He looked terrified... and angry."
-                    };
-                }
+            case "town_villager_worried":
                 return new String[]{
-                    "Whatever happened inside, it has the whole district on edge."
+                    "Will the demons come here too?",
+                    "We're simple folk. We can't fight monsters."
                 };
-
-            case "worried_student_1":
-                if (!storyManager.hasFlag(StoryFlag.MAGE_INTRO_PLAYED)) {
+            case "town_merchant":
+                return new String[]{
+                    "If you're heading out, stock up on supplies.",
+                    "The road south is dangerous these days."
+                };
+                
+            // ===== FOREST NPCs =====
+            case "mage_intro":
+                if (!storyManager.hasFlag(StoryFlag.MAGE_SAVED_MONK)) {
                     return new String[]{
-                        "Someone broke into the old archive.",
-                        "I heard shouting from the library hall."
+                        "You! Are you with the goblins?",
+                        "...No. You're not possessed. Good."
                     };
                 }
                 return new String[]{
-                    "That scholar said the records were stolen.",
-                    "He kept talking about ancient monastery texts."
+                    "The goblins were peaceful once.",
+                    "Then the demon artifact appeared, and everything changed."
+                };
+            case "forest_spirit":
+                return new String[]{
+                    "The forest weeps...",
+                    "The corruption spreads from the goblin camp to the north."
+                };
+                
+            // ===== DESERT NPCs =====
+            case "desert_traveler":
+                return new String[]{
+                    "The thieves have gone mad.",
+                    "They used to just steal gold. Now they attack everyone."
+                };
+            case "desert_merchant":
+                return new String[]{
+                    "I saw someone heading toward the caves.",
+                    "Dark clothes. Moving like a shadow. Not possessed, though."
+                };
+                
+            // ===== CASTLE TOWN NPCs =====
+            case "castle_town_guard":
+                if (!storyManager.hasFlag(StoryFlag.PALADIN_JOINED)) {
+                    return new String[]{
+                        "The paladin Marcus is holding them back!",
+                        "But he can't do it alone forever!"
+                    };
+                }
+                return new String[]{
+                    "You helped the paladin? Thank the gods!",
+                    "The church and castle still need clearing."
+                };
+            case "church_priest":
+                return new String[]{
+                    "The holy relic is hidden in the crypt.",
+                    "The demons must not find it!"
+                };
+            case "castle_knight":
+                return new String[]{
+                    "The castle fell so fast...",
+                    "We weren't prepared for demons."
+                };
+                
+            // ===== RETURN TO MONASTERY =====
+            case "returning_town_survivor":
+                return new String[]{
+                    "You came back! But the town...",
+                    "The demons have taken everything."
                 };
         }
 
@@ -4064,349 +4032,544 @@ public class GamePanel extends JPanel implements Runnable {
         ArrayList<CutsceneAction> actions = new ArrayList<>();
 
         switch (eventId) {
-            case "monk_intro_start":
-                if (storyManager.hasFlag(StoryFlag.DEMO_INTRO_PLAYED)) return;
+            // ==========================================
+            // PROLOGUE: MONASTERY INVASION
+            // ==========================================
+            case "monastery_invasion_start":
+                if (storyManager.hasFlag(StoryFlag.MONASTERY_INVASION_STARTED)) return;
 
-                actions.add(CutsceneAction.setFlag(StoryFlag.DEMO_INTRO_PLAYED));
+                actions.add(CutsceneAction.setFlag(StoryFlag.MONASTERY_INVASION_STARTED));
+                actions.add(CutsceneAction.dialogue(
+                    "Elder Monk: Kael! Wake up!\n" +
+                    "The monastery is under attack! Demons... everywhere!"
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Kael: Demons? But the wards should have protected us!"
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Elder Monk: They broke through. The relic chamber has been breached.\n" +
+                    "You must flee while you still can!"
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Kael: I won't abandon the monastery!"
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Elder Monk: If you die here, our order dies with you.\n" +
+                    "Go to the town below the mountain. Warn them. Seek help."
+                ));
                 actions.add(CutsceneAction.setObjective(
-                        "escape_monastery",
-                        "Escape the Monastery",
-                        "Reach the outer gate before the attackers overrun the sanctuary."
+                    "flee_monastery",
+                    "Escape the Monastery",
+                    "Flee the demon invasion and reach the safety of the mountain path."
                 ));
-                actions.add(CutsceneAction.dialogue(
-                        "Master Ren: Kael... listen carefully.\n" +
-                        "The sanctuary has fallen.\n" +
-                        "You must take the First Breath and leave at once."
-                ));
-                actions.add(CutsceneAction.dialogue(
-                        "Kael: I cannot abandon everyone!\n" +
-                        "Master Ren: If you fall here, the flame of our order dies with you."
-                ));
-                actions.add(CutsceneAction.setFlag(StoryFlag.MONK_ESCAPE_STARTED));
                 actions.add(CutsceneAction.endCutscene());
                 cutscenePlayer.start(actions);
                 return;
 
-            case "monk_exit_gate":
-                if (!storyManager.hasFlag(StoryFlag.MONK_ESCAPE_STARTED)) return;
-                if (storyManager.hasFlag(StoryFlag.MONK_ESCAPE_DONE)) return;
+            case "monastery_gate_escape":
+                if (!storyManager.hasFlag(StoryFlag.MONASTERY_INVASION_STARTED)) return;
+                if (storyManager.hasFlag(StoryFlag.MONK_FLED_MONASTERY)) return;
 
                 actions.add(CutsceneAction.dialogue(
-                        "Kael: The outer path is still open...\n" +
-                        "I have no choice now."
+                    "Kael: The gate... I can see the path down the mountain.\n" +
+                    "But the monastery behind me... it's burning."
                 ));
-                actions.add(CutsceneAction.setFlag(StoryFlag.MONK_ESCAPE_DONE));
+                actions.add(CutsceneAction.dialogue(
+                    "Kael: I will return. And I will bring help."
+                ));
+                actions.add(CutsceneAction.setFlag(StoryFlag.MONK_FLED_MONASTERY));
                 actions.add(CutsceneAction.setObjective(
-                        "reach_town",
-                        "Reach the Town",
-                        "Descend from the mountain and seek answers in the settlement below."
+                    "reach_town",
+                    "Reach the Mountain Town",
+                    "Descend the mountain path and reach the small town below."
                 ));
                 actions.add(CutsceneAction.endCutscene());
                 cutscenePlayer.start(actions);
                 return;
 
-            case "road_reflection_1":
-                if (!storyManager.hasFlag(StoryFlag.MONK_ESCAPE_DONE)) return;
-                if (storyManager.hasFlag(StoryFlag.TOWN_REACHED)) return;
-                if (storyManager.hasFlag(StoryFlag.ROAD_REFLECTION_1_DONE)) return;
+            case "mountain_path_reflection":
+                if (!storyManager.hasFlag(StoryFlag.MONK_FLED_MONASTERY)) return;
+                if (storyManager.hasFlag(StoryFlag.MONK_REACHED_TOWN)) return;
+                if (storyManager.hasFlag(StoryFlag.MONK_DECIDED_TO_SEEK_HELP)) return;
 
                 actions.add(CutsceneAction.dialogue(
-                        "Kael: The smoke still rises behind me...\n" +
-                        "If they destroyed the monastery for the First Breath, they will not stop there."
+                    "Kael: The cold wind bites, but I can still smell the smoke from above.\n" +
+                    "Those demons... where did they come from?"
                 ));
                 actions.add(CutsceneAction.dialogue(
-                        "Kael: I need answers.\n" +
-                        "And I need them before whoever did this vanishes into the dark."
+                    "Kael: The town should have answers.\n" +
+                    "And if the demons have already spread... I need allies. Strong ones."
                 ));
-                actions.add(CutsceneAction.setFlag(StoryFlag.ROAD_REFLECTION_1_DONE));
+                actions.add(CutsceneAction.setFlag(StoryFlag.MONK_DECIDED_TO_SEEK_HELP));
+                actions.add(CutsceneAction.setObjective(
+                    "reach_town",
+                    "Reach the Mountain Town",
+                    "Continue down the mountain to the small town."
+                ));
                 actions.add(CutsceneAction.endCutscene());
                 cutscenePlayer.start(actions);
                 return;
-            
+
             case "town_arrival":
-                if (storyManager.hasFlag(StoryFlag.TOWN_REACHED)) return;
+                if (storyManager.hasFlag(StoryFlag.MONK_REACHED_TOWN)) return;
+                if (!storyManager.hasFlag(StoryFlag.MONK_FLED_MONASTERY)) return;
 
-                actions.add(CutsceneAction.setFlag(StoryFlag.TOWN_REACHED));
+                actions.add(CutsceneAction.setFlag(StoryFlag.MONK_REACHED_TOWN));
                 actions.add(CutsceneAction.dialogue(
-                        "Kael: So this is the town below the mountain...\n" +
-                        "If the attackers passed through here, someone must know something."
+                    "Kael: The town... it's still standing.\n" +
+                    "But for how long? The demons could follow."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Kael: I need to warn them.\n" +
+                    "And I need to find warriors willing to fight."
                 ));
                 actions.add(CutsceneAction.setObjective(
-                        "ask_in_town",
-                        "Search for Answers",
-                        "Talk to the townspeople and learn who attacked the monastery."
+                    "seek_allies",
+                    "Find Allies",
+                    "The monastery cannot be retaken alone. Search for powerful warriors in the regions beyond the town."
                 ));
                 actions.add(CutsceneAction.endCutscene());
                 cutscenePlayer.start(actions);
                 return;
-            
-            case "assassin_intro_start":
-                if (!storyManager.hasFlag(StoryFlag.TOWN_REACHED)) return;
-                if (storyManager.hasFlag(StoryFlag.ASSASSIN_INTRO_PLAYED)) return;
 
-                actions.add(CutsceneAction.setFlag(StoryFlag.ASSASSIN_INTRO_PLAYED));
-                actions.add(CutsceneAction.dialogue(
-                        "Voice: Too late.\n" +
-                        "Whoever was here is already gone."
-                ));
-                actions.add(CutsceneAction.dialogue(
-                        "Kael: Show yourself."
-                ));
-                actions.add(CutsceneAction.dialogue(
-                        "Mysterious Woman: Calm. If I wanted you dead, you would not have \n" + 
-                        "heard my voice first."
-                ));
-                actions.add(CutsceneAction.dialogue(
-                        "Kael: Were you at the monastery?"
-                ));
-                actions.add(CutsceneAction.dialogue(
-                        "Mysterious Woman: I was near it.\n" +
-                        "Close enough to smell the ash. Close enough to know \n" + 
-                        "you are carrying something others would kill for."
-                ));
-                actions.add(CutsceneAction.dialogue(
-                        "Kael: Then answer me.\n" +
-                        "Who attacked us?"
-                ));
-                actions.add(CutsceneAction.dialogue(
-                        "Mysterious Woman: Ask better questions.\n" +
-                        "The dead monastery is not the beginning of your trouble.\n" + 
-                        "Only the echo."
-                ));
-                actions.add(CutsceneAction.setObjective(
-                        "track_assassin",
-                        "Track the Hooded Woman",
-                        "Search the eastern quarter and learn why the mysterious \n" + 
-                        "assassin was investigating the monastery."
-                ));
-                actions.add(CutsceneAction.endCutscene());
-                cutscenePlayer.start(actions);
-                return;
-                
-            case "assassin_join_start":
-                if (!storyManager.hasFlag(StoryFlag.ASSASSIN_INTRO_PLAYED)) return;
-                if (storyManager.hasFlag(StoryFlag.ASSASSIN_JOIN_SCENE_DONE)) return;
-
-                actions.add(CutsceneAction.setFlag(StoryFlag.ASSASSIN_JOIN_SCENE_DONE));
-                actions.add(CutsceneAction.dialogue(
-                        "Kael: Stop running."
-                ));
-                actions.add(CutsceneAction.dialogue(
-                        "Mysterious Woman: I was waiting.\n" +
-                        "You are slower than I expected."
-                ));
-                actions.add(CutsceneAction.dialogue(
-                        "Kael: Then speak plainly."
-                ));
-                actions.add(CutsceneAction.dialogue(
-                        "Mysterious Woman: Fine.\n" +
-                        "Men connected to the attack are moving through this town.\n" +
-                        "I am hunting them for my own reasons."
-                ));
-                actions.add(CutsceneAction.dialogue(
-                        "Kael: And you expect me to trust you?"
-                ));
-                actions.add(CutsceneAction.dialogue(
-                        "Mysterious Woman: No.\n" +
-                        "I expect you to understand that we want the same answers."
-                ));
-                actions.add(CutsceneAction.dialogue(
-                        "Kael: ...Then until I have those answers, we travel together."
-                ));
-                actions.add(CutsceneAction.dialogue(
-                        "Seren: Hm.\n" +
-                        "Very well, monk. Try not to die before you become useful."
-                ));
-                actions.add(CutsceneAction.setFlag(StoryFlag.ASSASSIN_JOINED));
-                actions.add(CutsceneAction.unlockPartyMember("Assassin"));
-                actions.add(CutsceneAction.setObjective(
-                        "seek_scholar",
-                        "Find a Scholar",
-                        "Now that Seren has joined you, investigate who in town might know more about the relic and the monastery records."
-                ));
-                actions.add(CutsceneAction.endCutscene());
-                cutscenePlayer.start(actions);
-                return;
-                
-            case "mage_intro_start":
-                if (!storyManager.hasFlag(StoryFlag.ASSASSIN_JOINED)) return;
+            // ==========================================
+            // CHAPTER 1: MAGICAL FOREST
+            // ==========================================
+            case "forest_entrance_scene":
+                if (!storyManager.hasFlag(StoryFlag.MONK_REACHED_TOWN)) return;
                 if (storyManager.hasFlag(StoryFlag.MAGE_INTRO_PLAYED)) return;
 
+                actions.add(CutsceneAction.dialogue(
+                    "Kael: This forest... it feels wrong.\n" +
+                    "The trees are twisted, and there's a foul stench in the air."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Kael: The villagers said the forest is home to an old mage.\n" +
+                    "If anyone has power to fight demons, it would be him."
+                ));
                 actions.add(CutsceneAction.setFlag(StoryFlag.MAGE_INTRO_PLAYED));
-                actions.add(CutsceneAction.dialogue(
-                        "Eldrin: No, no, no...\n" +
-                        "If the archive pages were taken, then someone knew exactly what to look for."
-                ));
-                actions.add(CutsceneAction.dialogue(
-                        "Kael: You there. What was stolen?"
-                ));
-                actions.add(CutsceneAction.dialogue(
-                        "Eldrin: Records.\n" +
-                        "Monastic records, pre-royal records, references to a relic sealed by ascetics in the northern heights."
-                ));
-                actions.add(CutsceneAction.dialogue(
-                        "Seren: Convenient.\n" +
-                        "That sounds very close to our monastery problem."
-                ));
-                actions.add(CutsceneAction.dialogue(
-                        "Eldrin: Your monastery problem?\n" +
-                        "Then you are already involved whether you understand it or not."
-                ));
-                actions.add(CutsceneAction.dialogue(
-                        "Kael: Then explain."
-                ));
-                actions.add(CutsceneAction.dialogue(
-                        "Eldrin: Not here.\n" +
-                        "If the thieves are still in the district, the remaining records are in danger."
-                ));
                 actions.add(CutsceneAction.setObjective(
-                        "follow_scholar",
-                        "Follow the Scholar",
-                        "Investigate the academy district and learn what was stolen from the archive."
+                    "find_mage",
+                    "Find the Forest Mage",
+                    "Search the magical forest for the mage the villagers spoke of."
                 ));
                 actions.add(CutsceneAction.endCutscene());
                 cutscenePlayer.start(actions);
                 return;
 
-            case "mage_join_start":
+            case "mage_rescue_monk":
                 if (!storyManager.hasFlag(StoryFlag.MAGE_INTRO_PLAYED)) return;
-                if (storyManager.hasFlag(StoryFlag.MAGE_JOIN_SCENE_DONE)) return;
+                if (storyManager.hasFlag(StoryFlag.MAGE_SAVED_MONK)) return;
 
-                actions.add(CutsceneAction.setFlag(StoryFlag.MAGE_JOIN_SCENE_DONE));
                 actions.add(CutsceneAction.dialogue(
-                        "Eldrin: The missing pages mentioned a name.\n" +
-                        "\"First Breath.\""
+                    "Kael: Goblins! They're everywhere!"
                 ));
                 actions.add(CutsceneAction.dialogue(
-                        "Kael: ..."
+                    "???: Fireball!"
                 ));
                 actions.add(CutsceneAction.dialogue(
-                        "Seren: That reaction tells me enough.\n" +
-                        "So the scholar stays."
+                    "Kael: What?!"
                 ));
                 actions.add(CutsceneAction.dialogue(
-                        "Eldrin: I beg your pardon?"
+                    "Eldrin: You looked like you needed a hand.\n" +
+                    "These goblins have been possessed by something dark."
                 ));
                 actions.add(CutsceneAction.dialogue(
-                        "Seren: If people are killing over monastery records, then your research is no longer academic."
+                    "Kael: Demons. They attacked my monastery in the mountains."
                 ));
                 actions.add(CutsceneAction.dialogue(
-                        "Kael: You know what was taken.\n" +
-                        "We know why it matters. We move together."
+                    "Eldrin: That explains the corruption spreading through the forest.\n" +
+                    "I've been fighting these creatures for days."
                 ));
                 actions.add(CutsceneAction.dialogue(
-                        "Eldrin: Hm.\n" +
-                        "Very well. But understand this: if I am correct, then what was stolen is only one part of something far older."
+                    "Kael: Then help me. I need allies to reclaim the monastery."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Eldrin: If we don't stop the source here first, the corruption will spread.\n" +
+                    "The goblin leader carries a demonic artifact. Destroy it, and I'll join you."
+                ));
+                actions.add(CutsceneAction.setFlag(StoryFlag.MAGE_SAVED_MONK));
+                actions.add(CutsceneAction.setObjective(
+                    "defeat_goblin_leader",
+                    "Defeat the Goblin Leader",
+                    "Fight through the possessed goblins and destroy the demonic artifact their leader carries."
+                ));
+                actions.add(CutsceneAction.endCutscene());
+                cutscenePlayer.start(actions);
+                return;
+
+            case "goblin_boss_encounter":
+                if (!storyManager.hasFlag(StoryFlag.MAGE_SAVED_MONK)) return;
+                if (storyManager.hasFlag(StoryFlag.FOREST_GOBLINS_DEFEATED)) return;
+
+                actions.add(CutsceneAction.dialogue(
+                    "Goblin Shaman: More intruders! The master will feast on your souls!"
+                ));
+                actions.add(CutsceneAction.startBattle("goblin_shaman"));
+                actions.add(CutsceneAction.setFlag(StoryFlag.FOREST_GOBLINS_DEFEATED));
+                actions.add(CutsceneAction.endCutscene());
+                cutscenePlayer.start(actions);
+                return;
+
+            case "mage_joins":
+                if (!storyManager.hasFlag(StoryFlag.FOREST_GOBLINS_DEFEATED)) return;
+                if (storyManager.hasFlag(StoryFlag.MAGE_JOINED)) return;
+
+                actions.add(CutsceneAction.dialogue(
+                    "Eldrin: The artifact is destroyed. The forest will heal now."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Kael: Will you join me? There are more regions that might be under attack."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Eldrin: You saved my home. The least I can do is help you save yours.\n" +
+                    "I've heard tales of skilled warriors in the desert to the south."
                 ));
                 actions.add(CutsceneAction.setFlag(StoryFlag.MAGE_JOINED));
                 actions.add(CutsceneAction.unlockPartyMember("Mage"));
+                actions.add(CutsceneAction.setFlag(StoryFlag.CHAPTER_1_COMPLETE));
                 actions.add(CutsceneAction.setObjective(
-                        "prepare_for_ruins",
-                        "Search the Ashen Chapel Ruins",
-                        "Follow the trail described in the stolen records and discover who is searching for the First Breath."
+                    "travel_to_desert",
+                    "Travel to the Desert",
+                    "Head south to the desert region to find more allies."
                 ));
                 actions.add(CutsceneAction.endCutscene());
                 cutscenePlayer.start(actions);
                 return;
-            
-            case "post_mage_regroup":
+
+            // ==========================================
+            // CHAPTER 2: DESERT
+            // ==========================================
+            case "desert_entrance_scene":
                 if (!storyManager.hasFlag(StoryFlag.MAGE_JOINED)) return;
-                if (storyManager.hasFlag(StoryFlag.RUINS_OBJECTIVE_SET)) return;
+                if (storyManager.hasFlag(StoryFlag.ASSASSIN_INTRO_PLAYED)) return;
 
-                actions.add(CutsceneAction.setFlag(StoryFlag.RUINS_OBJECTIVE_SET));
                 actions.add(CutsceneAction.dialogue(
-                        "Eldrin: The stolen pages mentioned a sealed site beyond the town.\n" +
-                        "A ruined chapel used long ago to store forbidden records."
+                    "Kael: So this is the desert... the heat is unbearable."
                 ));
                 actions.add(CutsceneAction.dialogue(
-                        "Seren: Then that is where your thieves went next."
+                    "Eldrin: The thieves' hideout is in the mountain caves.\n" +
+                    "But something feels off. It's too quiet."
                 ));
-                actions.add(CutsceneAction.dialogue(
-                        "Kael: If they seek the First Breath, we cannot let them reach it first."
-                ));
-                actions.add(CutsceneAction.dialogue(
-                        "Eldrin: The site is known in the old texts as the Ashen Chapel Ruins."
-                ));
+                actions.add(CutsceneAction.setFlag(StoryFlag.ASSASSIN_INTRO_PLAYED));
                 actions.add(CutsceneAction.setObjective(
-                        "go_to_ruins",
-                        "Search the Ashen Chapel Ruins",
-                        "Leave town and investigate the ruined chapel mentioned in the stolen academy records."
+                    "explore_desert",
+                    "Explore the Desert",
+                    "Search the desert for signs of the thieves' hideout."
                 ));
                 actions.add(CutsceneAction.endCutscene());
                 cutscenePlayer.start(actions);
                 return;
 
-            case "ruins_path_scene":
-                if (!storyManager.hasFlag(StoryFlag.RUINS_OBJECTIVE_SET)) return;
-                if (storyManager.hasFlag(StoryFlag.RUINS_PATH_SCENE_DONE)) return;
+            case "assassin_encounter":
+                if (!storyManager.hasFlag(StoryFlag.ASSASSIN_INTRO_PLAYED)) return;
+                if (storyManager.hasFlag(StoryFlag.ASSASSIN_STORY_TOLD)) return;
 
-                actions.add(CutsceneAction.setFlag(StoryFlag.RUINS_PATH_SCENE_DONE));
                 actions.add(CutsceneAction.dialogue(
-                        "Seren: Someone passed through here recently.\n" +
-                        "Three, maybe four people. Light steps. Organized."
+                    "Seren: Stop right there! Don't come any closer!"
                 ));
                 actions.add(CutsceneAction.dialogue(
-                        "Eldrin: Then we are close."
+                    "Kael: Whoa! We're not your enemies!"
                 ));
                 actions.add(CutsceneAction.dialogue(
-                        "Kael: Stay alert.\n" +
-                        "If they came for the same relic, they may still be inside."
-                ));
-                actions.add(CutsceneAction.endCutscene());
-                cutscenePlayer.start(actions);
-                return;
-
-            case "ruins_entered":
-                if (!storyManager.hasFlag(StoryFlag.RUINS_OBJECTIVE_SET)) return;
-                if (storyManager.hasFlag(StoryFlag.RUINS_ENTERED)) return;
-
-                actions.add(CutsceneAction.setFlag(StoryFlag.RUINS_ENTERED));
-                actions.add(CutsceneAction.dialogue(
-                        "Eldrin: These markings...\n" +
-                        "They were deliberately broken."
+                    "Seren: That's what the others said before they turned.\n" +
+                    "My entire gang... possessed by something dark. I thought you were more of them."
                 ));
                 actions.add(CutsceneAction.dialogue(
-                        "Kael: A seal?"
+                    "Kael: Possessed? Demons?"
                 ));
                 actions.add(CutsceneAction.dialogue(
-                        "Eldrin: Yes.\n" +
-                        "And not a minor one."
+                    "Seren: We found artifacts in an ancient ruin.\n" +
+                    "Days later, our leader touched one... and everything went wrong."
                 ));
                 actions.add(CutsceneAction.dialogue(
-                        "Seren: Then whoever came here was not merely stealing records.\n" +
-                        "They were opening something."
+                    "Eldrin: Demonic artifacts. The same corruption we saw in the forest."
                 ));
+                actions.add(CutsceneAction.dialogue(
+                    "Kael: We're fighting the same enemy. Help us stop them."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Seren: ...You want to help me save them?\n" +
+                    "Even though I attacked you?"
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Kael: You were protecting yourself. We understand.\n" +
+                    "Join us, and together we'll free your gang from the demons."
+                ));
+                actions.add(CutsceneAction.setFlag(StoryFlag.ASSASSIN_STORY_TOLD));
                 actions.add(CutsceneAction.setObjective(
-                        "search_inner_ruins",
-                        "Search the Inner Ruins",
-                        "Go deeper into the Ashen Chapel and find the source of the broken seal."
+                    "enter_thief_cave",
+                    "Enter the Thief Caves",
+                    "Enter the mountain caves where the possessed thieves are hiding."
                 ));
                 actions.add(CutsceneAction.endCutscene());
                 cutscenePlayer.start(actions);
                 return;
 
-            case "demo_boss_intro":
-                if (!storyManager.hasFlag(StoryFlag.RUINS_ENTERED)) return;
-                if (storyManager.hasFlag(StoryFlag.DEMO_BOSS_INTRO_PLAYED)) return;
+            case "thief_cave_entrance":
+                if (!storyManager.hasFlag(StoryFlag.ASSASSIN_STORY_TOLD)) return;
+                if (storyManager.hasFlag(StoryFlag.DESERT_CAVE_ENTERED)) return;
 
-                actions.add(CutsceneAction.setFlag(StoryFlag.DEMO_BOSS_INTRO_PLAYED));
                 actions.add(CutsceneAction.dialogue(
-                        "Kael: The chamber... it was already opened."
+                    "Seren: This was our hideout. Now it's a nest of demons."
                 ));
                 actions.add(CutsceneAction.dialogue(
-                        "Eldrin: No.\n" +
-                        "Not opened. Disturbed."
+                    "Kael: We'll clear it out. No demon stands a chance against all three of us."
+                ));
+                actions.add(CutsceneAction.setFlag(StoryFlag.DESERT_CAVE_ENTERED));
+                actions.add(CutsceneAction.setObjective(
+                    "defeat_thief_gang",
+                    "Defeat the Possessed Thieves",
+                    "Fight through the caves and defeat the demon-possessed thief leader."
+                ));
+                actions.add(CutsceneAction.endCutscene());
+                cutscenePlayer.start(actions);
+                return;
+
+            case "thief_boss_encounter":
+                if (!storyManager.hasFlag(StoryFlag.DESERT_CAVE_ENTERED)) return;
+                if (storyManager.hasFlag(StoryFlag.THIEF_GANG_DEFEATED)) return;
+
+                actions.add(CutsceneAction.dialogue(
+                    "Thief Leader: More... artifacts... must... collect..."
                 ));
                 actions.add(CutsceneAction.dialogue(
-                        "Seren: Move."
+                    "Seren: Boss! Fight the demon's control!"
                 ));
                 actions.add(CutsceneAction.dialogue(
-                        "???: ...Unworthy..."
+                    "Kael: He's too far gone. We have to stop him!"
+                ));
+                actions.add(CutsceneAction.startBattle("possessed_thief_leader"));
+                actions.add(CutsceneAction.setFlag(StoryFlag.THIEF_GANG_DEFEATED));
+                actions.add(CutsceneAction.endCutscene());
+                cutscenePlayer.start(actions);
+                return;
+
+            case "assassin_joins":
+                if (!storyManager.hasFlag(StoryFlag.THIEF_GANG_DEFEATED)) return;
+                if (storyManager.hasFlag(StoryFlag.ASSASSIN_JOINED)) return;
+
+                actions.add(CutsceneAction.dialogue(
+                    "Seren: It's over... the gang is gone."
                 ));
                 actions.add(CutsceneAction.dialogue(
-                        "Eldrin: The guardian is waking!"
+                    "Kael: Those who weren't possessed may have fled.\n" +
+                    "With the artifact destroyed, the corruption should stop spreading."
                 ));
-                actions.add(CutsceneAction.startBattle("ashen_guardian"));
+                actions.add(CutsceneAction.dialogue(
+                    "Seren: I have nothing left here. \n" +
+                    "You helped me when I attacked you. If you'll have me, I'll fight with you."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Kael: Welcome aboard, Seren."
+                ));
+                actions.add(CutsceneAction.setFlag(StoryFlag.ASSASSIN_JOINED));
+                actions.add(CutsceneAction.unlockPartyMember("Assassin"));
+                actions.add(CutsceneAction.setFlag(StoryFlag.CHAPTER_2_COMPLETE));
+                actions.add(CutsceneAction.setObjective(
+                    "travel_to_castle_town",
+                    "Travel to the Castle Town",
+                    "Eldrin has heard rumors of a holy paladin in the castle town to the east. Seek his aid."
+                ));
+                actions.add(CutsceneAction.endCutscene());
+                cutscenePlayer.start(actions);
+                return;
+
+            // ==========================================
+            // CHAPTER 3: CASTLE TOWN
+            // ==========================================
+            case "castle_town_arrival":
+                if (!storyManager.hasFlag(StoryFlag.ASSASSIN_JOINED)) return;
+                if (storyManager.hasFlag(StoryFlag.CASTLE_TOWN_REACHED)) return;
+
+                actions.add(CutsceneAction.dialogue(
+                    "Kael: The castle town... wait, I hear screaming!"
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Eldrin: The demons! They've already reached this place!"
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Seren: And someone's fighting them. Look!"
+                ));
+                actions.add(CutsceneAction.setFlag(StoryFlag.CASTLE_TOWN_REACHED));
+                actions.add(CutsceneAction.setObjective(
+                    "find_paladin",
+                    "Help the Paladin",
+                    "Find the warrior fighting the demons in the town and offer your aid."
+                ));
+                actions.add(CutsceneAction.endCutscene());
+                cutscenePlayer.start(actions);
+                return;
+
+            case "paladin_encounter":
+                if (!storyManager.hasFlag(StoryFlag.CASTLE_TOWN_REACHED)) return;
+                if (storyManager.hasFlag(StoryFlag.PALADIN_JOINED)) return;
+
+                actions.add(CutsceneAction.dialogue(
+                    "Marcus: Hold the line! Protect the civilians!"
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Kael: We're here to help!"
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Marcus: You fight well, strangers! But this is no ordinary attack."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Kael: We know. We've been tracking this demon invasion across the land."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Marcus: Then you'll understand when I say they're after the holy relic in the church."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Eldrin: Another relic? They're collecting ancient artifacts."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Marcus: Then we must protect the church, the castle, and this town.\n" +
+                    "I am Marcus, paladin of this order. Will you stand beside me?"
+                ));
+                actions.add(CutsceneAction.setFlag(StoryFlag.PALADIN_JOINED));
+                actions.add(CutsceneAction.unlockPartyMember("Paladin"));
+                actions.add(CutsceneAction.setObjective(
+                    "defend_castle_town",
+                    "Defend the Castle Town",
+                    "Clear the demons from the town, then push to the church and castle."
+                ));
+                actions.add(CutsceneAction.endCutscene());
+                cutscenePlayer.start(actions);
+                return;
+
+            case "town_battle_complete":
+                if (!storyManager.hasFlag(StoryFlag.PALADIN_JOINED)) return;
+                if (storyManager.hasFlag(StoryFlag.CASTLE_TOWN_DEMONS_DEFEATED)) return;
+
+                actions.add(CutsceneAction.dialogue(
+                    "Marcus: The town is secure. But the church and castle still hold demons."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Kael: We'll take the church first, then the castle."
+                ));
+                actions.add(CutsceneAction.setFlag(StoryFlag.CASTLE_TOWN_DEMONS_DEFEATED));
+                actions.add(CutsceneAction.setObjective(
+                    "clear_church",
+                    "Cleanse the Church",
+                    "Enter the church and destroy the demons defiling its holy ground."
+                ));
+                actions.add(CutsceneAction.endCutscene());
+                cutscenePlayer.start(actions);
+                return;
+
+            case "church_battle_complete":
+                if (!storyManager.hasFlag(StoryFlag.CASTLE_TOWN_DEMONS_DEFEATED)) return;
+                if (storyManager.hasFlag(StoryFlag.CHURCH_DEMONS_DEFEATED)) return;
+
+                actions.add(CutsceneAction.dialogue(
+                    "Marcus: The church is cleansed. The holy relic is safe."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Kael: One more place to go. The castle."
+                ));
+                actions.add(CutsceneAction.setFlag(StoryFlag.CHURCH_DEMONS_DEFEATED));
+                actions.add(CutsceneAction.setObjective(
+                    "storm_castle",
+                    "Storm the Castle",
+                    "Enter the castle and defeat the demons that have taken over."
+                ));
+                actions.add(CutsceneAction.endCutscene());
+                cutscenePlayer.start(actions);
+                return;
+
+            case "castle_battle_complete":
+                if (!storyManager.hasFlag(StoryFlag.CHURCH_DEMONS_DEFEATED)) return;
+                if (storyManager.hasFlag(StoryFlag.CASTLE_DEMONS_DEFEATED)) return;
+
+                actions.add(CutsceneAction.dialogue(
+                    "Kael: The castle is ours. This region is free from demons."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Seren: But the source is still out there. The monastery."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Marcus: Then we go there. Together."
+                ));
+                actions.add(CutsceneAction.setFlag(StoryFlag.CASTLE_DEMONS_DEFEATED));
+                actions.add(CutsceneAction.setFlag(StoryFlag.CHAPTER_3_COMPLETE));
+                actions.add(CutsceneAction.setObjective(
+                    "return_to_monastery",
+                    "Return to the Monastery",
+                    "Travel back to the monastery town and face the source of the demon invasion."
+                ));
+                actions.add(CutsceneAction.endCutscene());
+                cutscenePlayer.start(actions);
+                return;
+
+            // ==========================================
+            // FINALE: RETURN TO MONASTERY
+            // ==========================================
+            case "monastery_town_return":
+                if (!storyManager.hasFlag(StoryFlag.CASTLE_DEMONS_DEFEATED)) return;
+                if (storyManager.hasFlag(StoryFlag.RETURNED_TO_MONASTERY_TOWN)) return;
+
+                actions.add(CutsceneAction.dialogue(
+                    "Kael: The town below the monastery... it's been overrun!"
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Marcus: We'll clear it. For the people who couldn't escape."
+                ));
+                actions.add(CutsceneAction.setFlag(StoryFlag.RETURNED_TO_MONASTERY_TOWN));
+                actions.add(CutsceneAction.setObjective(
+                    "fight_through_town",
+                    "Fight Through the Town",
+                    "Fight your way through the demon-infested town to reach the monastery."
+                ));
+                actions.add(CutsceneAction.endCutscene());
+                cutscenePlayer.start(actions);
+                return;
+
+            case "monastery_entrance":
+                if (!storyManager.hasFlag(StoryFlag.RETURNED_TO_MONASTERY_TOWN)) return;
+                if (storyManager.hasFlag(StoryFlag.MONASTERY_REACHED)) return;
+
+                actions.add(CutsceneAction.dialogue(
+                    "Kael: The monastery... I never thought I'd return like this."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Eldrin: The demonic energy here is overwhelming."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Kael: Whatever is causing this, it's inside. Let's end this."
+                ));
+                actions.add(CutsceneAction.setFlag(StoryFlag.MONASTERY_REACHED));
+                actions.add(CutsceneAction.setObjective(
+                    "enter_monastery",
+                    "Enter the Monastery",
+                    "Go inside the monastery and find the source of the demon invasion."
+                ));
+                actions.add(CutsceneAction.endCutscene());
+                cutscenePlayer.start(actions);
+                return;
+
+            case "final_boss_encounter":
+                if (!storyManager.hasFlag(StoryFlag.MONASTERY_REACHED)) return;
+                if (storyManager.hasFlag(StoryFlag.DEMO_BOSS_DEFEATED)) return;
+
+                actions.add(CutsceneAction.dialogue(
+                    "Demon Lord: More mortals? The First Breath will be ours!"
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Kael: The First Breath... that's our monastery's sacred relic!"
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Demon Lord: It will open the gate between our worlds!\n" +
+                    "Your order is dead. Your relic will serve us!"
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Marcus: Not while we stand!"
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "Kael: Together! For everyone who was lost!"
+                ));
+                actions.add(CutsceneAction.startBattle("demon_lord"));
+                actions.add(CutsceneAction.setFlag(StoryFlag.DEMO_BOSS_DEFEATED));
                 actions.add(CutsceneAction.endCutscene());
                 cutscenePlayer.start(actions);
                 return;
@@ -4417,25 +4580,29 @@ public class GamePanel extends JPanel implements Runnable {
 
                 actions.add(CutsceneAction.setFlag(StoryFlag.DEMO_COMPLETE));
                 actions.add(CutsceneAction.dialogue(
-                        "Eldrin: Look...\n" +
-                        "That mark on the altar. It matches the stolen pages."
+                    "Kael: It's over... the Demon Lord is defeated."
                 ));
                 actions.add(CutsceneAction.dialogue(
-                        "Seren: So the town was only a stop on their route."
+                    "Eldrin: But this was only the beginning. \n" +
+                    "The Demon Lord mentioned a gate between worlds."
                 ));
                 actions.add(CutsceneAction.dialogue(
-                        "Kael: Then this is larger than the monastery."
+                    "Seren: Whatever's on the other side, we'll be ready."
                 ));
                 actions.add(CutsceneAction.dialogue(
-                        "Eldrin: Much larger.\n" +
-                        "If the First Breath is only one fragment, then others may already be in danger."
+                    "Marcus: The monastery can be rebuilt. And we'll protect it."
                 ));
                 actions.add(CutsceneAction.dialogue(
-                        "Kael: Then we move before they do."
+                    "Kael: The First Breath is safe. And now we know the truth.\n" +
+                    "The demons want to open a permanent gate to our world."
                 ));
                 actions.add(CutsceneAction.dialogue(
-                        "Demo Complete\n" +
-                        "The hunt for the remaining fragments will continue..."
+                    "Kael: This is only the beginning of our journey.\n" +
+                    "But for now... the monastery is free."
+                ));
+                actions.add(CutsceneAction.dialogue(
+                    "=== DEMO COMPLETE ===\n" +
+                    "The adventure continues in the full game..."
                 ));
                 actions.add(CutsceneAction.endCutscene());
                 cutscenePlayer.start(actions);

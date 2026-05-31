@@ -170,7 +170,11 @@ public class TileManager {
         addTiledMapFromTMX("monastery_start", "res/maps/monastery_start.tmx");
         addTiledMapFromTMX("first_town", "res/maps/first_town.tmx");
         addTiledMapFromTMX("mountain_pass", "res/maps/mountain_pass.tmx");
-        addTiledMapFromTMX("ashen_ruins_entrance", "res/maps/ashen_ruins_entrance.tmx");
+        //addTiledMapFromTMX("ashen_ruins_entrance", "res/maps/ashen_ruins_entrance.tmx");
+        addTiledMapFromTMX("magical_forest", "res/maps/magical_forest.tmx");
+        addTiledMapFromTMX("desert_region", "res/maps/desert_region.tmx");
+        addTiledMapFromTMX("thief_cave", "res/maps/thief_cave.tmx");
+        addTiledMapFromTMX("castle_town", "res/maps/castle_town.tmx");
     }
 
     public void addLegacyMap(String name, String filePath) {

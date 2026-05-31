@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="30" height="30" tilewidth="16" tileheight="16" infinite="0" nextlayerid="12" nextobjectid="4">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="30" height="30" tilewidth="16" tileheight="16" infinite="0" nextlayerid="12" nextobjectid="5">
  <tileset firstgid="1" source="cave.tsx"/>
  <tileset firstgid="1740" source="town_assets.tsx"/>
  <tileset firstgid="3540" source="ruins_set.tsx"/>
@@ -176,30 +176,19 @@
  </layer>
  <objectgroup id="6" name="portals"/>
  <objectgroup id="7" name="spawns"/>
- <objectgroup id="8" name="story_triggers">
-  <object id="1" name="ruins_path_scene_trigger" x="210.5" y="415.5" width="93.5" height="30.5">
+ <objectgroup id="8" name="story_triggers"/>
+ <objectgroup id="9" name="encounters">
+  <object id="4" name="enc_ruins_main" x="174" y="14.5" width="163" height="97.5">
    <properties>
-    <property name="eventId" value="ruins_path_scene"/>
-    <property name="forbiddenFlag" value="ruins_path_scene_done"/>
-    <property name="requiredFlag" value="ruins_objective_set"/>
-   </properties>
-  </object>
-  <object id="2" name="ruins_entered_trigger" x="219" y="197.5" width="72" height="27">
-   <properties>
-    <property name="eventId" value="ruins_entered"/>
-    <property name="forbiddenFlag" value="ruins_entered"/>
-    <property name="requiredFlag" value="ruins_path_scene_done"/>
-   </properties>
-  </object>
-  <object id="3" name="demo_boss_intro_trigger" x="209" y="95.5" width="95.5" height="16.5">
-   <properties>
-    <property name="eventId" value="demo_boss_intro"/>
-    <property name="forbiddenFlag" value="demo_boss_intro_played"/>
-    <property name="requiredFlag" value="ruins_entered"/>
+    <property name="areaType" value="dungeon"/>
+    <property name="enemies" value="Goblin,Skeleton"/>
+    <property name="maxGroup" type="int" value="2"/>
+    <property name="minGroup" type="int" value="1"/>
+    <property name="rate" type="float" value="0.1"/>
+    <property name="weights" value="40,60"/>
    </properties>
   </object>
  </objectgroup>
- <objectgroup id="9" name="encounters"/>
  <objectgroup id="10" name="chests"/>
  <objectgroup id="11" name="enemies"/>
 </map>

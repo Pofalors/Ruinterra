@@ -276,11 +276,11 @@
 </data>
  </layer>
  <objectgroup id="7" name="portals">
-  <object id="24" name="town_to_ruins" x="415" y="16.3333" width="34" height="22.6667">
+  <object id="24" name="town_to_ruins" x="425" y="695.583" width="34" height="22.6667">
    <properties>
     <property name="targetMap" type="int" value="3"/>
-    <property name="targetX" type="int" value="16"/>
-    <property name="targetY" type="int" value="28"/>
+    <property name="targetX" type="int" value="26"/>
+    <property name="targetY" type="int" value="1"/>
     <property name="type" value="portal"/>
    </properties>
   </object>
@@ -289,87 +289,43 @@
   <object id="13" name="town_arrival" x="481" y="689.5" width="187" height="78.5">
    <properties>
     <property name="eventId" value="town_arrival"/>
-    <property name="forbiddenFlag" value="town_reached"/>
-    <property name="requiredFlag" value="monk_escape_done"/>
-   </properties>
-  </object>
-  <object id="14" name="assassin_intro_trigger" x="183.333" y="352" width="53.3333" height="51.3333">
-   <properties>
-    <property name="eventId" value="assassin_intro_start"/>
-    <property name="forbiddenFlag" value="assassin_intro_played"/>
-    <property name="requiredFlag" value="town_reached"/>
-   </properties>
-  </object>
-  <object id="15" name="mage_intro_trigger" x="123" y="559" width="102" height="62">
-   <properties>
-    <property name="eventId" value="mage_intro_start"/>
-    <property name="forbiddenFlag" value="mage_intro_played"/>
-    <property name="requiredFlag" value="assassin_joined"/>
-   </properties>
-  </object>
-  <object id="16" name="post_mage_regroup_trigger" x="383" y="43.6667" width="94.6667" height="38.6667">
-   <properties>
-    <property name="eventId" value="post_mage_regroup"/>
-    <property name="forbiddenFlag" value="ruins_objective_set"/>
-    <property name="requiredFlag" value="mage_joined"/>
-   </properties>
-  </object>
-  <object id="22" name="assassin_join_trigger" x="183" y="109" width="535" height="89">
-   <properties>
-    <property name="eventId" value="assassin_join_start"/>
-    <property name="forbiddenFlag" value="assassin_join_scene_done"/>
-    <property name="requiredFlag" value="assassin_intro_played"/>
-   </properties>
-  </object>
-  <object id="23" name="mage_join_trigger" x="34" y="555.5" width="84.5" height="66.5">
-   <properties>
-    <property name="eventId" value="mage_join_start"/>
-    <property name="forbiddenFlag" value="mage_join_scene_done"/>
-    <property name="requiredFlag" value="mage_intro_played"/>
+    <property name="forbiddenFlag" value="monk_reached_town"/>
+    <property name="requiredFlag" value="monk_fled_monastery"/>
    </properties>
   </object>
  </objectgroup>
  <objectgroup id="8" name="npcs">
-  <object id="8" name="town_guard_1" x="506.333" y="95.1667">
+  <object id="8" name="town_guard" x="333.333" y="604.167">
    <properties>
-    <property name="dialogue" value="town_guard"/>
+    <property name="dialogue" value="town_guard_intro"/>
     <property name="npcId" value="guard"/>
     <property name="type" value="guard"/>
    </properties>
    <point/>
   </object>
-  <object id="9" name="old_scholar_1" x="59.5" y="590.5">
+  <object id="9" name="town_elder" x="59.5" y="590.5">
    <properties>
-    <property name="dialogue" value="old_scholar_1"/>
+    <property name="dialogue" value="town_elder"/>
     <property name="npcId" value="old_man"/>
+    <property name="requiredStoryFlag" value="monk_reached_town"/>
+    <property name="storyRole" value="town_elder"/>
     <property name="type" value="normal"/>
    </properties>
    <point/>
   </object>
-  <object id="17" name="inn_keeper" x="639" y="324">
+  <object id="17" name="worried_villager" x="639" y="324">
    <properties>
-    <property name="dialogue" value="inn_keeper"/>
-    <property name="npcId" value="merchant"/>
+    <property name="dialogue" value="town_villager_worried"/>
+    <property name="npcId" value="old_man"/>
     <property name="type" value="normal"/>
    </properties>
    <point/>
   </object>
   <object id="18" name="merchant" x="480" y="256">
    <properties>
-    <property name="dialogue" value="merchant_intro"/>
+    <property name="dialogue" value="town_merchant"/>
     <property name="npcId" value="merchant"/>
     <property name="type" value="shop"/>
-   </properties>
-   <point/>
-  </object>
-  <object id="19" name="assassin_scene_npc" x="211" y="389">
-   <properties>
-    <property name="dialogue" value="assassin_scene_npc"/>
-    <property name="forbiddenStoryFlag" value="assassin_joined"/>
-    <property name="npcId" value="guard"/>
-    <property name="requiredStoryFlag" value="town_reached"/>
-    <property name="storyRole" value="assassin_intro_npc"/>
-    <property name="type" value="normal"/>
    </properties>
    <point/>
   </object>
