@@ -12,6 +12,7 @@ public class PlayerAnimation {
     public BufferedImage[] poison;
     public BufferedImage[] beforeCast;
     public BufferedImage[] attackMagic;
+    public BufferedImage[] defendMagic;
     public BufferedImage[] lowHpIdle;
     public BufferedImage[] defend;
     public BufferedImage[] useItem;
@@ -50,6 +51,7 @@ public class PlayerAnimation {
         this.poison = null;
         this.beforeCast = null;
         this.attackMagic = null;
+        this.defendMagic = null;
         this.runLeft = null;
         this.runRight = null;
 
@@ -79,7 +81,8 @@ public class PlayerAnimation {
         } else if (currentAnimName.equals("absorb") ||
                 currentAnimName.equals("poison")) {
             currentDelay = FRAME_DELAY_NORMAL;
-        } else if (currentAnimName.equals("attackMagic")) {
+        } else if (currentAnimName.equals("attackMagic") ||
+                currentAnimName.equals("defendMagic")) {
             currentDelay = 22;
         }
         
@@ -164,7 +167,10 @@ public class PlayerAnimation {
                 break;
             case "attackMagic":
                 selected = (attackMagic != null) ? attackMagic : attack1;
-                break;    
+                break;
+            case "defendMagic":
+                selected = (defendMagic != null) ? defendMagic : idle;
+                break;
             case "lowHpIdle":
                 selected = (lowHpIdle != null) ? lowHpIdle : idle;
                 break;

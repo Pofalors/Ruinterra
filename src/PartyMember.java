@@ -35,6 +35,14 @@ public class PartyMember extends Entity {
             this.maxHp = 25;
             this.maxMp = 100;
         }
+        else if (className.equals("Paladin")) {
+            this.baseAttack = 12;
+            this.baseDefense = 10;
+            this.baseMagicAttack = 6;
+            this.baseSpeed = 4;
+            this.maxHp = 45;
+            this.maxMp = 80;
+        }
         
         this.attack = baseAttack;
         this.defense = baseDefense;
@@ -90,6 +98,12 @@ public class PartyMember extends Entity {
             baseMagicAttack += 4;
             baseAttack += 1;
             baseDefense += 1;
+        } else if (className.equals("Paladin")) {
+            maxHp += 8;
+            maxMp += 5;
+            baseAttack += 2;
+            baseDefense += 2;
+            baseMagicAttack += 1;
         }
         
         hp = maxHp;

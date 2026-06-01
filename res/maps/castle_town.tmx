@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="20" height="20" tilewidth="16" tileheight="16" infinite="0" nextlayerid="8" nextobjectid="7">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="20" height="20" tilewidth="16" tileheight="16" infinite="0" nextlayerid="9" nextobjectid="8">
  <tileset firstgid="1" source="basic_terrain.tsx"/>
  <tileset firstgid="529" source="mountains.tsx"/>
  <tileset firstgid="1145" source="decor.tsx"/>
@@ -154,6 +154,18 @@
     <property name="eventId" value="town_battle_complete"/>
     <property name="forbiddenFlag" value="castle_town_demons_defeated"/>
     <property name="requiredFlag" value="paladin_joined"/>
+   </properties>
+  </object>
+ </objectgroup>
+ <objectgroup id="8" name="encounters">
+  <object id="7" name="enc_town_main" x="9.5" y="142.5" width="66" height="100.5">
+   <properties>
+    <property name="areaType" value="dungeon"/>
+    <property name="enemies" value="Goblin,Skeleton"/>
+    <property name="maxGroup" type="int" value="2"/>
+    <property name="minGroup" type="int" value="1"/>
+    <property name="rate" type="float" value="0.1"/>
+    <property name="weights" value="40,60"/>
    </properties>
   </object>
  </objectgroup>

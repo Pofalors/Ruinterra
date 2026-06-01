@@ -107,7 +107,15 @@ public class BattlePartyMember {
             } catch (Exception e) {
                 System.out.println(basePath + "attackMagic.png not found");
             }
-            
+
+            try {
+                SpriteSheet defendMagicSheet = new SpriteSheet(basePath + "defendMagic.png", 64, 64);
+                anim.defendMagic = defendMagicSheet.getAllFrames();
+                System.out.println("Loaded " + basePath + "defendMagic.png");
+            } catch (Exception e) {
+                System.out.println(basePath + "defendMagic.png not found");
+            }
+
             try {
                 SpriteSheet useItemSheet = new SpriteSheet(basePath + "useItem.png", 64, 64);
                 anim.useItem = useItemSheet.getAllFrames();

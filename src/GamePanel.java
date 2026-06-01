@@ -116,6 +116,7 @@ public class GamePanel extends JPanel implements Runnable {
     public BufferedImage heroPortrait32;
     public BufferedImage assassinPortrait32;
     public BufferedImage magePortrait32;
+    public BufferedImage paladinPortrait32;
     public BufferedImage equipmentGridBg;
     public BufferedImage menuPointer;
     public BufferedImage itemCatAllIcon;
@@ -386,6 +387,7 @@ public class GamePanel extends JPanel implements Runnable {
     private BufferedImage spearIcon;
     private BufferedImage staffIcon;
     private BufferedImage shieldIcon;
+    private BufferedImage lightIcon;
     // SLOW MOTION EFFECT
     public float battleTimeScale = 1.0f;
     public int slowMotionTimer = 0;
@@ -561,14 +563,24 @@ public class GamePanel extends JPanel implements Runnable {
         mage.worldY = player.worldY;
         mage.joinedParty = storyManager.hasFlag(StoryFlag.MAGE_JOINED);
 
+        PartyMember paladin = new PartyMember(this, "paladin", "Paladin");
+        paladin.worldX = player.worldX - tileSize * 3;
+        paladin.worldY = player.worldY;
+        paladin.joinedParty = storyManager.hasFlag(StoryFlag.PALADIN_JOINED);
+
         allPartyMembers.add(assassin);
         allPartyMembers.add(mage);
+        allPartyMembers.add(paladin);
 
         if (assassin.joinedParty) {
             activePartyMembers.add(assassin);
         }
         if (mage.joinedParty) {
             activePartyMembers.add(mage);
+        }
+
+        if (paladin.joinedParty) {
+            activePartyMembers.add(paladin);
         }
 
         // ΤΩΡΑ που υπάρχουν όλοι, φόρτωσε party stats
@@ -613,6 +625,7 @@ public class GamePanel extends JPanel implements Runnable {
         heroPortrait32 = loadImageSafe("res/menu/hero_portrait_32.png");
         assassinPortrait32 = loadImageSafe("res/menu/assassin_portrait_32.png");
         magePortrait32 = loadImageSafe("res/menu/mage_portrait_32.png");
+        paladinPortrait32 = loadImageSafe("res/menu/paladin_portrait_32.png");
         equipmentGridBg = loadImageSafe("res/gui/equipment_bg.png");
         menuPointer = loadImageSafe("res/gui/menu_pointer.png");
         worldMapBackground = loadImageSafe("res/gui/world_map_bg.png");
@@ -634,6 +647,7 @@ public class GamePanel extends JPanel implements Runnable {
         swordIcon = loadImageSafe("res/gui/weapons/sword.png");
         spearIcon = loadImageSafe("res/gui/weapons/spear.png");
         staffIcon = loadImageSafe("res/gui/weapons/staff.png");
+        lightIcon = loadImageSafe("res/gui/weapons/light.png");
         shieldIcon = loadImageSafe("res/gui/weapons/break_shield.png");
 
         try {
@@ -784,9 +798,11 @@ public class GamePanel extends JPanel implements Runnable {
         sound.preloadBattleSound("ATTACKMISS", "attackMiss.wav");
         sound.preloadBattleSound("BOOSTASSASSIN", "boostAssassin.wav");
         sound.preloadBattleSound("BOOSTMAGE", "boostMage.wav");
+        sound.preloadBattleSound("BOOSTPALADIN", "boostPaladin.wav");
         sound.preloadBattleSound("DEATHASSASSIN", "deathAssassin.wav");
         sound.preloadBattleSound("DEATHENEMY", "deathEnemy.wav");
         sound.preloadBattleSound("DEATHMAGE", "deathMage.wav");
+        sound.preloadBattleSound("DEATHPALADIN", "deathPaladin.wav");
         sound.preloadBattleSound("ENEMY_APPEAR", "enemy_appear.wav");
         sound.preloadBattleSound("GOBLIN_SLASH", "goblin_slash.wav");
         sound.preloadBattleSound("GUARD", "guard.wav");
@@ -795,6 +811,7 @@ public class GamePanel extends JPanel implements Runnable {
         sound.preloadBattleSound("ITEM", "item.wav");
         sound.preloadBattleSound("LOWHPASSASSIN", "lowHpAssassin.wav");
         sound.preloadBattleSound("LOWHPMAGE", "LowHpMage.wav");
+        sound.preloadBattleSound("LOWHPPALADIN", "LowHpPaladin.wav");
         sound.preloadBattleSound("MUSHROOM_ATTACK", "mushroom_attack.wav");
         sound.preloadBattleSound("SPEAR", "spear.wav");
         sound.preloadBattleSound("SPEAR2", "spear2.wav");
@@ -802,14 +819,21 @@ public class GamePanel extends JPanel implements Runnable {
         sound.preloadBattleSound("STAFF2", "staff2.wav");
         sound.preloadBattleSound("SWORD", "sword.wav");
         sound.preloadBattleSound("SWORD2", "sword2.wav");
+        sound.preloadBattleSound("AXE", "axe.wav");
+        sound.preloadBattleSound("AXE2", "axe2.wav");
         sound.preloadBattleSound("THANKSASSASSIN", "thanksAssassin.wav");
         sound.preloadBattleSound("THANKSMAGE", "ThanksMage.wav");
+        sound.preloadBattleSound("THANKSPALADIN", "ThanksPaladin.wav");
         sound.preloadBattleSound("TURNASSASSIN", "turnAssassin.wav");
         sound.preloadBattleSound("TURNMAGE", "turnMage.wav");
+        sound.preloadBattleSound("TURNPALADIN", "turnPaladin.wav");
         sound.preloadBattleSound("NEXTTURN", "nextTurn.wav");
         sound.preloadBattleSound("USEITEMASSASSIN", "useItemAssassin.wav");
+        sound.preloadBattleSound("USEITEMMAGE", "useItemMage.wav");
+        sound.preloadBattleSound("USEITEMPALADIN", "useItemPaladin.wav");
         sound.preloadBattleSound("VICTORYASSASSIN", "victoryAssassin.wav");
         sound.preloadBattleSound("VICTORYMAGE", "victoryMage.wav");
+        sound.preloadBattleSound("VICTORYPALADIN", "victoryPaladin.wav");
         sound.preloadBattleSound("BOOSTCANCEL", "boostCancel.wav");
         sound.preloadBattleSound("BOOSTLVL1", "boostLvl1.wav");
         sound.preloadBattleSound("BOOSTLVL1S", "boostLvl1s.wav");
@@ -836,6 +860,12 @@ public class GamePanel extends JPanel implements Runnable {
         sound.preloadBattleSound("MAGE_LIGHT_VOICE", "mage_light_voice.wav");
         sound.preloadBattleSound("MAGE_THUNDER_VOICE", "mage_thunder_voice.wav");
         sound.preloadBattleSound("MAGE_EXPLOSION_VOICE", "mage_explosion_voice.wav");
+        sound.preloadBattleSound("PALADIN_SHIELD_VOICE", "paladin_shield_voice.wav");
+        sound.preloadBattleSound("PALADIN_JUSTICE_VOICE", "paladin_justice_voice.wav");
+        sound.preloadBattleSound("PALADIN_HEAL_VOICE", "paladin_heal_voice.wav");
+        sound.preloadBattleSound("PALADIN_SHIELD", "paladin_shield.wav");
+        sound.preloadBattleSound("PALADIN_JUSTICE", "paladin_justice.wav");
+
         
         // Ξεκίνα με την μουσική ΤΙΤΛΟΥ
         sound.preloadMusic("title", "title_music.wav");
@@ -2345,6 +2375,8 @@ public class GamePanel extends JPanel implements Runnable {
                                         sound.playBattleSE("BOOSTASSASSIN");
                                     } else if (currentPlayer.name.equals("Mage")) {
                                         sound.playBattleSE("BOOSTMAGE");
+                                    } else if (currentPlayer.name.equals("Paladin")) {
+                                        sound.playBattleSE("BOOSTPALADIN");
                                     }
                                 }
 
@@ -4692,6 +4724,9 @@ public class GamePanel extends JPanel implements Runnable {
         if (pm.className.equalsIgnoreCase("Mage")) {
             return magePortrait32;
         }
+        if (pm.className.equalsIgnoreCase("Paladin")) {
+            return paladinPortrait32;
+        }
 
         return null;
     }
@@ -6329,6 +6364,14 @@ public class GamePanel extends JPanel implements Runnable {
             case "Poison":
                 playActorAnimation(actor, "poison");
                 break;
+
+            case "Heal":
+            case "Holy Shield":
+                playActorAnimation(actor, "defendMagic");
+                break;
+            case "Sword of Justice":
+                playActorAnimation(actor, "attackMagic");
+                break;
                 
             case "Explosion":
             case "Thunder":
@@ -6372,6 +6415,8 @@ public class GamePanel extends JPanel implements Runnable {
                         sound.playBattleSE("THANKSASSASSIN");
                     } else if (target.name.equals("Mage")) {
                         sound.playBattleSE("THANKSMAGE");
+                    } else if (target.name.equals("Paladin")) {
+                        sound.playBattleSE("THANKSPALADIN");
                     }
                 }).start();
                 
@@ -6572,6 +6617,51 @@ public class GamePanel extends JPanel implements Runnable {
                     playTargetDeath(target);
                 }
                 break;
+
+            // ===== PALADIN SKILLS =====
+            case "Heal":
+                int healAmountPaladin = 30 + boostUsed * 10;
+                target.heal(healAmountPaladin);
+                spawnBattleEffectAtEntity("restore", target, 15, 1);
+                sound.playBattleSE("PALADIN_HEAL_VOICE");
+                new Thread(() -> {
+                    try { Thread.sleep(300); } catch (Exception e) {}
+                    sound.playBattleSE("HEAL");
+                }).start();
+                showActionMessage(actor.name + " heals " + target.name + " for " + healAmountPaladin + " HP!");
+                break;
+
+            case "Holy Shield":
+                // Apply a defensive buff (e.g. reduce damage taken by 50% for 2 turns)
+                target.defending = true; // reusing the defending flag
+                spawnBattleEffectAtEntity("holy_shield", target, 20, 1);
+                sound.playBattleSE("PALADIN_SHIELD_VOICE");
+                new Thread(() -> {
+                    try { Thread.sleep(300); } catch (Exception e) {}
+                    sound.playBattleSE("PALADIN_SHIELD");
+                }).start();
+                showActionMessage(actor.name + " protects " + target.name + " with a holy shield!");
+                break;
+
+            case "Sword of Justice":
+                int damagePaladin = (int)((actor.attack - target.defense) * (1.0f + boostUsed * 0.5f));
+                if (damagePaladin < 1) damagePaladin = 1;
+                if (target.broken) damagePaladin = target.applyBrokenDamageMultiplier(damagePaladin);
+                target.takeDamage(damagePaladin);
+                spawnBattleEffectAtEntity("sword_of_justice", target, 18, 1);
+                sound.playBattleSE("PALADIN_JUSTICE_VOICE");
+                new Thread(() -> {
+                    try { Thread.sleep(300); } catch (Exception e) {}
+                    sound.playBattleSE("PALADIN_JUSTICE");
+                }).start();
+                syncVisualHp(target);
+                playTargetHurt(target);
+                showActionMessage(actor.name + " strikes with Sword of Justice for " + damagePaladin + " damage!");
+                if (!target.isAlive()) {
+                    lastKillerName = actor.name;
+                    playTargetDeath(target);
+                }
+                break;    
         }
     }
 
@@ -6692,6 +6782,9 @@ public class GamePanel extends JPanel implements Runnable {
         } else if (actor.name.equals("Mage")) {
             if (actor.boostUsed > 0) sound.playBattleSE("STAFF2");
             else sound.playBattleSE("STAFF");
+        } else if (actor.name.equals("Paladin")) {
+            if (actor.boostUsed > 0) sound.playBattleSE("AXE2");
+            else sound.playBattleSE("AXE");
         }
     }
 
@@ -7213,6 +7306,9 @@ public class GamePanel extends JPanel implements Runnable {
             registerBattleEffect("fire-burst", "res/effects/fire-burst.png", 64, 64, 8, 3.0f);
             registerBattleEffect("absorb", "res/effects/absorb.png", 64, 64, 8, 2.5f);
             registerBattleEffect("bp_share", "res/effects/bp_share.png", 40, 40, 8, 2.5f);
+            registerBattleEffect("holy_shield", "res/effects/holy_shield.png", 64, 64, 11, 2.5f);
+            registerBattleEffect("restore", "res/effects/restore.png", 64, 64, 11, 2.5f);
+            registerBattleEffect("sword_of_justice", "res/effects/sword_of_justice.png", 128, 128, 13, 2.5f);
 
             System.out.println("Battle effect sprite sheets loaded successfully.");
         } catch (Exception e) {
@@ -7311,6 +7407,7 @@ public class GamePanel extends JPanel implements Runnable {
         if (n.contains("mage")) return "staff";
         if (n.contains("assassin")) return "sword";
         if (n.contains("hero")) return "spear";
+        if (n.contains("paladin")) return "light";
 
         // enemies / default
         return "sword";
@@ -7321,12 +7418,14 @@ public class GamePanel extends JPanel implements Runnable {
         if (actorName.equals("Hero")) return new String[]{"BP Share", "Fire Burst"};
         if (actorName.equals("Assassin")) return new String[]{"Absorb", "Thief", "Poison"};
         if (actorName.equals("Mage")) return new String[]{"Explosion", "Thunder", "Light"};
+        if (actorName.equals("Paladin")) return new String[]{"Heal", "Holy Shield", "Sword of Justice"};
         return new String[]{};
     }
 
     public boolean isSkillTargetingEnemy(String actorName, String skillName) {
         // BP Share στοχεύει συμπαίκτες
         if (skillName.equals("BP Share")) return false;
+        if (skillName.equals("Heal") || skillName.equals("Holy Shield")) return false;
         // Όλα τα άλλα στοχεύουν εχθρούς
         return true;
     }
@@ -7341,6 +7440,9 @@ public class GamePanel extends JPanel implements Runnable {
             case "Explosion": return 20;
             case "Thunder": return 18;
             case "Light": return 16;
+            case "Heal": return 8;
+            case "Holy Shield": return 12;
+            case "Sword of Justice": return 15;
             default: return 10;
         }
     }
@@ -7392,6 +7494,7 @@ public class GamePanel extends JPanel implements Runnable {
             case "sword": return swordIcon;
             case "spear": return spearIcon;
             case "staff": return staffIcon;
+            case "light": return lightIcon;
             default: return null;
         }
     }
@@ -7576,6 +7679,8 @@ public class GamePanel extends JPanel implements Runnable {
                 break;
                 
             // ΝΕΑ ΕΦΕ - πάνω στο σώμα του target
+            case "holy_shield":
+            case "restore":
             case "absorb":
                 fx.offsetX = -10;
                 fx.offsetY = 20;
@@ -7594,6 +7699,7 @@ public class GamePanel extends JPanel implements Runnable {
                 fx.centered = true;
                 break;
                 
+            case "sword_of_justice":
             case "explosion":
                 fx.offsetX = 0;
                 fx.offsetY = 40;
@@ -8073,6 +8179,8 @@ public class GamePanel extends JPanel implements Runnable {
                             sound.playBattleSE("DEATHASSASSIN");
                         } else if (target.name.equals("Mage")) {
                             sound.playBattleSE("DEATHMAGE");
+                        } else if (target.name.equals("Paladin")) {
+                            sound.playBattleSE("DEATHPALADIN");
                         }
 
                         break;
@@ -8146,6 +8254,9 @@ public class GamePanel extends JPanel implements Runnable {
                 sound.playBattleSE("VICTORYASSASSIN");
             } else if (lastKillerName.equals("Mage")) {
                 sound.playBattleSE("VICTORYMAGE");
+            }
+            else if (lastKillerName.equals("Paladin")) {
+                sound.playBattleSE("VICTORYPALADIN");
             }
 
             if ("ashen_guardian".equals(activeStoryBattleId)) {
@@ -9601,6 +9712,9 @@ public class GamePanel extends JPanel implements Runnable {
             if (entity.name.equalsIgnoreCase("Mage")) {
                 return magePortrait32;
             }
+            if (entity.name.equalsIgnoreCase("Paladin")) {
+                return paladinPortrait32;
+            }
 
             return heroPortrait32;
         }
@@ -10383,6 +10497,8 @@ public class GamePanel extends JPanel implements Runnable {
 
             if (inventory.selectedPartyMember == 1) {
                 portrait = assassinPortrait32;
+            } else if (pm.className.equalsIgnoreCase("Paladin")) {
+                portrait = paladinPortrait32;
             } else {
                 portrait = magePortrait32;
             }
