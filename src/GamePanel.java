@@ -586,6 +586,10 @@ public class GamePanel extends JPanel implements Runnable {
         // ΤΩΡΑ που υπάρχουν όλοι, φόρτωσε party stats
         loadPartyStats();
         loadEquipment();
+        player.recalcStats();
+        for (PartyMember member : activePartyMembers) {
+            member.recalcStats();
+        }
 
         for (int i = 0; i < maxMaps; i++) {
             spawnTiledNPCs(i);
@@ -3624,6 +3628,7 @@ public class GamePanel extends JPanel implements Runnable {
             
             // 2. ΣΧΕΔΙΑΣΗ
             repaint();
+            tileM.updateAnimations(16);
             
             // 3. ΣΥΓΧΡΟΝΙΣΜΟΣ (ίδιο όπως πριν)
             try {

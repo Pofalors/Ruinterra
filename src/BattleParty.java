@@ -167,6 +167,8 @@ public class BattleParty {
                 entity.playerRef.gp.sound.playBattleSE("TURNASSASSIN");
             } else if (entity.name.equals("Mage")) {
                 entity.playerRef.gp.sound.playBattleSE("TURNMAGE");
+            } else if (entity.name.equals("Paladin")) {
+                entity.playerRef.gp.sound.playBattleSE("TURNPALADIN");
             } else {
                 // Όταν βάλεις hero turn voice:
                 // entity.playerRef.gp.sound.playBattleSE("TURNHERO");

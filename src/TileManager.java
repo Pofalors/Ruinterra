@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.awt.image.BufferedImage;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.w3c.dom.Document;
@@ -27,6 +28,35 @@ public class TileManager {
     public ArrayList<AdvancedMapData> maps = new ArrayList<>();
     public Map<String, TilesetAtlas> atlases = new HashMap<>();
     public Map<String, AtlasManifest> manifests = new HashMap<>();
+    private Map<Integer, AnimatedTileData> animatedTiles = new HashMap<>();
+    private ArrayList<TilesetRange> currentRanges = new ArrayList<>();
+
+    // ========== ANIMATED TILE SUPPORT ==========
+    private static class AnimatedTileFrame {
+        int localTileId;
+        int durationMs;
+        AnimatedTileFrame(int id, int dur) { localTileId = id; durationMs = dur; }
+    }
+
+    private static class AnimatedTileData {
+        List<AnimatedTileFrame> frames = new ArrayList<>();
+        int currentFrame = 0;
+        int timerMs = 0;
+        
+        int getCurrentLocalId() {
+            if (frames.isEmpty()) return -1;
+            return frames.get(currentFrame).localTileId;
+        }
+        
+        void update(int deltaMs) {
+            if (frames.isEmpty()) return;
+            timerMs += deltaMs;
+            while (timerMs >= frames.get(currentFrame).durationMs) {
+                timerMs -= frames.get(currentFrame).durationMs;
+                currentFrame = (currentFrame + 1) % frames.size();
+            }
+        }
+    }
 
     public AtlasManifest getManifest(String atlasName) {
         return manifests.get(atlasName);
@@ -67,23 +97,23 @@ public class TileManager {
     // =========================================================
     // TILE DATA
     // =========================================================
-    private void loadTileData() {
-        try {
-            File file = new File("res/maps/tiledata.txt");
-            FileReader fr = new FileReader(file);
-            BufferedReader br = new BufferedReader(fr);
+    // private void loadTileData() {
+    //     try {
+    //         File file = new File("res/maps/tiledata.txt");
+    //         FileReader fr = new FileReader(file);
+    //         BufferedReader br = new BufferedReader(fr);
 
-            String line;
-            while ((line = br.readLine()) != null) {
-                fileNames.add(line);
-                collisionStatus.add(br.readLine());
-            }
+    //         String line;
+    //         while ((line = br.readLine()) != null) {
+    //             fileNames.add(line);
+    //             collisionStatus.add(br.readLine());
+    //         }
 
-            br.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
+    //         br.close();
+    //     } catch (IOException e) {
+    //         e.printStackTrace();
+    //     }
+    // }
 
     // public void getTileImage() {
     //     for (int i = 0; i < fileNames.size(); i++) {
@@ -92,6 +122,41 @@ public class TileManager {
     //         setup(i, fileName, collision);
     //     }
     // }
+
+    private void loadTilesetAnimations(String tsxPath, int firstGid) {
+        try {
+            File tsxFile = new File(tsxPath);
+            if (!tsxFile.exists()) return;
+            
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document doc = builder.parse(tsxFile);
+            doc.getDocumentElement().normalize();
+            
+            NodeList tileNodes = doc.getElementsByTagName("tile");
+            for (int i = 0; i < tileNodes.getLength(); i++) {
+                Element tileElem = (Element) tileNodes.item(i);
+                int localId = Integer.parseInt(tileElem.getAttribute("id"));
+                Element animElem = (Element) tileElem.getElementsByTagName("animation").item(0);
+                if (animElem == null) continue;
+                
+                AnimatedTileData animData = new AnimatedTileData();
+                NodeList frameNodes = animElem.getElementsByTagName("frame");
+                for (int f = 0; f < frameNodes.getLength(); f++) {
+                    Element frameElem = (Element) frameNodes.item(f);
+                    int frameLocalId = Integer.parseInt(frameElem.getAttribute("tileid"));
+                    int duration = Integer.parseInt(frameElem.getAttribute("duration"));
+                    animData.frames.add(new AnimatedTileFrame(frameLocalId, duration));
+                }
+                if (!animData.frames.isEmpty()) {
+                    int globalGid = firstGid + localId;
+                    animatedTiles.put(globalGid, animData);
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Failed to load animations from " + tsxPath);
+        }
+    }
 
     public void loadAtlases() {
         loadAtlas("basic_terrain", "res/tilesets/basic_terrain.png");
@@ -1246,10 +1311,35 @@ public class TileManager {
             String atlasName = mapTsxSourceToAtlasName(source);
 
             ranges.add(new TilesetRange(firstGid, source, atlasName));
+
+            // Φόρτωσε animations από το .tsx αρχείο
+            if (source != null && !source.isEmpty()) {
+                String fullTsxPath = "res/maps/" + source;  // ή "res/maps/" ανάλογα
+                loadTilesetAnimations(fullTsxPath, firstGid);
+            }
         }
 
         ranges.sort((a, b) -> Integer.compare(a.firstGid, b.firstGid));
+
+        // Αποθήκευσε τα ranges για μελλοντική χρήση (για global GID lookup)
+        this.currentRanges = ranges;
+        
         return ranges;
+    }
+
+    private int getGlobalGidForTile(String atlasName, int localId) {
+        for (TilesetRange range : currentRanges) {
+            if (range.atlasName.equals(atlasName)) {
+                return range.firstGid + localId;
+            }
+        }
+        return -1;
+    }
+
+    public void updateAnimations(int deltaMs) {
+        for (AnimatedTileData anim : animatedTiles.values()) {
+            anim.update(deltaMs);
+        }
     }
 
     private TilesetRange findTilesetRangeForGid(ArrayList<TilesetRange> ranges, int gid) {
@@ -1418,7 +1508,13 @@ public class TileManager {
                     worldY + gp.tileSize > gp.worldY &&
                     worldY - gp.tileSize < gp.worldY + gp.screenHeight) {
 
-                    BufferedImage tileImage = atlas.getTileImage(layerTile.tileId);
+                    int currentTileId = layerTile.tileId;
+                    int globalGid = getGlobalGidForTile(layerTile.atlasName, layerTile.tileId);
+                    AnimatedTileData anim = animatedTiles.get(globalGid);
+                    if (anim != null) {
+                        currentTileId = anim.getCurrentLocalId();
+                    }
+                    BufferedImage tileImage = atlas.getTileImage(currentTileId);
                     if (tileImage != null) {
                         g2.drawImage(tileImage, screenX, screenY, gp.tileSize, gp.tileSize, null);
                     }
